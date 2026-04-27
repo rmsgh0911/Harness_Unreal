@@ -1,0 +1,20 @@
+# UE file types
+*.uasset filter=lfs diff=lfs merge=lfs -text
+*.umap filter=lfs diff=lfs merge=lfs -text
+
+# Windows project/source files
+*.cs     text eol=crlf
+*.h      text eol=crlf
+*.cpp    text eol=crlf
+*.ini    text eol=crlf
+*.uproject text eol=crlf
+*.uplugin  text eol=crlf
+*.bat    text eol=crlf
+*.ps1    text eol=crlf
+
+# Shared docs/scripts/config
+*.md     text eol=lf
+*.py     text eol=lf
+*.json   text eol=lf
+*.toml   text eol=lf
+*.sh     text eol=lf

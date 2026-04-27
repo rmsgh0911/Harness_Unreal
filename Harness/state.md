@@ -1,0 +1,50 @@
+# 상태
+
+## 프로젝트
+
+- 프로젝트 종류: Unreal Engine 프로젝트
+- 프로젝트명: 작성 필요
+- 주 모듈: 작성 필요
+- 엔진 버전: 작성 필요
+- `.uproject`: 작성 필요
+- 에디터 시작 맵: 작성 필요
+- Harness 테스트 맵: 작성 필요
+
+## 현재 검증된 상태
+
+- 작성 필요: 실제 존재하는 시스템, 맵, 입력, 캐릭터, 컨트롤러, UI, 플러그인, 에셋을 기록한다.
+- 작성 필요: 기획 의도보다 Source, Config, 에디터 출력, 빌드 로그를 우선한다.
+
+## 기획 및 참고 문서
+
+- 작성 필요: `Harness/doc/` 아래의 관련 문서를 적는다.
+
+## 주요 파일
+
+- 작성 필요: `Source/<Module>/...`
+- 작성 필요: `Config/...`
+- 작성 필요: `Content/...`
+- 작성 필요: `Plugins/...`
+
+## 검증 상태
+
+- 마지막 C++ 빌드: 작성 필요
+- 마지막 Harness 스크립트 문법 검사: 작성 필요
+- 마지막 프로젝트 구조 검증: 작성 필요
+- 마지막 테스트 레벨 생성: 작성 필요
+- 마지막 PIE/수동 검증: 작성 필요
+
+## 다음 작업
+
+- 작성 필요
+
+## 리스크
+
+- 작성 필요
+
+## GitHub upload state
+
+- 2026-04-27: Folder was inspected before initial GitHub upload.
+- Remote target: `https://github.com/rmsgh0911/Harness_Unreal.git`.
+- Current contents observed: Harness docs/scripts/template files only; no Unreal `.uproject`, `Source/`, `Config/`, `Content/`, or `Plugins/` project content was present.
+- Git LFS available locally; `.gitattributes` tracks `*.uasset` and `*.umap` with LFS.

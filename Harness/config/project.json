@@ -1,0 +1,21 @@
+{
+  "project_name": "",
+  "uproject_file": "",
+  "engine_version": "",
+  "editor_startup_map": "",
+  "harness_level_path": "/Game/Harness/HarnessTestLevel",
+  "default_game_mode_class": "",
+  "required_classes": [],
+  "required_assets": [],
+  "required_source_markers": {},
+  "required_config_markers": {},
+  "required_uproject_plugins": [],
+  "harness_level_required_actor_labels": [],
+  "build": {
+    "engine_root": "",
+    "editor_target_name": "",
+    "game_target_name": "",
+    "platform": "Win64",
+    "configuration": "Development"
+  }
+}
