@@ -38,6 +38,21 @@
     "store_review_context_in": "Harness/reviews",
     "store_review_output_in": "Harness/reviews"
   },
+  "log_organizer_rules": {
+    "default_agent": "goose_ollama",
+    "optional": true,
+    "use_for": [
+      "build_log_summary",
+      "editor_log_summary",
+      "git_diff_summary",
+      "external_review_summary",
+      "cycle_history_summary"
+    ],
+    "output_mode": "stdout_only",
+    "may_modify_files": false,
+    "may_modify_state_next_cycles": false,
+    "if_unavailable": "codex_summarizes_directly_and_records_note"
+  },
   "review_context_priority": [
     "git_diff",
     "git_diff_cached",
@@ -97,8 +112,9 @@
     ]
   },
   "fallback_rules": {
-    "worker_unavailable": "try_fallback_worker_then_stop",
+    "worker_unavailable": "stop_or_wait_for_human_worker_assignment",
     "reviewer_unavailable": "try_fallback_reviewer_then_self_review_with_note",
+    "log_organizer_unavailable": "codex_summarizes_directly_and_records_note",
     "all_reviewers_unavailable": "continue_only_if_low_risk_and_record_note"
   },
   "stop_conditions": [

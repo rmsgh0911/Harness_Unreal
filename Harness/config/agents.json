@@ -2,11 +2,13 @@
   "version": 1,
   "defaults": {
     "worker": "codex",
-    "reviewer": "gemini_cli"
+    "reviewer": "gemini_cli",
+    "log_organizer": "goose_ollama"
   },
   "fallback_order": {
     "worker": ["codex"],
-    "reviewer": ["gemini_cli", "codex"]
+    "reviewer": ["gemini_cli", "codex"],
+    "log_organizer": ["goose_ollama", "codex"]
   },
   "agents": {
     "codex": {
@@ -36,11 +38,27 @@
       },
       "auth_setup_hint": "`gemini`를 대화형으로 한 번 실행하고 브라우저에서 로그인을 완료한다. 인증 정보는 Harness/config에 저장하지 않는다.",
       "notes": "기본 외부 리뷰어. 작업자로 쓰려면 사람이 별도 사이클에서 권한과 책임 범위를 명시해야 한다."
+    },
+    "goose_ollama": {
+      "display_name": "Goose + Ollama",
+      "provider": "local_ollama",
+      "type": "external_cli",
+      "roles": ["log_organizer", "review_summarizer", "context_compactor"],
+      "can_edit": false,
+      "can_write_files": false,
+      "can_run_commands": false,
+      "output_mode": "stdout_only",
+      "command": ["goose", "run", "--no-session", "--quiet", "--provider", "ollama"],
+      "health_check": ["goose", "--version"],
+      "auth_check": null,
+      "install_hint": "Goose CLI와 Ollama가 설치되어 있어야 한다. 설치되지 않았거나 PATH에 없으면 Codex가 요약을 대신한다.",
+      "notes": "로그, diff, 외부 리뷰, 사이클 기록을 한국어로 정리하는 선택 보조자. 파일 수정과 커밋은 금지한다."
     }
   },
   "failure_policy": {
     "if_worker_unavailable": "stop_or_wait_for_human_worker_assignment",
     "if_reviewer_unavailable": "try_next_reviewer_or_self_review_with_note",
+    "if_log_organizer_unavailable": "fallback_to_codex_summary_with_note",
     "record_unavailable_agent": true,
     "never_store_credentials": true,
     "unavailable_signals": [
