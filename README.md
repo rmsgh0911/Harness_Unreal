@@ -24,12 +24,14 @@
 ## 1. 초기화 방법
 
 1. Unreal 프로젝트 루트에 템플릿의 `Harness/`를 복사한다.
-2. 루트 `AGENTS.md`가 없으면 템플릿의 `AGENTS.md`를 복사한다.
-3. 루트 `README.md`가 없으면 템플릿 기준으로 프로젝트용 `README.md`를 만든다.
-4. `Harness/config/project.json`을 실제 프로젝트 기준으로 채운다.
-5. `Harness/state.md`에 현재 프로젝트 상태를 기록한다.
-6. `Harness/next.md`에 다음 작업 후보와 수동 검증 필요 항목을 기록한다.
-7. 작업 시작 날짜의 `Harness/cycles/YYYY-MM-DD.md`를 만들고 초기화 내용을 남긴다.
+2. 템플릿의 `HARNESS.md`를 프로젝트 루트에 복사한다.
+3. 루트 `AGENTS.md`가 없으면 템플릿의 얇은 `AGENTS.md`를 복사한다.
+4. 루트 `AGENTS.md`가 이미 있으면 `HARNESS.md`를 읽으라는 짧은 라우팅 문구만 병합한다.
+5. 루트 `README.md`가 없으면 프로젝트용 `README.md`를 만든다.
+6. `Harness/config/project.json`을 실제 프로젝트 기준으로 채운다.
+7. `Harness/state.md`에 현재 프로젝트 상태를 기록한다.
+8. `Harness/next.md`에 다음 작업 후보와 수동 검증 필요 항목을 기록한다.
+9. 작업 시작 날짜의 `Harness/cycles/YYYY-MM-DD.md`를 만들고 초기화 내용을 남긴다.
 
 ## 2. 새 템플릿으로 이식할 때
 
@@ -44,25 +46,24 @@
 - 프로젝트 전용 `Harness/config/project.json`
 - 프로젝트 전용 스크립트
 - 프로젝트에서 실제로 쓰는 루트 `AGENTS.md`의 저장소별 규칙
+- 프로젝트용 루트 `README.md`
 
 ### 새로 가져올 것
 
+- `HARNESS.md`
 - `Harness/config/agents.json`
 - `Harness/config/cycle_policy.json`
 - `Harness/config/README.md`
-- `Harness/reviews/README.md`
 - `Harness/scripts/build_verify.ps1`
 - `Harness/scripts/build_verify.cmd`
-- `Harness/scripts/check_agents.ps1`
-- `Harness/scripts/check_agents.cmd`
-- 템플릿 쪽 `README.md`/`AGENTS.md`의 새 운영 규칙 중 현재 프로젝트에 필요한 부분
+- 템플릿 쪽 `HARNESS.md`/`AGENTS.md`의 새 운영 규칙 중 현재 프로젝트에 필요한 부분
 
 ### 주의할 것
 
 - 기존 파일을 무조건 템플릿 파일로 덮어쓰지 않는다.
 - 프로젝트 전용 검증 마커, 자산 경로, 클래스 경로를 비우지 않는다.
 - 기존 작업 기록과 프로젝트 전용 문서를 삭제하지 않는다.
-- `backlog.md` 같은 구버전 파일이 있다면 바로 삭제하기보다, 먼저 `next.md`로 의미를 옮겼는지 확인한다.
+- 구버전 후속 작업 문서가 있다면 바로 삭제하기보다, 먼저 `next.md`로 의미를 옮겼는지 확인한다.
 
 ## 3. 템플릿 버전 업 이식 시 고려사항
 
@@ -70,30 +71,33 @@
 
 ### 먼저 비교할 것
 
-1. 루트 `AGENTS.md`
-2. 루트 `README.md`
-3. `Harness/README.md`
-4. `Harness/state.md`
-5. `Harness/next.md`
-6. `Harness/config/project.json`
-7. `Harness/config/agents.json`
-8. `Harness/config/cycle_policy.json`
-9. `Harness/scripts/`
+1. 루트 `HARNESS.md`
+2. 루트 `AGENTS.md`
+3. 루트 `README.md`
+4. `Harness/README.md`
+5. `Harness/state.md`
+6. `Harness/next.md`
+7. `Harness/config/project.json`
+8. `Harness/config/agents.json`
+9. `Harness/config/cycle_policy.json`
+10. `Harness/scripts/`
 
 ### 병합 원칙
 
 - `state.md`는 템플릿 내용으로 덮지 않고 최신 프로젝트 사실만 유지한다.
 - `next.md`는 프로젝트별 후속 작업을 유지하되, 템플릿의 운영 규칙이 바뀌었으면 구조만 반영한다.
 - `project.json`은 프로젝트 전용 값이 핵심이므로, 템플릿에서 새 필드가 추가됐을 때만 병합한다.
-- 루트 `AGENTS.md`는 템플릿 규칙을 참고해 병합하되, 저장소 전용 규칙이 이미 있으면 함께 유지한다.
+- 루트 `HARNESS.md`는 Harness 운영 규칙의 기준 파일로 갱신한다.
+- 루트 `AGENTS.md`는 가능하면 `HARNESS.md`를 가리키는 얇은 라우터로 유지하고, 저장소 전용 규칙이 이미 있으면 함께 유지한다.
 - 루트 `README.md`는 기존 내용을 보존하면서 현재 프로젝트 소개 문서가 되도록 갱신한다.
+- 템플릿 버전 업 시 `HARNESS.md`, `Harness/README.md`, `Harness/config/agents.json`, `Harness/config/cycle_policy.json`, `Harness/scripts/`는 갱신 대상이다.
+- `Harness/state.md`, `Harness/next.md`, `Harness/cycles/`, `Harness/config/project.json`은 보존 대상이다.
 
 ### 특히 놓치기 쉬운 부분
 
 - `Harness/config/project.json`에 새 `build` 필드가 추가됐는지
-- `Harness/reviews/` 같은 새 폴더가 필요한지
-- `build_verify.*`, `check_agents.*` 같은 새 스크립트가 들어왔는지
-- `AGENTS.md`가 아직 `backlog.md` 같은 구버전 파일을 읽도록 적혀 있는지
+- `build_verify.*` 같은 새 스크립트가 들어왔는지
+- `AGENTS.md`가 `HARNESS.md`를 읽도록 되어 있는지
 - 루트 `README.md`가 아예 없거나, 새 운영 흐름을 반영하지 못하고 있는지
 
 ### 버전 업 이식 후 정리
@@ -102,13 +106,21 @@
 - 템플릿 비교용 임시 폴더를 프로젝트 안에 넣었다면, 이식 완료 후 삭제 여부를 확인한다.
 - 다만 사용자가 다시 비교할 가능성이 있으면, 바로 지우기 전에 먼저 확인한다.
 
+다른 에이전트에게 맡길 때는 아래처럼 지시한다.
+
+```text
+이 템플릿을 기준으로 대상 프로젝트의 Harness를 버전 업해줘.
+HARNESS.md와 운영 스크립트/설정은 갱신하고,
+Harness/state.md, Harness/next.md, Harness/cycles/, Harness/config/project.json은 보존해줘.
+```
+
 ## 4. 루트 AGENTS.md 병합 원칙
 
 기존 프로젝트에 루트 `AGENTS.md`가 있으면 그대로 덮어쓰지 말고 아래 항목만 우선 병합한다.
 
-- `Harness/README.md`, `Harness/state.md`, `Harness/next.md`, 오늘 날짜 `Harness/cycles/YYYY-MM-DD.md`를 먼저 읽는 규칙
-- 멀티 에이전트 리뷰가 필요하면 `Harness/config/agents.json`, `Harness/config/cycle_policy.json`을 확인하는 규칙
-- 최신 상태는 `state.md`, 다음 작업은 `next.md`, 이력은 `cycles/`, 리뷰 원문은 `reviews/`에 남기는 규칙
+- 작업 전 루트 `HARNESS.md`를 먼저 읽는 규칙
+- 사용자가 "사이클", "반복", "최대 N회"처럼 말하면 `HARNESS.md`의 작업 루프와 기록 규칙을 적용하는 규칙
+- 프로젝트별 추가 규칙은 기존 `AGENTS.md`에 짧게 유지하는 규칙
 
 ## 5. project.json 이식 체크리스트
 
@@ -138,9 +150,8 @@
 - `Harness/config/project.json` 파싱 확인
 - `Harness/scripts/verify_project.py` 실행 가능 여부 확인
 - C++ 프로젝트면 `Harness/scripts/build_verify.cmd` 또는 `build_verify.ps1` 확인
-- 외부 리뷰어를 쓸 계획이면 `Harness/scripts/check_agents.cmd -IncludeAuth` 확인
-- 외부 CLI가 멈추는 환경이면 `Harness/scripts/check_agents.cmd -IncludeAuth -CommandTimeoutSeconds 30`처럼 명령별 제한 시간을 둔다.
-- 루트 `AGENTS.md`와 `Harness/README.md`가 실제 현재 구조를 읽도록 되어 있는지 확인
+- 루트 `AGENTS.md`가 `HARNESS.md`를 읽도록 되어 있는지 확인
+- 루트 `HARNESS.md`와 `Harness/README.md`가 실제 현재 구조를 설명하는지 확인
 - 루트 `README.md`가 현재 프로젝트 소개 문서로 존재하는지 확인
 
 ## 7. 권장 기록 방식

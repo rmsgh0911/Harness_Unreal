@@ -1,26 +1,32 @@
 {
   "version": 1,
-  "mode": "primary_worker_with_external_review",
+  "mode": "primary_single_worker",
   "default_max_cycles": 1,
-  "assignment": {
-    "default_strategy": "same_worker_with_different_reviewer",
-    "allow_worker_switching": true,
-    "prefer_worker_switching_for": [
+  "cycle_flow": [
+    "worker_reads_state_next_and_cycle_log",
+    "worker_implements_or_improves",
+    "worker_runs_smallest_reasonable_verification",
+    "worker_checks_unreal_risks",
+    "worker_records_short_cycle_result",
+    "worker_updates_state_snapshot_if_confirmed",
+    "worker_updates_next_items_if_unresolved"
+  ],
+  "worker_switching": {
+    "allowed": true,
+    "requires_human_assignment": true,
+    "record_in_cycle_log": true,
+    "recommended_when": [
       "model_quota_exhausted",
-      "authentication_unavailable",
-      "broad_design_review",
+      "context_too_large",
       "human_requested_switch"
     ],
-    "worker_switch_requires_human_assignment": true,
-    "record_worker_switch_in_cycle_log": true,
     "new_worker_reads_first": [
       "Harness/state.md",
       "Harness/next.md",
       "Harness/cycles/YYYY-MM-DD.md",
       "git_status_and_diff"
     ],
-    "new_worker_context_limit": "prefer_latest_state_next_today_cycle_and_current_diff_over_full_conversation",
-    "avoid_worker_switching_for": [
+    "avoid_when": [
       "public_api_change",
       "blueprint_exposed_name_change",
       "build_cs_change",
@@ -29,96 +35,23 @@
       "multi_module_refactor"
     ]
   },
-  "cycle_flow": [
-    "worker_reads_state_next_and_cycle_log",
-    "worker_implements_or_improves",
-    "worker_runs_smallest_reasonable_verification",
-    "reviewer_reviews_diff_without_editing",
-    "log_organizer_summarizes_reviewer_output_if_available",
-    "worker_applies_approved_review_items",
-    "worker_records_cycle_result",
-    "worker_updates_state_snapshot",
-    "worker_updates_next_items"
-  ],
-  "review_rules": {
-    "reviewer_can_edit": false,
-    "review_basis": "diff_and_relevant_context",
-    "required_verdicts": ["APPROVE", "REQUEST_CHANGES", "REJECT"],
-    "store_review_context_in": "Harness/reviews",
-    "store_review_output_in": "Harness/reviews"
-  },
-  "log_organizer_rules": {
-    "default_agent": "goose_ollama",
-    "optional": true,
-    "use_for": [
-      "build_log_summary",
-      "editor_log_summary",
-      "git_diff_summary",
-      "external_review_summary",
-      "reviewer_output_summary",
-      "cycle_history_summary"
+  "recording_rules": {
+    "cycle_log_is_short": true,
+    "cycle_log_contains": [
+      "changed",
+      "verified",
+      "remaining"
     ],
-    "output_mode": "stdout_only",
-    "may_modify_files": false,
-    "may_modify_state_next_cycles": false,
-    "does_not_create_new_verdict": true,
-    "worker_checks_original_review_when_needed": true,
-    "original_review_required_when": [
-      "review_verdict_is_request_changes_or_reject",
-      "summary_mentions_build_failure",
-      "summary_mentions_public_api_or_blueprint_risk",
-      "summary_mentions_data_loss_or_asset_move"
-    ],
-    "if_unavailable": "codex_summarizes_directly_and_records_note"
-  },
-  "review_context_priority": [
-    "git_diff",
-    "git_diff_cached",
-    "git_status_and_changed_files",
-    "review_context_file",
-    "changed_files_content"
-  ],
-  "review_context_file": {
-    "directory": "Harness/reviews",
-    "purpose": "git diff를 사용할 수 없거나 부족하거나 의도/리스크 설명이 필요할 때 작업자가 외부 리뷰어에게 넘기는 컨텍스트.",
-    "recommended_name": "YYYY-MM-DD-task-name-cycle-01-review-context.md",
-    "required_when": [
-      "git_unavailable",
-      "first_commit_missing",
-      "diff_too_large",
-      "external_reviewer_needs_intent_or_risk_notes",
-      "non_ascii_context_may_be_reencoded_by_shell"
-    ]
-  },
-  "external_reviewer_transfer": {
-    "preferred": "utf8_review_context_file_path",
-    "avoid_for_korean_text": "raw_shell_pipe",
-    "reason": "Windows 셸 파이프는 한국어 diff 텍스트가 외부 CLI 리뷰어에게 전달되기 전에 다시 인코딩할 수 있다."
-  },
-  "next_rules": {
-    "review_findings_do_not_become_next_items_automatically": true,
-    "copy_to_next_only_when": [
-      "unresolved",
-      "intentionally_deferred",
-      "needs_human_decision",
-      "outside_current_scope"
-    ]
-  },
-  "state_rules": {
     "state_is_not_a_work_log": true,
-    "keep_only_latest_confirmed_facts": true,
-    "remove_stale_state_items": true,
-    "put_history_in": "Harness/cycles",
-    "put_raw_external_reviews_in": "Harness/reviews"
+    "state_keeps_only_latest_confirmed_facts": true,
+    "next_keeps_only_unresolved_work": true,
+    "avoid_duplicate_state_next_cycles": true
   },
   "language_policy": {
     "default_human_language": "ko",
     "state_language": "ko",
     "cycle_log_language": "ko",
     "next_language": "ko",
-    "review_context_language": "ko",
-    "external_review_raw_language": "preserve_original",
-    "external_review_summary_language": "ko",
     "preserve_original_for": [
       "code",
       "identifiers",
@@ -129,22 +62,11 @@
       "quoted_output"
     ]
   },
-  "fallback_rules": {
-    "worker_unavailable": "stop_or_wait_for_human_worker_assignment",
-    "reviewer_unavailable": "try_fallback_reviewer_then_self_review_with_note",
-    "log_organizer_unavailable": "codex_summarizes_directly_and_records_note",
-    "all_reviewers_unavailable": "continue_only_if_low_risk_and_record_note"
-  },
   "stop_conditions": [
     "same_issue_repeated_twice",
     "build_failed_twice",
-    "review_reject",
     "unexpected_large_diff",
     "unsafe_public_api_or_blueprint_change",
     "human_stop_requested"
-  ],
-  "final_cycle": {
-    "prefer_review_only": true,
-    "require_human_approval_note": true
-  }
+  ]
 }
