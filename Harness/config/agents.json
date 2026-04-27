@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "defaults": {
+    "worker": "codex",
+    "reviewer": "gemini_cli"
+  },
+  "fallback_order": {
+    "worker": ["codex", "gemini_cli"],
+    "reviewer": ["gemini_cli", "codex"]
+  },
+  "agents": {
+    "codex": {
+      "display_name": "Codex",
+      "provider": "openai",
+      "type": "current_session",
+      "roles": ["worker", "reviewer"],
+      "can_edit": true,
+      "can_run_commands": true,
+      "command": null,
+      "health_check": null,
+      "notes": "Primary worker in the current Codex session."
+    },
+    "gemini_cli": {
+      "display_name": "Gemini CLI",
+      "provider": "google",
+      "type": "external_cli",
+      "roles": ["reviewer", "worker"],
+      "can_edit": false,
+      "can_run_commands": false,
+      "command": ["gemini", "--skip-trust", "-p"],
+      "health_check": ["gemini", "--version"],
+      "notes": "Default external reviewer. Keep can_edit false unless a human explicitly changes this for a controlled cycle."
+    }
+  },
+  "failure_policy": {
+    "if_worker_unavailable": "try_next_worker_or_stop",
+    "if_reviewer_unavailable": "try_next_reviewer_or_self_review_with_note",
+    "record_unavailable_agent": true,
+    "unavailable_signals": [
+      "quota_exceeded",
+      "rate_limited",
+      "authentication_required",
+      "command_not_found",
+      "trusted_workspace_required",
+      "network_error"
+    ]
+  },
+  "record_paths": {
+    "state": "Harness/state.md",
+    "next": "Harness/next.md",
+    "cycle_log": "Harness/cycles/YYYY-MM-DD.md",
+    "long_reviews": "Harness/reviews"
+  }
+}

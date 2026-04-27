@@ -4,12 +4,15 @@
 
 ## 사용 방법
 
-1. 새 Unreal 프로젝트 루트에 `Template` 안의 `AGENTS.md`와 `Harness/`를 복사한다. 이후 "이 프로젝트 기준으로 Harness를 초기화해줘" 라고 명령한다.
-2. `Harness/config/project.json`을 해당 프로젝트 기준으로 수정한다.
-3. `Harness/state.md`에 실제 프로젝트 상태를 기록한다.
-4. `Harness/backlog.md`에 다음 작업 후보와 알려진 문제를 기록한다.
-5. 필요한 기획서나 참고 문서는 `Harness/doc/`에 넣는다.
-6. 작업을 시작한 날짜의 `Harness/cycles/YYYY-MM-DD.md`를 만들고 기록을 시작한다.
+1. 새 Unreal 프로젝트 루트에 이 템플릿의 `Harness/`를 복사한다.
+2. 대상 프로젝트에 루트 `AGENTS.md`가 없으면 이 템플릿의 `AGENTS.md`를 복사한다.
+3. 대상 프로젝트에 이미 `AGENTS.md`가 있으면 기존 파일을 덮어쓰지 말고 Harness 사용 규칙만 병합한다.
+4. 이후 "이 프로젝트 기준으로 Harness를 초기화해줘" 라고 명령한다.
+5. `Harness/config/project.json`을 해당 프로젝트 기준으로 수정한다.
+6. `Harness/state.md`에 실제 프로젝트 상태를 기록한다.
+7. `Harness/next.md`에 다음 작업 후보와 알려진 문제를 기록한다.
+8. 필요한 기획서나 참고 문서는 `Harness/doc/`에 넣는다.
+9. 작업을 시작한 날짜의 `Harness/cycles/YYYY-MM-DD.md`를 만들고 기록을 시작한다.
 
 ## 이식 후 최소 정리
 
@@ -25,7 +28,7 @@
 - `AGENTS.md`는 범용 Unreal 작업 규칙으로 유지한다.
 - `Harness/README.md`는 Harness 운영 방식만 설명한다.
 - `Harness/state.md`는 현재 실제 상태만 적는다.
-- `Harness/backlog.md`는 앞으로 할 일과 알려진 문제를 적는다.
+- `Harness/next.md`는 앞으로 할 일과 알려진 문제를 적는다.
 - 프로젝트마다 다른 값은 가능한 한 `Harness/config/project.json`에 둔다.
 
 ## 기능 구현 루프

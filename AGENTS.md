@@ -5,7 +5,7 @@
 ## 작업 전 읽기
 
 1. 프로젝트 루트의 `README.md` 또는 현재 작업 상태 문서가 있으면 먼저 확인한다.
-2. `Harness/README.md`, `Harness/state.md`, `Harness/backlog.md`가 있으면 확인한다.
+2. `Harness/README.md`, `Harness/state.md`, `Harness/next.md`가 있으면 확인한다.
 3. 오늘 날짜의 `Harness/cycles/YYYY-MM-DD.md`가 있으면 확인한다.
 4. 현재 요청에 필요한 `Source/`, `Config/`, `Plugins/`, `Content/` 파일만 추가로 확인한다.
 
@@ -51,7 +51,7 @@
 - 예: `"지금 에러 고쳐줘. 빌드 통과까지 반복해."`
 - 기능명, 최대 사이클 수, 성공 기준이 보이면 추가 질문보다 바로 구현과 검증을 우선한다.
 - 성공 기준이 불명확하면 현재 문맥에서 가장 자연스러운 기준을 짧게 정리한 뒤 진행한다.
-- 반복 작업 중에는 이전 사이클의 긴 대화보다 `Harness/state.md`, `Harness/backlog.md`, 오늘 날짜의 `Harness/cycles/YYYY-MM-DD.md`를 우선 신뢰한다.
+- 반복 작업 중에는 이전 사이클의 긴 대화보다 `Harness/state.md`, `Harness/next.md`, 오늘 날짜의 `Harness/cycles/YYYY-MM-DD.md`를 우선 신뢰한다.
 
 ## 작업 규칙
 
@@ -62,6 +62,16 @@
 - 추측보다 확인한 코드, 문서, 로그, 실행 결과를 우선한다.
 - 확인되지 않은 내용은 사실처럼 단정하지 않는다.
 - 사용자가 만든 변경이나 관련 없는 생성물을 되돌리지 않는다.
+
+## 언어 규칙
+
+- 사용자가 한국어로 요청하면 응답은 한국어로 한다.
+- Harness 기록 파일은 기본적으로 한국어로 작성한다.
+- `Harness/state.md`, `Harness/next.md`, `Harness/cycles/YYYY-MM-DD.md`는 한국어를 기본 언어로 한다.
+- `Harness/reviews/`의 리뷰 컨텍스트는 가능하면 한국어로 작성한다.
+- 외부 AI 리뷰 원문은 원문 그대로 `Harness/reviews/`에 저장할 수 있다.
+- 외부 AI 리뷰를 `cycles/`, `state.md`, `next.md`에 요약할 때는 한국어로 요약한다.
+- 코드 식별자, 파일명, 클래스명, 함수명, 명령어, 로그 원문, 에러 메시지는 원문 언어를 유지한다.
 
 ## Git 규칙
 
@@ -100,8 +110,8 @@
 
 - `cycles/YYYY-MM-DD.md`에는 시도, 결과, 다음 액션만 짧게 남긴다.
 - 최신 상태, 현재 동작, 확정된 사실은 `Harness/state.md`로 올린다.
-- 다음 작업 후보, 미해결 문제, 나중에 볼 항목은 `Harness/backlog.md`로 분리한다.
-- 같은 설명을 `state.md`, `backlog.md`, `cycles/`에 중복해서 길게 쓰지 않는다.
+- 다음 작업 후보, 미해결 문제, 나중에 볼 항목은 `Harness/next.md`로 분리한다.
+- 같은 설명을 `state.md`, `next.md`, `cycles/`에 중복해서 길게 쓰지 않는다.
 
 ## 자동 개선 사이클
 

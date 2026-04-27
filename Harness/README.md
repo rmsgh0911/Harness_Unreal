@@ -2,21 +2,21 @@
 
 `Harness`는 Unreal Engine 프로젝트에서 에이전트와 사람이 현재 상태를 빠르게 파악하고, 작은 단위로 검증하며, 다음 작업자에게 맥락을 넘기기 위한 운영 폴더다.
 
-이 폴더는 가볍게 유지한다. 프로젝트별 사실은 `state.md`, `backlog.md`, `cycles/`, `config/project.json`에 둔다. 원본 기획서나 참고 문서는 `doc/`에 둔다.
+이 폴더는 가볍게 유지한다. 프로젝트별 사실은 `state.md`, `next.md`, `cycles/`, `config/project.json`에 둔다. 원본 기획서나 참고 문서는 `doc/`에 둔다.
 
 ## 읽는 순서
 
 1. `Harness/README.md`
 2. `Harness/state.md`
 3. 오늘 날짜의 `Harness/cycles/YYYY-MM-DD.md`
-4. `Harness/backlog.md`
+4. `Harness/next.md`
 5. 필요한 `Source/`, `Config/`, `Content/`, `Plugins/`, `Harness/scripts/` 파일
 
 ## 폴더 역할
 
 - `config/project.json`: Harness 스크립트가 읽는 프로젝트별 설정 파일
 - `state.md`: 현재 검증된 프로젝트 상태. 의도보다 실제 코드와 실행 결과를 우선한다.
-- `backlog.md`: 우선순위가 있는 작업 후보와 알려진 문제
+- `next.md`: 우선순위가 있는 작업 후보와 알려진 문제
 - `cycles/`: 날짜별 작업 기록
 - `doc/`: 기획서, 참고 문서, 원본 자료
 - `scripts/`: Unreal/Python 기반의 작은 검증 또는 설정 보조 스크립트
@@ -24,13 +24,13 @@
 ## 운영 규칙
 
 - `state.md`는 사실 위주로 최신 상태를 유지한다.
-- 추측, 후보 작업, 앞으로 할 일은 `backlog.md`에 적는다.
+- 추측, 후보 작업, 앞으로 할 일은 `next.md`에 적는다.
 - 기획 문서와 실제 Source 상태가 다르면 실제 코드와 실행 결과를 우선하고, 차이를 기록한다.
 - 스크립트 검증은 작고 명확하게 유지한다.
 - Harness 스크립트가 실제 프로젝트 콘텐츠를 수정한다면 스크립트 이름과 문서에서 그 동작을 분명히 알 수 있어야 한다.
 - 프로젝트별 상수는 스크립트에 직접 쓰지 말고 가능한 한 `config/project.json`에 둔다.
 - `cycles/`는 긴 작업 일지가 아니라 짧은 사이클 로그로 유지한다.
-- 최신 상태는 `state.md`, 다음 작업은 `backlog.md`, 이번 시도 결과는 `cycles/`에 나눠 적는다.
+- 최신 상태는 `state.md`, 다음 작업은 `next.md`, 이번 시도 결과는 `cycles/`에 나눠 적는다.
 
 ## 기능 작업 사이클
 

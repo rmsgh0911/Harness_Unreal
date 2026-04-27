@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "mode": "primary_worker_with_external_review",
+  "default_max_cycles": 1,
+  "assignment": {
+    "default_strategy": "same_worker_with_different_reviewer",
+    "allow_worker_switching": true,
+    "prefer_worker_switching_for": [
+      "model_quota_exhausted",
+      "authentication_unavailable",
+      "broad_design_review",
+      "human_requested_switch"
+    ],
+    "avoid_worker_switching_for": [
+      "public_api_change",
+      "blueprint_exposed_name_change",
+      "build_cs_change",
+      "save_data_change",
+      "binary_asset_change",
+      "multi_module_refactor"
+    ]
+  },
+  "cycle_flow": [
+    "worker_reads_state_and_cycle_log",
+    "worker_implements_or_improves",
+    "worker_runs_smallest_reasonable_verification",
+    "reviewer_reviews_diff_without_editing",
+    "worker_applies_approved_review_items",
+    "worker_records_result_state_risks"
+  ],
+  "review_rules": {
+    "reviewer_can_edit": false,
+    "review_basis": "diff_and_relevant_context",
+    "required_verdicts": ["APPROVE", "REQUEST_CHANGES", "REJECT"],
+    "store_review_context_in": "Harness/reviews",
+    "store_review_output_in": "Harness/reviews"
+  },
+  "review_context_priority": [
+    "git_diff",
+    "git_diff_cached",
+    "git_status_and_changed_files",
+    "review_context_file",
+    "changed_files_content"
+  ],
+  "review_context_file": {
+    "directory": "Harness/reviews",
+    "purpose": "Worker-written context for external reviewers when git diff is unavailable, incomplete, or needs intent/risk notes.",
+    "recommended_name": "YYYY-MM-DD-task-name-cycle-01-review-context.md"
+  },
+  "language_policy": {
+    "default_human_language": "ko",
+    "state_language": "ko",
+    "cycle_log_language": "ko",
+    "next_language": "ko",
+    "review_context_language": "ko",
+    "external_review_raw_language": "preserve_original",
+    "external_review_summary_language": "ko",
+    "preserve_original_for": [
+      "code",
+      "identifiers",
+      "file_paths",
+      "commands",
+      "error_messages",
+      "logs",
+      "quoted_output"
+    ]
+  },
+  "fallback_rules": {
+    "worker_unavailable": "try_fallback_worker_then_stop",
+    "reviewer_unavailable": "try_fallback_reviewer_then_self_review_with_note",
+    "all_reviewers_unavailable": "continue_only_if_low_risk_and_record_note"
+  },
+  "stop_conditions": [
+    "same_issue_repeated_twice",
+    "build_failed_twice",
+    "review_reject",
+    "unexpected_large_diff",
+    "unsafe_public_api_or_blueprint_change",
+    "human_stop_requested"
+  ],
+  "final_cycle": {
+    "prefer_review_only": true,
+    "require_human_approval_note": true
+  }
+}
