@@ -1,6 +1,7 @@
 param(
     [switch]$IncludeAuth,
-    [switch]$IncludeOptional
+    [switch]$IncludeOptional,
+    [int]$CommandTimeoutSeconds = 60
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,7 +32,7 @@ function Convert-ToStringArray($Value) {
     return @([string]$Value)
 }
 
-function Invoke-CheckCommand($AgentName, $CheckName, $CommandValue, $ExpectedContains) {
+function Invoke-CheckCommand($AgentName, $CheckName, $CommandValue, $ExpectedContains, $TimeoutSeconds) {
     $command = Convert-ToStringArray $CommandValue
     if ($command.Count -eq 0) {
         Write-Host "SKIP $AgentName $CheckName"
@@ -45,19 +46,40 @@ function Invoke-CheckCommand($AgentName, $CheckName, $CommandValue, $ExpectedCon
     }
 
     Write-Host "RUN  $AgentName ${CheckName}: $($command -join ' ')"
-    $previousErrorActionPreference = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
+    $stdoutPath = [System.IO.Path]::GetTempFileName()
+    $stderrPath = [System.IO.Path]::GetTempFileName()
+
     try {
-        $output = & $exe @args 2>&1
-        $exitCode = $LASTEXITCODE
-        if ($null -eq $exitCode) {
-            $exitCode = 0
+        $process = Start-Process `
+            -FilePath $exe `
+            -ArgumentList $args `
+            -NoNewWindow `
+            -PassThru `
+            -RedirectStandardOutput $stdoutPath `
+            -RedirectStandardError $stderrPath
+
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            $output = @("Timed out after $TimeoutSeconds seconds.")
+            $exitCode = 124
+        } else {
+            $exitCode = $process.ExitCode
+            if ($null -eq $exitCode -or "$exitCode" -eq "") {
+                $exitCode = 0
+            }
+            $output = @()
+            if (Test-Path $stdoutPath) {
+                $output += Get-Content $stdoutPath -Encoding UTF8 -ErrorAction SilentlyContinue
+            }
+            if (Test-Path $stderrPath) {
+                $output += Get-Content $stderrPath -Encoding UTF8 -ErrorAction SilentlyContinue
+            }
         }
     } catch {
         $output = @($_.Exception.Message)
         $exitCode = 1
     } finally {
-        $ErrorActionPreference = $previousErrorActionPreference
+        Remove-Item -LiteralPath $stdoutPath, $stderrPath -Force -ErrorAction SilentlyContinue
     }
 
     if ($exitCode -ne 0) {
@@ -93,7 +115,8 @@ foreach ($agentProperty in $config.agents.PSObject.Properties) {
         -AgentName $agentName `
         -CheckName "health_check" `
         -CommandValue $agent.health_check `
-        -ExpectedContains $null
+        -ExpectedContains $null `
+        -TimeoutSeconds $CommandTimeoutSeconds
     $allPassed = $allPassed -and $healthPassed
 
     if ($IncludeAuth -and $agent.auth_check -and $healthPassed) {
@@ -101,7 +124,8 @@ foreach ($agentProperty in $config.agents.PSObject.Properties) {
             -AgentName $agentName `
             -CheckName "auth_check" `
             -CommandValue $agent.auth_check.command `
-            -ExpectedContains $agent.auth_check.expected_contains
+            -ExpectedContains $agent.auth_check.expected_contains `
+            -TimeoutSeconds $CommandTimeoutSeconds
         $allPassed = $allPassed -and $authPassed
     } elseif ($IncludeAuth -and $agent.auth_check -and -not $healthPassed) {
         Write-Host "SKIP $agentName auth_check because health_check failed"

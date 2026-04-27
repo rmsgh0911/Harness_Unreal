@@ -172,6 +172,12 @@ C++ 파일 추가 또는 삭제 후 IDE 프로젝트 파일 재생성:
 & 'C:\Path\To\Project\Harness\scripts\check_agents.cmd' -IncludeAuth
 ```
 
+외부 CLI 응답이 멈출 수 있으면 명령별 제한 시간을 조정한다.
+
+```powershell
+& 'C:\Path\To\Project\Harness\scripts\check_agents.cmd' -IncludeAuth -CommandTimeoutSeconds 30
+```
+
 선택 작업자까지 확인:
 
 ```powershell

@@ -1,84 +1,159 @@
 # Unreal Harness 템플릿
 
-이 폴더는 Unreal Engine 프로젝트에 복사해서 쓰는 Harness 템플릿이다.
+이 폴더는 Unreal Engine 프로젝트에 이식해서 사용하는 `Harness` 템플릿이다.
 
-## 사용 방법
+목표는 두 가지다.
 
-1. 새 Unreal 프로젝트 루트에 이 템플릿의 `Harness/`를 복사한다.
-2. 대상 프로젝트에 루트 `AGENTS.md`가 없으면 이 템플릿의 `AGENTS.md`를 복사한다.
-3. 대상 프로젝트에 이미 `AGENTS.md`가 있으면 기존 파일을 덮어쓰지 말고 Harness 사용 규칙만 병합한다.
-4. 이후 "이 프로젝트 기준으로 Harness를 초기화해줘" 라고 명령한다.
-5. `Harness/config/project.json`을 해당 프로젝트 기준으로 수정한다.
-6. `Harness/state.md`에 실제 프로젝트 상태를 기록한다.
-7. `Harness/next.md`에 다음 작업 후보와 알려진 문제를 기록한다.
-8. 필요한 기획서나 참고 문서는 `Harness/doc/`에 넣는다.
-9. 작업을 시작한 날짜의 `Harness/cycles/YYYY-MM-DD.md`를 만들고 기록을 시작한다.
+1. 새 프로젝트에 `Harness`를 처음 넣을 때 빠르게 초기화할 수 있게 한다.
+2. 이미 `Harness`를 쓰고 있는 프로젝트를 새 템플릿 버전으로 올릴 때, 기존 프로젝트 전용 기록과 설정을 잃지 않게 한다.
 
-기존 `AGENTS.md`에 병합할 최소 문구:
+## 사용 시나리오
 
-```md
-## Harness
+이 템플릿은 아래 같은 요청에 맞춰 사용한다.
 
-- 작업 전 `Harness/README.md`, `Harness/state.md`, `Harness/next.md`, 오늘 날짜의 `Harness/cycles/YYYY-MM-DD.md`를 확인한다.
-- 멀티 에이전트 리뷰나 전환이 필요하면 `Harness/config/agents.json`, `Harness/config/cycle_policy.json`을 확인한다.
-- 최신 사실은 `Harness/state.md`, 다음 작업은 `Harness/next.md`, 사이클 결과는 `Harness/cycles/`, 외부 리뷰 자료는 `Harness/reviews/`에 나눠 기록한다.
-```
+- `"이 프로젝트 기준으로 Harness를 초기화해줘"`
+- `"새로운 템플릿으로 이식해줘"`
+- `"템플릿 버전 업 해서 이식해줘"`
 
-## 이식 후 최소 정리
+세 요청은 비슷해 보여도 작업 방식이 다르다.
 
-- `project_name`, `uproject_file`을 실제 값으로 바꾼다.
-- `editor_startup_map`이 있다면 실제 시작 맵으로 바꾼다.
-- `required_classes`, `required_assets`, `required_source_markers`는 처음에는 작게 시작한다.
-- 외부 AI 리뷰어를 쓸 예정이면 `Harness/scripts/check_agents.cmd -IncludeAuth`로 CLI 설치와 인증 상태를 확인한다.
-- `verify_project.py`가 통과할 때까지 검증 기준을 프로젝트 현실에 맞춘다.
-- 빌드 검증을 돌릴 예정이면 `build.engine_root`, `build.editor_target_name`, `build.game_target_name`을 실제 프로젝트 기준으로 채우고 `Harness/scripts/build_verify.cmd`를 사용한다.
-- `create_level.py`의 기본 테스트 배치가 프로젝트 성격에 맞지 않으면 해당 프로젝트에서만 수정한다.
+- `초기화`: 아직 `Harness`가 없거나 거의 비어 있을 때 템플릿을 기준으로 새로 세팅한다.
+- `이식`: 기존 `Harness`가 있을 때 새 템플릿 구조를 가져오되, 프로젝트 전용 상태와 기록은 보존한다.
+- `버전 업 이식`: 기존 `Harness`가 이미 사용 중일 때, 템플릿의 새 구조나 운영 규칙만 반영하고 기존 프로젝트 누적 자산은 최대한 유지한다.
 
-## 권장 운영 방식
+## 1. 초기화 방법
 
-- `AGENTS.md`는 범용 Unreal 작업 규칙으로 유지한다.
-- `Harness/README.md`는 Harness 운영 방식만 설명한다.
-- `Harness/state.md`는 현재 실제 상태만 적는다.
-- `Harness/next.md`는 앞으로 할 일과 알려진 문제를 적는다.
-- `Harness/reviews/`는 외부 AI 리뷰 컨텍스트와 리뷰 결과를 적는다.
-- 프로젝트마다 다른 값은 가능한 한 `Harness/config/project.json`에 둔다.
-- 멀티 에이전트 설정은 `Harness/config/agents.json`과 `Harness/config/cycle_policy.json`에 둔다.
-- 대상 프로젝트의 기존 에이전트 지시 파일은 덮어쓰지 않고 필요한 Harness 규칙만 병합한다.
+1. Unreal 프로젝트 루트에 템플릿의 `Harness/`를 복사한다.
+2. 루트 `AGENTS.md`가 없으면 템플릿의 `AGENTS.md`를 복사한다.
+3. 루트 `README.md`가 없으면 템플릿 기준으로 프로젝트용 `README.md`를 만든다.
+4. `Harness/config/project.json`을 실제 프로젝트 기준으로 채운다.
+5. `Harness/state.md`에 현재 프로젝트 상태를 기록한다.
+6. `Harness/next.md`에 다음 작업 후보와 수동 검증 필요 항목을 기록한다.
+7. 작업 시작 날짜의 `Harness/cycles/YYYY-MM-DD.md`를 만들고 초기화 내용을 남긴다.
 
-## 기능 구현 루프
+## 2. 새 템플릿으로 이식할 때
 
-기능을 지시하면 기본 흐름은 아래와 같다.
+사용자가 `"새로운 템플릿으로 이식해줘"`라고 요청하면 기본적으로 아래 원칙으로 처리한다.
 
-1. 요청과 성공 기준을 짧게 정리한다.
-2. 관련 코드와 설정만 읽는다.
-3. 최소 변경으로 기능을 구현한다.
-4. 가능한 가장 작은 검증을 실행한다.
-5. 변경 내용을 Unreal 관점에서 자기 리뷰한다.
-6. 안전한 저위험 개선 1건이 있으면 반영한다.
-7. `Harness/cycles/YYYY-MM-DD.md`에 결과를 남기고, 현재 상태로 확정된 사실만 `Harness/state.md`에 반영한다.
+### 유지할 것
 
-## 추천 지시 문장
+- 기존 `Harness/state.md`
+- 기존 `Harness/next.md` 또는 기존 후속 작업 문서의 의미
+- 기존 `Harness/cycles/`
+- 기존 `Harness/doc/`
+- 프로젝트 전용 `Harness/config/project.json`
+- 프로젝트 전용 스크립트
+- 프로젝트에서 실제로 쓰는 루트 `AGENTS.md`의 저장소별 규칙
 
-아래처럼 짧게 말해도 되게 만드는 것이 이 템플릿의 목표다.
+### 새로 가져올 것
 
-- `"이 프로젝트 기준으로 Harness를 초기화해줘."`
-- `"장비 UI 만들어줘. 최대 6사이클."`
-- `"락온 기능 고쳐줘. 빌드 통과까지 반복해."`
-- `"상점 검색창 추가해줘. 성공 기준은 빈 검색어 처리까지. 최대 8사이클."`
+- `Harness/config/agents.json`
+- `Harness/config/cycle_policy.json`
+- `Harness/config/README.md`
+- `Harness/reviews/README.md`
+- `Harness/scripts/build_verify.ps1`
+- `Harness/scripts/build_verify.cmd`
+- `Harness/scripts/check_agents.ps1`
+- `Harness/scripts/check_agents.cmd`
+- 템플릿 쪽 `README.md`/`AGENTS.md`의 새 운영 규칙 중 현재 프로젝트에 필요한 부분
 
-지시가 짧아도 되지만, 아래 3개가 있으면 결과가 더 안정적이다.
+### 주의할 것
 
-- 무엇을 만들거나 고칠지
-- 최대 몇 사이클까지 허용할지
-- 성공 기준이 무엇인지
+- 기존 파일을 무조건 템플릿 파일로 덮어쓰지 않는다.
+- 프로젝트 전용 검증 마커, 자산 경로, 클래스 경로를 비우지 않는다.
+- 기존 작업 기록과 프로젝트 전용 문서를 삭제하지 않는다.
+- `backlog.md` 같은 구버전 파일이 있다면 바로 삭제하기보다, 먼저 `next.md`로 의미를 옮겼는지 확인한다.
 
-예:
+## 3. 템플릿 버전 업 이식 시 고려사항
 
-- `"보스 체력바 HUD 만들어줘. 최대 5사이클. 체력 감소 반영과 빈 상태 처리까지."`
+사용자가 `"템플릿 버전 업 해서 이식해줘"`라고 요청하면, 단순 복사가 아니라 `차이 비교 -> 병합 -> 검증 -> 기록` 흐름으로 간다.
 
-## 검증 원칙
+### 먼저 비교할 것
 
-- `verify_project.py`는 구조, 에셋, 클래스, 마커 확인용으로 사용한다.
-- 실제 성공 판정은 가능한 한 빌드 검증과 필요한 수동 검증까지 포함한다.
-- C++나 모듈 변경이 있으면 `Harness/scripts/build_verify.cmd` 같은 표준 빌드 검증 경로를 먼저 맞춘다.
-- `cycles/` 기록은 짧게 유지하고, 최신 확정 상태만 `state.md`로 올린다.
+1. 루트 `AGENTS.md`
+2. 루트 `README.md`
+3. `Harness/README.md`
+4. `Harness/state.md`
+5. `Harness/next.md`
+6. `Harness/config/project.json`
+7. `Harness/config/agents.json`
+8. `Harness/config/cycle_policy.json`
+9. `Harness/scripts/`
+
+### 병합 원칙
+
+- `state.md`는 템플릿 내용으로 덮지 않고 최신 프로젝트 사실만 유지한다.
+- `next.md`는 프로젝트별 후속 작업을 유지하되, 템플릿의 운영 규칙이 바뀌었으면 구조만 반영한다.
+- `project.json`은 프로젝트 전용 값이 핵심이므로, 템플릿에서 새 필드가 추가됐을 때만 병합한다.
+- 루트 `AGENTS.md`는 템플릿 규칙을 참고해 병합하되, 저장소 전용 규칙이 이미 있으면 함께 유지한다.
+- 루트 `README.md`는 기존 내용을 보존하면서 현재 프로젝트 소개 문서가 되도록 갱신한다.
+
+### 특히 놓치기 쉬운 부분
+
+- `Harness/config/project.json`에 새 `build` 필드가 추가됐는지
+- `Harness/reviews/` 같은 새 폴더가 필요한지
+- `build_verify.*`, `check_agents.*` 같은 새 스크립트가 들어왔는지
+- `AGENTS.md`가 아직 `backlog.md` 같은 구버전 파일을 읽도록 적혀 있는지
+- 루트 `README.md`가 아예 없거나, 새 운영 흐름을 반영하지 못하고 있는지
+
+### 버전 업 이식 후 정리
+
+- 더 이상 쓰지 않는 구버전 파일은 삭제한다.
+- 템플릿 비교용 임시 폴더를 프로젝트 안에 넣었다면, 이식 완료 후 삭제 여부를 확인한다.
+- 다만 사용자가 다시 비교할 가능성이 있으면, 바로 지우기 전에 먼저 확인한다.
+
+## 4. 루트 AGENTS.md 병합 원칙
+
+기존 프로젝트에 루트 `AGENTS.md`가 있으면 그대로 덮어쓰지 말고 아래 항목만 우선 병합한다.
+
+- `Harness/README.md`, `Harness/state.md`, `Harness/next.md`, 오늘 날짜 `Harness/cycles/YYYY-MM-DD.md`를 먼저 읽는 규칙
+- 멀티 에이전트 리뷰가 필요하면 `Harness/config/agents.json`, `Harness/config/cycle_policy.json`을 확인하는 규칙
+- 최신 상태는 `state.md`, 다음 작업은 `next.md`, 이력은 `cycles/`, 리뷰 원문은 `reviews/`에 남기는 규칙
+
+## 5. project.json 이식 체크리스트
+
+버전 업 이식 시 최소한 아래 항목은 확인한다.
+
+- `project_name`
+- `uproject_file`
+- `engine_version`
+- `editor_startup_map`
+- `harness_level_path`
+- `default_game_mode_class`
+- `required_classes`
+- `required_assets`
+- `required_source_markers`
+- `required_config_markers`
+- `required_uproject_plugins`
+- `build.engine_root`
+- `build.editor_target_name`
+- `build.game_target_name`
+- `build.platform`
+- `build.configuration`
+
+## 6. 검증 체크리스트
+
+초기화든 이식이든 끝나면 가능한 가장 작은 검증을 한다.
+
+- `Harness/config/project.json` 파싱 확인
+- `Harness/scripts/verify_project.py` 실행 가능 여부 확인
+- C++ 프로젝트면 `Harness/scripts/build_verify.cmd` 또는 `build_verify.ps1` 확인
+- 외부 리뷰어를 쓸 계획이면 `Harness/scripts/check_agents.cmd -IncludeAuth` 확인
+- 외부 CLI가 멈추는 환경이면 `Harness/scripts/check_agents.cmd -IncludeAuth -CommandTimeoutSeconds 30`처럼 명령별 제한 시간을 둔다.
+- 루트 `AGENTS.md`와 `Harness/README.md`가 실제 현재 구조를 읽도록 되어 있는지 확인
+- 루트 `README.md`가 현재 프로젝트 소개 문서로 존재하는지 확인
+
+## 7. 권장 기록 방식
+
+이식 또는 버전 업 작업이 끝나면 아래를 남긴다.
+
+- `Harness/cycles/YYYY-MM-DD.md`: 무엇을 옮겼는지, 무엇을 유지했는지, 무엇을 삭제했는지
+- `Harness/state.md`: 현재 `Harness` 구조가 어떤 버전 기준인지
+- 필요 시 `Harness/next.md`: 남은 수동 정리나 검증 항목
+
+## 8. 템플릿 사용 시 주의
+
+- 이 템플릿은 프로젝트 설명서가 아니라 작업 운영 템플릿이다.
+- 루트 `README.md`는 기존 내용을 보존하면서 현재 프로젝트 기준으로 갱신한다.
+- 템플릿을 복사했다고 해서 프로젝트 전용 상태가 자동으로 맞는 것은 아니다.
+- 가장 중요한 것은 `기존 프로젝트의 사실을 보존하면서 새 운영 구조만 안전하게 올리는 것`이다.
