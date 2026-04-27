@@ -29,8 +29,9 @@
 - `project_name`, `uproject_file`을 실제 값으로 바꾼다.
 - `editor_startup_map`이 있다면 실제 시작 맵으로 바꾼다.
 - `required_classes`, `required_assets`, `required_source_markers`는 처음에는 작게 시작한다.
+- 외부 AI 리뷰어를 쓸 예정이면 `Harness/scripts/check_agents.cmd -IncludeAuth`로 CLI 설치와 인증 상태를 확인한다.
 - `verify_project.py`가 통과할 때까지 검증 기준을 프로젝트 현실에 맞춘다.
-- 빌드 검증을 돌릴 예정이면 `build.engine_root`, `build.editor_target_name`, `build.game_target_name`을 실제 프로젝트 기준으로 채운다.
+- 빌드 검증을 돌릴 예정이면 `build.engine_root`, `build.editor_target_name`, `build.game_target_name`을 실제 프로젝트 기준으로 채우고 `Harness/scripts/build_verify.cmd`를 사용한다.
 - `create_level.py`의 기본 테스트 배치가 프로젝트 성격에 맞지 않으면 해당 프로젝트에서만 수정한다.
 
 ## 권장 운영 방식
@@ -79,5 +80,5 @@
 
 - `verify_project.py`는 구조, 에셋, 클래스, 마커 확인용으로 사용한다.
 - 실제 성공 판정은 가능한 한 빌드 검증과 필요한 수동 검증까지 포함한다.
-- C++나 모듈 변경이 있으면 `Harness/scripts/build_verify.ps1` 같은 표준 빌드 검증 경로를 먼저 맞춘다.
+- C++나 모듈 변경이 있으면 `Harness/scripts/build_verify.cmd` 같은 표준 빌드 검증 경로를 먼저 맞춘다.
 - `cycles/` 기록은 짧게 유지하고, 최신 확정 상태만 `state.md`로 올린다.

@@ -46,14 +46,19 @@
 - 기본 흐름은 한 작업자가 구현하고 다른 에이전트가 리뷰하는 방식이다.
 - 리뷰어는 기본적으로 파일을 직접 수정하지 않는다.
 - 기본 역할 흐름은 `Codex 작업 -> Gemini 리뷰 -> Goose 리뷰 정리 -> Codex 반영`이다.
+- Claude Code CLI는 Codex 대신 사용할 수 있는 선택 작업자이며, 설치되지 않은 환경을 위해 기본 health check에서는 제외한다.
 - 작업자 전환은 사람이 새 작업자, 권한, 책임 범위를 명시한 경우에만 진행한다.
+- 작업자를 전환하면 오늘 `cycles/YYYY-MM-DD.md`에 전환 이유와 새 작업자가 먼저 볼 범위를 짧게 기록한다.
+- 새 작업자는 긴 이전 대화보다 `state.md`, `next.md`, 오늘 `cycles/`, 현재 `git status/diff`를 우선 읽는다.
 - 외부 리뷰어에게 넘기는 자세한 컨텍스트와 리뷰 원문은 `reviews/`에 둔다.
 - 리뷰에서 나온 항목은 자동으로 다음 작업이 되지 않는다. 미해결, 보류, 범위 밖, 사람 판단 필요 항목만 `next.md`로 옮긴다.
 - Goose + Ollama는 설치된 경우 로그/리뷰/diff/사이클 기록을 정리하는 선택 보조자로만 사용한다.
 - Goose + Ollama는 리뷰 판정을 새로 만들지 않고, 기존 리뷰를 Codex가 읽기 쉽게 정리한다.
+- 요약에 빌드 실패, 공개 API/Blueprint 리스크, 데이터 손실, 에셋 이동, `REQUEST_CHANGES`, `REJECT`가 포함되면 Codex는 외부 리뷰 원문을 다시 확인한다.
 - Goose + Ollama가 설치되지 않았거나 PATH에 없으면 Codex가 직접 요약하고, 필요한 경우 그 사실을 사이클 기록에 남긴다.
 - Goose + Ollama는 기본적으로 stdout 출력만 사용하며 파일 수정, 파일 생성, 커밋은 금지한다.
 - Goose + Ollama의 출력은 참고 자료이며, 필요한 내용만 Codex 또는 사람이 `cycles/`, `state.md`, `next.md`에 반영한다.
+- Windows PowerShell에서는 Gemini CLI가 `.ps1` 실행 정책에 막힐 수 있으므로 기본 설정은 `gemini.cmd`를 사용한다.
 - 사용할 에이전트, 인증 확인, 대체 순서는 `config/agents.json`에 둔다.
 - 사이클 흐름, 언어 정책, 중단 조건은 `config/cycle_policy.json`에 둔다.
 
@@ -127,7 +132,9 @@
 
 - `verify_project.py`: 구조, 클래스, 에셋, 설정, Harness 테스트 레벨 확인
 - `create_level.py`: Harness 테스트 레벨 생성 또는 갱신
+- `check_agents.ps1`: `config/agents.json`에 적힌 외부 에이전트 health/auth 확인
 - `build_verify.ps1`: UBT 기반 빌드 또는 프로젝트 파일 재생성
+- `*.cmd`: Windows PowerShell 실행 정책을 우회해 같은 이름의 `.ps1`을 실행하는 래퍼
 
 `verify_project.py`가 통과해도 C++ 변경이 있으면 가능한 범위에서 실제 빌드 검증을 추가한다.
 
@@ -156,5 +163,17 @@ C++ 파일 추가 또는 삭제 후 IDE 프로젝트 파일 재생성:
 빌드 검증 스크립트 사용 예:
 
 ```powershell
-& 'C:\Path\To\Project\Harness\scripts\build_verify.ps1' -Mode Editor
+& 'C:\Path\To\Project\Harness\scripts\build_verify.cmd' -Mode Editor
+```
+
+외부 에이전트 확인:
+
+```powershell
+& 'C:\Path\To\Project\Harness\scripts\check_agents.cmd' -IncludeAuth
+```
+
+선택 작업자까지 확인:
+
+```powershell
+& 'C:\Path\To\Project\Harness\scripts\check_agents.cmd' -IncludeAuth -IncludeOptional
 ```

@@ -12,6 +12,14 @@
       "human_requested_switch"
     ],
     "worker_switch_requires_human_assignment": true,
+    "record_worker_switch_in_cycle_log": true,
+    "new_worker_reads_first": [
+      "Harness/state.md",
+      "Harness/next.md",
+      "Harness/cycles/YYYY-MM-DD.md",
+      "git_status_and_diff"
+    ],
+    "new_worker_context_limit": "prefer_latest_state_next_today_cycle_and_current_diff_over_full_conversation",
     "avoid_worker_switching_for": [
       "public_api_change",
       "blueprint_exposed_name_change",
@@ -55,6 +63,12 @@
     "may_modify_state_next_cycles": false,
     "does_not_create_new_verdict": true,
     "worker_checks_original_review_when_needed": true,
+    "original_review_required_when": [
+      "review_verdict_is_request_changes_or_reject",
+      "summary_mentions_build_failure",
+      "summary_mentions_public_api_or_blueprint_risk",
+      "summary_mentions_data_loss_or_asset_move"
+    ],
     "if_unavailable": "codex_summarizes_directly_and_records_note"
   },
   "review_context_priority": [
