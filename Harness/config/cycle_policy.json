@@ -11,6 +11,7 @@
       "broad_design_review",
       "human_requested_switch"
     ],
+    "worker_switch_requires_human_assignment": true,
     "avoid_worker_switching_for": [
       "public_api_change",
       "blueprint_exposed_name_change",
@@ -26,7 +27,9 @@
     "worker_runs_smallest_reasonable_verification",
     "reviewer_reviews_diff_without_editing",
     "worker_applies_approved_review_items",
-    "worker_records_result_state_risks"
+    "worker_records_cycle_result",
+    "worker_updates_state_snapshot",
+    "worker_updates_next_items"
   ],
   "review_rules": {
     "reviewer_can_edit": false,
@@ -67,6 +70,13 @@
       "needs_human_decision",
       "outside_current_scope"
     ]
+  },
+  "state_rules": {
+    "state_is_not_a_work_log": true,
+    "keep_only_latest_confirmed_facts": true,
+    "remove_stale_state_items": true,
+    "put_history_in": "Harness/cycles",
+    "put_raw_external_reviews_in": "Harness/reviews"
   },
   "language_policy": {
     "default_human_language": "ko",

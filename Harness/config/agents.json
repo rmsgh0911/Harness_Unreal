@@ -5,7 +5,7 @@
     "reviewer": "gemini_cli"
   },
   "fallback_order": {
-    "worker": ["codex", "gemini_cli"],
+    "worker": ["codex"],
     "reviewer": ["gemini_cli", "codex"]
   },
   "agents": {
@@ -24,7 +24,7 @@
       "display_name": "Gemini CLI",
       "provider": "google",
       "type": "external_cli",
-      "roles": ["reviewer", "worker"],
+      "roles": ["reviewer"],
       "can_edit": false,
       "can_run_commands": false,
       "command": ["gemini", "--skip-trust", "-p"],
@@ -35,11 +35,11 @@
         "on_failure": "mark_unavailable_and_use_fallback"
       },
       "auth_setup_hint": "`gemini`를 대화형으로 한 번 실행하고 브라우저에서 로그인을 완료한다. 인증 정보는 Harness/config에 저장하지 않는다.",
-      "notes": "기본 외부 리뷰어. 사람이 통제된 사이클을 위해 명시적으로 바꾸지 않는 한 can_edit는 false로 유지한다."
+      "notes": "기본 외부 리뷰어. 작업자로 쓰려면 사람이 별도 사이클에서 권한과 책임 범위를 명시해야 한다."
     }
   },
   "failure_policy": {
-    "if_worker_unavailable": "try_next_worker_or_stop",
+    "if_worker_unavailable": "stop_or_wait_for_human_worker_assignment",
     "if_reviewer_unavailable": "try_next_reviewer_or_self_review_with_note",
     "record_unavailable_agent": true,
     "never_store_credentials": true,

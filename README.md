@@ -54,7 +54,7 @@
 4. 가능한 가장 작은 검증을 실행한다.
 5. 변경 내용을 Unreal 관점에서 자기 리뷰한다.
 6. 안전한 저위험 개선 1건이 있으면 반영한다.
-7. `Harness/cycles/YYYY-MM-DD.md`와 `Harness/state.md`에 결과를 남긴다.
+7. `Harness/cycles/YYYY-MM-DD.md`에 결과를 남기고, 현재 상태로 확정된 사실만 `Harness/state.md`에 반영한다.
 
 ## 추천 지시 문장
 
@@ -80,4 +80,4 @@
 - `verify_project.py`는 구조, 에셋, 클래스, 마커 확인용으로 사용한다.
 - 실제 성공 판정은 가능한 한 빌드 검증과 필요한 수동 검증까지 포함한다.
 - C++나 모듈 변경이 있으면 `Harness/scripts/build_verify.ps1` 같은 표준 빌드 검증 경로를 먼저 맞춘다.
-- `cycles/` 기록은 짧게 유지하고, 최신 상태는 `state.md`로 올린다.
+- `cycles/` 기록은 짧게 유지하고, 최신 확정 상태만 `state.md`로 올린다.
