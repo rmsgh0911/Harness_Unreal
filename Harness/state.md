@@ -41,10 +41,3 @@
 ## 리스크
 
 - 작성 필요
-
-## GitHub upload state
-
-- 2026-04-27: Folder was inspected before initial GitHub upload.
-- Remote target: `https://github.com/rmsgh0911/Harness_Unreal.git`.
-- Current contents observed: Harness docs/scripts/template files only; no Unreal `.uproject`, `Source/`, `Config/`, `Content/`, or `Plugins/` project content was present.
-- Git LFS available locally; `.gitattributes` tracks `*.uasset` and `*.umap` with LFS.
