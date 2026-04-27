@@ -7,7 +7,8 @@
 1. 프로젝트 루트의 `README.md` 또는 현재 작업 상태 문서가 있으면 먼저 확인한다.
 2. `Harness/README.md`, `Harness/state.md`, `Harness/next.md`가 있으면 확인한다.
 3. 오늘 날짜의 `Harness/cycles/YYYY-MM-DD.md`가 있으면 확인한다.
-4. 현재 요청에 필요한 `Source/`, `Config/`, `Plugins/`, `Content/` 파일만 추가로 확인한다.
+4. 멀티 에이전트 리뷰나 전환이 필요하면 `Harness/config/agents.json`, `Harness/config/cycle_policy.json`을 확인한다.
+5. 현재 요청에 필요한 `Source/`, `Config/`, `Plugins/`, `Content/` 파일만 추가로 확인한다.
 
 ## 기본 목표
 
@@ -72,6 +73,7 @@
 - 외부 AI 리뷰 원문은 원문 그대로 `Harness/reviews/`에 저장할 수 있다.
 - 외부 AI 리뷰를 `cycles/`, `state.md`, `next.md`에 요약할 때는 한국어로 요약한다.
 - 코드 식별자, 파일명, 클래스명, 함수명, 명령어, 로그 원문, 에러 메시지는 원문 언어를 유지한다.
+- Windows PowerShell에서 Harness의 한국어 문서를 읽거나 쓸 때는 가능한 한 `-Encoding UTF8`을 명시한다.
 
 ## Git 규칙
 

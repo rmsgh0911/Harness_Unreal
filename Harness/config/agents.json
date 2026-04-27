@@ -18,7 +18,7 @@
       "can_run_commands": true,
       "command": null,
       "health_check": null,
-      "notes": "Primary worker in the current Codex session."
+      "notes": "현재 Codex 세션의 기본 작업자."
     },
     "gemini_cli": {
       "display_name": "Gemini CLI",
@@ -29,13 +29,20 @@
       "can_run_commands": false,
       "command": ["gemini", "--skip-trust", "-p"],
       "health_check": ["gemini", "--version"],
-      "notes": "Default external reviewer. Keep can_edit false unless a human explicitly changes this for a controlled cycle."
+      "auth_check": {
+        "command": ["gemini", "--skip-trust", "-p", "OK만 출력해."],
+        "expected_contains": "OK",
+        "on_failure": "mark_unavailable_and_use_fallback"
+      },
+      "auth_setup_hint": "`gemini`를 대화형으로 한 번 실행하고 브라우저에서 로그인을 완료한다. 인증 정보는 Harness/config에 저장하지 않는다.",
+      "notes": "기본 외부 리뷰어. 사람이 통제된 사이클을 위해 명시적으로 바꾸지 않는 한 can_edit는 false로 유지한다."
     }
   },
   "failure_policy": {
     "if_worker_unavailable": "try_next_worker_or_stop",
     "if_reviewer_unavailable": "try_next_reviewer_or_self_review_with_note",
     "record_unavailable_agent": true,
+    "never_store_credentials": true,
     "unavailable_signals": [
       "quota_exceeded",
       "rate_limited",
@@ -49,6 +56,6 @@
     "state": "Harness/state.md",
     "next": "Harness/next.md",
     "cycle_log": "Harness/cycles/YYYY-MM-DD.md",
-    "long_reviews": "Harness/reviews"
+    "reviews": "Harness/reviews"
   }
 }

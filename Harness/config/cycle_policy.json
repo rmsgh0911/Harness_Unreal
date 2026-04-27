@@ -21,7 +21,7 @@
     ]
   },
   "cycle_flow": [
-    "worker_reads_state_and_cycle_log",
+    "worker_reads_state_next_and_cycle_log",
     "worker_implements_or_improves",
     "worker_runs_smallest_reasonable_verification",
     "reviewer_reviews_diff_without_editing",
@@ -44,8 +44,29 @@
   ],
   "review_context_file": {
     "directory": "Harness/reviews",
-    "purpose": "Worker-written context for external reviewers when git diff is unavailable, incomplete, or needs intent/risk notes.",
-    "recommended_name": "YYYY-MM-DD-task-name-cycle-01-review-context.md"
+    "purpose": "git diff를 사용할 수 없거나 부족하거나 의도/리스크 설명이 필요할 때 작업자가 외부 리뷰어에게 넘기는 컨텍스트.",
+    "recommended_name": "YYYY-MM-DD-task-name-cycle-01-review-context.md",
+    "required_when": [
+      "git_unavailable",
+      "first_commit_missing",
+      "diff_too_large",
+      "external_reviewer_needs_intent_or_risk_notes",
+      "non_ascii_context_may_be_reencoded_by_shell"
+    ]
+  },
+  "external_reviewer_transfer": {
+    "preferred": "utf8_review_context_file_path",
+    "avoid_for_korean_text": "raw_shell_pipe",
+    "reason": "Windows 셸 파이프는 한국어 diff 텍스트가 외부 CLI 리뷰어에게 전달되기 전에 다시 인코딩할 수 있다."
+  },
+  "next_rules": {
+    "review_findings_do_not_become_next_items_automatically": true,
+    "copy_to_next_only_when": [
+      "unresolved",
+      "intentionally_deferred",
+      "needs_human_decision",
+      "outside_current_scope"
+    ]
   },
   "language_policy": {
     "default_human_language": "ko",

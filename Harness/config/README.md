@@ -1,10 +1,11 @@
-# Harness config
+# Harness 설정
 
-This folder contains reusable project and agent settings for Harness.
+이 폴더는 Harness가 재사용할 프로젝트 설정과 에이전트 설정을 둔다.
 
-- `project.json`: Unreal project-specific verification settings.
-- `agents.json`: Available AI agents, roles, commands, fallback order, and record paths.
-- `cycle_policy.json`: Multi-agent cycle, review, fallback, and stop rules.
+- `project.json`: Unreal 프로젝트별 검증 설정
+- `agents.json`: 사용 가능한 AI 에이전트, 역할, 명령어, 대체 순서, 기록 경로
+- `cycle_policy.json`: 멀티 에이전트 사이클, 리뷰, 대체 처리, 중단 규칙
 
-Keep this folder declarative. Do not store cycle logs, long reviews, tokens, API keys, or local credentials here.
+이 폴더는 선언적인 설정만 담는다. 사이클 로그, 긴 리뷰, 토큰, API 키, 로컬 인증 정보는 여기에 저장하지 않는다.
 
+인증은 각 사용자의 로컬 CLI 또는 에이전트 환경에서 처리한다. Harness에는 상태 확인, 인증 확인, 대체 처리 규칙만 둔다.

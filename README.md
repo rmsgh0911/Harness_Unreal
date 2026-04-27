@@ -14,6 +14,16 @@
 8. 필요한 기획서나 참고 문서는 `Harness/doc/`에 넣는다.
 9. 작업을 시작한 날짜의 `Harness/cycles/YYYY-MM-DD.md`를 만들고 기록을 시작한다.
 
+기존 `AGENTS.md`에 병합할 최소 문구:
+
+```md
+## Harness
+
+- 작업 전 `Harness/README.md`, `Harness/state.md`, `Harness/next.md`, 오늘 날짜의 `Harness/cycles/YYYY-MM-DD.md`를 확인한다.
+- 멀티 에이전트 리뷰나 전환이 필요하면 `Harness/config/agents.json`, `Harness/config/cycle_policy.json`을 확인한다.
+- 최신 사실은 `Harness/state.md`, 다음 작업은 `Harness/next.md`, 사이클 결과는 `Harness/cycles/`, 외부 리뷰 자료는 `Harness/reviews/`에 나눠 기록한다.
+```
+
 ## 이식 후 최소 정리
 
 - `project_name`, `uproject_file`을 실제 값으로 바꾼다.
@@ -29,7 +39,10 @@
 - `Harness/README.md`는 Harness 운영 방식만 설명한다.
 - `Harness/state.md`는 현재 실제 상태만 적는다.
 - `Harness/next.md`는 앞으로 할 일과 알려진 문제를 적는다.
+- `Harness/reviews/`는 외부 AI 리뷰 컨텍스트와 리뷰 결과를 적는다.
 - 프로젝트마다 다른 값은 가능한 한 `Harness/config/project.json`에 둔다.
+- 멀티 에이전트 설정은 `Harness/config/agents.json`과 `Harness/config/cycle_policy.json`에 둔다.
+- 대상 프로젝트의 기존 에이전트 지시 파일은 덮어쓰지 않고 필요한 Harness 규칙만 병합한다.
 
 ## 기능 구현 루프
 
