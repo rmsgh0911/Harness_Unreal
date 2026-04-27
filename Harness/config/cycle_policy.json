@@ -26,6 +26,7 @@
     "worker_implements_or_improves",
     "worker_runs_smallest_reasonable_verification",
     "reviewer_reviews_diff_without_editing",
+    "log_organizer_summarizes_reviewer_output_if_available",
     "worker_applies_approved_review_items",
     "worker_records_cycle_result",
     "worker_updates_state_snapshot",
@@ -46,11 +47,14 @@
       "editor_log_summary",
       "git_diff_summary",
       "external_review_summary",
+      "reviewer_output_summary",
       "cycle_history_summary"
     ],
     "output_mode": "stdout_only",
     "may_modify_files": false,
     "may_modify_state_next_cycles": false,
+    "does_not_create_new_verdict": true,
+    "worker_checks_original_review_when_needed": true,
     "if_unavailable": "codex_summarizes_directly_and_records_note"
   },
   "review_context_priority": [
