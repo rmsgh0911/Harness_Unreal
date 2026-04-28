@@ -1,57 +1,38 @@
 {
   "version": 1,
-  "defaults": {
-    "worker": "codex"
-  },
-  "worker_switch_candidates": ["claude_cli"],
-  "fallback_order": {
-    "worker": ["codex"]
-  },
-  "agents": {
+  "purpose": "worker_instruction_map",
+  "default_worker": "current_app",
+  "shared_rules": "HARNESS.md",
+  "supported_workers": {
     "codex": {
       "display_name": "Codex",
-      "provider": "openai",
-      "type": "current_session",
-      "roles": ["worker"],
-      "can_edit": true,
-      "can_run_commands": true,
-      "command": null,
-      "health_check": null,
-      "notes": "현재 Codex 세션의 기본 작업자."
+      "instruction_file": "AGENTS.md",
+      "can_be_primary_worker": true,
+      "notes": "Codex 앱 또는 CLI에서 작업할 때 AGENTS.md를 통해 HARNESS.md를 읽는다."
     },
-    "claude_cli": {
-      "display_name": "Claude Code CLI",
-      "provider": "anthropic",
-      "type": "external_cli",
-      "roles": ["worker", "handoff_worker"],
-      "optional": true,
-      "enabled_by_default": false,
-      "can_edit": true,
-      "can_run_commands": true,
-      "command": ["claude.cmd", "-p"],
-      "health_check": ["claude.cmd", "--version"],
-      "auth_check": {
-        "command": ["claude.cmd", "-p", "OK만 출력해."],
-        "expected_contains": "OK",
-        "on_failure": "mark_unavailable_and_use_fallback"
-      },
-      "install_hint": "Claude Code CLI가 설치되어 PATH에서 `claude.cmd`로 실행 가능해야 한다.",
-      "auth_setup_hint": "`claude.cmd`를 대화형으로 한 번 실행하고 로그인 또는 API 키 설정을 완료한다. 인증 정보는 Harness/config에 저장하지 않는다.",
-      "notes": "Codex 대신 사용할 수 있는 선택 작업자. 기본 자동 전환 대상은 아니며, 사람이 작업자 전환과 권한 범위를 명시한 경우에만 사용한다."
+    "claude_code": {
+      "display_name": "Claude Code",
+      "instruction_file": "CLAUDE.md",
+      "can_be_primary_worker": true,
+      "notes": "Claude Code 앱 또는 CLI에서 작업할 때 CLAUDE.md를 통해 HARNESS.md를 읽는다."
     }
   },
-  "failure_policy": {
-    "if_worker_unavailable": "stop_or_wait_for_human_worker_assignment",
-    "record_unavailable_agent": true,
-    "never_store_credentials": true,
-    "unavailable_signals": [
-      "quota_exceeded",
-      "rate_limited",
-      "authentication_required",
-      "command_not_found",
-      "trusted_workspace_required",
-      "network_error"
+  "handoff": {
+    "automatic_switching": false,
+    "requires_human_assignment": true,
+    "record_in_cycle_log": true,
+    "new_worker_reads_first": [
+      "HARNESS.md",
+      "Harness/state.md",
+      "Harness/next.md",
+      "Harness/cycles/YYYY-MM-DD.md",
+      "git status --short",
+      "git diff"
     ]
+  },
+  "credentials": {
+    "managed_by_each_app": true,
+    "never_store_in_harness": true
   },
   "record_paths": {
     "state": "Harness/state.md",

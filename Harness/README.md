@@ -13,7 +13,7 @@
 ## 폴더 역할
 
 - `config/project.json`: 프로젝트별 검증 설정
-- `config/agents.json`: 기본 작업자와 선택 작업자 전환 후보
+- `config/agents.json`: 지원 작업자와 루트 지시 파일 매핑
 - `config/cycle_policy.json`: 단일 작업자 사이클, 기록, 중단 조건
 - `state.md`: 최신 확정 상태만 유지
 - `next.md`: 남은 작업, 보류 리스크, 사람 판단 필요 항목

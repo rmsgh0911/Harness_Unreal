@@ -75,7 +75,8 @@
 
 ## 작업자 전환
 
-- Codex 토큰이 부족하거나 컨텍스트가 과밀해지면 사람이 명시한 경우에만 Claude CLI 같은 선택 작업자로 전환한다.
+- 작업자는 Codex 앱 또는 Claude Code 앱 중 하나를 사용한다. git worktree 기반 에이전트 모드는 사용하지 않는다.
+- Codex 토큰이 부족하거나 컨텍스트가 과밀해지면 사람이 명시한 경우에만 다른 작업자로 전환한다.
 - 작업자 전환은 자동으로 하지 않는다.
 - 전환 시 오늘 `cycles/YYYY-MM-DD.md`에 전환 이유와 새 작업자가 먼저 볼 범위를 짧게 기록한다.
 - 새 작업자는 긴 이전 대화보다 `Harness/state.md`, `Harness/next.md`, 오늘 `cycles/`, 현재 `git status/diff`를 우선 읽는다.

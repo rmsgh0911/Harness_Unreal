@@ -21,10 +21,12 @@
       "human_requested_switch"
     ],
     "new_worker_reads_first": [
+      "HARNESS.md",
       "Harness/state.md",
       "Harness/next.md",
       "Harness/cycles/YYYY-MM-DD.md",
-      "git_status_and_diff"
+      "git status --short",
+      "git diff"
     ],
     "avoid_when": [
       "public_api_change",

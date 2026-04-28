@@ -85,3 +85,6 @@ DerivedDataCache/*
 # - AGENTS.md
 # - .codex/config.toml
 # - .codex/agents/*.toml
+
+# Claude Code local workspace/cache
+.claude/
