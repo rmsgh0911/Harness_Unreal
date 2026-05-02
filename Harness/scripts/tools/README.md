@@ -50,7 +50,7 @@ python Harness/scripts/tools/example_tool.py --write
 - `harness_handoff.py`: 다른 에이전트나 새 세션으로 넘길 최소 브리프를 만든다.
 - `harness_verify_all.py`: 작업 종료 전 가벼운 표준 검증 묶음을 한 번에 실행한다.
 - `harness_migration_audit.py`: 구버전 Harness 프로젝트 이식 전 보존/갱신/정리 항목을 점검한다.
-- `harness_doc_check.py`: Harness 문서가 길어지거나 최신 상태와 이력이 섞이는지 점검한다.
+- `harness_state_check.py`: state.md/next.md/cycles/ 문서가 비대해지거나 이력이 섞이는지 점검한다.
 - `harness_python_check.py`: Python 3 실행 가능 여부와 Unreal Python 후보를 점검한다.
 - `harness_init_plan.py`: 초기화나 이식 시 보존/채움/검증 계획을 짧게 만든다.
 - `harness_docs_index.py`: 프로젝트 문서의 heading 색인을 만들어 읽을 범위를 줄인다.
@@ -71,7 +71,7 @@ python Harness/scripts/tools/harness_diff_guard.py
 python Harness/scripts/tools/harness_handoff.py --request "락온 기능 보강"
 python Harness/scripts/tools/harness_verify_all.py
 python Harness/scripts/tools/harness_migration_audit.py --target C:\Path\To\OldProject
-python Harness/scripts/tools/harness_doc_check.py --target C:\Path\To\Project
+python Harness/scripts/tools/harness_state_check.py --target C:\Path\To\Project
 python Harness/scripts/tools/harness_python_check.py
 python Harness/scripts/tools/harness_init_plan.py
 python Harness/scripts/tools/harness_docs_index.py

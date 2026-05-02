@@ -24,6 +24,16 @@ from harness_common import (
 from harness_docs_check import evaluate_request
 
 
+def _context_check_commands(manifest: dict) -> list[str]:
+    """Return verify commands for tools flagged with context_check: true."""
+    tools = manifest.get("tools", []) if isinstance(manifest, dict) else []
+    return [
+        tool["verify"]
+        for tool in tools
+        if isinstance(tool, dict) and tool.get("context_check") and tool.get("verify")
+    ]
+
+
 def build_context(root: Path, request: str = "") -> dict:
     harness = harness_dir(root)
     project = load_json(harness / "config" / "project.json", {}) or {}
@@ -83,15 +93,7 @@ def build_context(root: Path, request: str = "") -> dict:
             "registered": [tool.get("name", "") for tool in manifest.get("tools", []) if isinstance(tool, dict)],
             "manifest": file_status(harness / "scripts" / "tools" / "tool_manifest.json"),
         },
-        "verification_commands": [
-            "python Harness/scripts/tools/harness_python_check.py",
-            "python Harness/scripts/tools/harness_doctor.py",
-            "python Harness/scripts/tools/harness_docs_check.py --json",
-            "python Harness/scripts/tools/harness_docs_index.py",
-            "python Harness/scripts/tools/harness_scan.py --json",
-            "python Harness/scripts/tools/harness_diff_guard.py",
-            "python Harness/scripts/tools/harness_unreal_risk.py",
-        ],
+        "verification_commands": _context_check_commands(manifest),
         "warnings": build_warnings(root, project, cycle_path),
         "recommended_first_reads": recommended_first_reads,
     }

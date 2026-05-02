@@ -1,5 +1,29 @@
 # Unreal Harness 템플릿
 
+AI 에이전트(Claude Code, Codex)를 Unreal Engine 프로젝트의 주 작업자로 투입할 때 쓰는 운영 프레임워크 템플릿이다.
+
+## 빠른 시작
+
+```powershell
+# 1. 프로젝트 구조 스캔 → project.json 후보 확인
+python Harness/scripts/tools/harness_scan.py --json
+
+# 2. 빈 필드 자동 채우기
+python Harness/scripts/tools/harness_project_fill.py --write
+
+# 3. 환경 및 구조 점검
+python Harness/scripts/tools/harness_doctor.py
+
+# 4. 에이전트 작업 시작 전 브리핑
+python Harness/scripts/tools/harness_context.py
+```
+
+- 작업 규칙은 `HARNESS.md` 한 파일이 기준이다.
+- 에이전트는 항상 `HARNESS.md` → `Harness/state.md` → `Harness/next.md` 순으로 읽는다.
+- 도구 목록과 상세 사용법은 `Harness/README.md`를 참고한다.
+
+---
+
 이 폴더는 Unreal Engine 프로젝트에 이식해서 사용하는 `Harness` 템플릿이다.
 
 목표는 두 가지다.

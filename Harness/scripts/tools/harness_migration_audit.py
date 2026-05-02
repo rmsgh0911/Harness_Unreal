@@ -69,7 +69,16 @@ def find_custom_root_scripts(root: Path) -> list[str]:
     return sorted(custom)
 
 
-def current_template_root() -> Path:
+def this_installation_root() -> Path:
+    """Return the root of the Harness installation that contains this script.
+
+    Used to compare the target project's legacy-path standard scripts against
+    the current installation's new-path scripts.  Run this tool from the
+    up-to-date installation when auditing an older project:
+
+        python /path/to/new/project/Harness/scripts/tools/harness_migration_audit.py \\
+            --target /path/to/old/project
+    """
     return Path(__file__).resolve().parents[3]
 
 
@@ -122,7 +131,7 @@ def project_config_summary(root: Path) -> dict:
 
 
 def audit(root: Path) -> dict:
-    template_root = current_template_root()
+    template_root = this_installation_root()
     harness = root / "Harness"
     scripts = harness / "scripts"
     cycles = harness / "cycles"

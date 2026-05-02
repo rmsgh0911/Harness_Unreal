@@ -14,7 +14,7 @@ from harness_common import dump_json, find_project_root, harness_dir, load_json,
 from harness_context import build_context
 from harness_diff_guard import build_report as build_diff_report
 from harness_doctor import run_doctor
-from harness_doc_check import build_report as build_doc_report
+from harness_state_check import build_report as build_doc_report
 from harness_docs_check import build_report as build_docs_report
 from harness_scan import scan
 
@@ -87,7 +87,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
     compile_check = compile_python_files(root) if compile_python else {"ok": True, "checked": [], "failures": [], "skipped": True}
     build_readiness = check_build_readiness(root)
 
-    hard_ok = doctor["ok"] and docs_check["ok"] and json_check["ok"] and compile_check["ok"]
+    hard_ok = doctor["ok"] and docs_check["ok"] and json_check["ok"] and compile_check["ok"] and doc_check["ok"]
     return {
         "root": str(root),
         "ok": hard_ok,
@@ -98,7 +98,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
             "python_compile": "ok" if compile_check["ok"] else "failed",
             "scan": "ok",
             "diff_guard": "ok" if diff["ok"] else "needs_attention",
-            "doc_check": "ok" if doc_check["ok"] else "needs_attention",
+            "state_check": "ok" if doc_check["ok"] else "failed",
             "docs_check": "ok" if docs_check["ok"] else "failed",
             "build": build_readiness["status"],
         },
@@ -145,7 +145,7 @@ def format_text(report: dict) -> str:
         f"- Python compile: {report['summary']['python_compile']}",
         f"- Scan: {report['summary']['scan']}",
         f"- Diff guard: {report['summary']['diff_guard']} ({report['diff_guard']['mode']})",
-        f"- Doc health (state/next/cycles 길이·포맷): {report['summary']['doc_check']}",
+        f"- State check (state/next/cycles 길이·포맷): {report['summary']['state_check']}",
         f"- Docs policy (문서 루트 발견·읽기정책): {report['summary']['docs_check']}",
         f"- Build: {report['summary']['build']}",
     ]

@@ -24,6 +24,7 @@
       ],
       "writes_files": false,
       "safe_by_default": true,
+      "context_check": true,
       "verify": "python Harness/scripts/tools/harness_docs_check.py --json"
     },
     {
@@ -65,6 +66,7 @@
       ],
       "writes_files": false,
       "safe_by_default": true,
+      "context_check": true,
       "verify": "python Harness/scripts/tools/harness_doctor.py --json"
     },
     {
@@ -86,6 +88,7 @@
       ],
       "writes_files": false,
       "safe_by_default": true,
+      "context_check": true,
       "verify": "python Harness/scripts/tools/harness_scan.py --json"
     },
     {
@@ -124,6 +127,7 @@
       ],
       "writes_files": false,
       "safe_by_default": true,
+      "context_check": true,
       "verify": "python Harness/scripts/tools/harness_diff_guard.py --json"
     },
     {
@@ -189,9 +193,9 @@
       "verify": "python Harness/scripts/tools/harness_migration_audit.py --target . --json"
     },
     {
-      "name": "harness_doc_check",
-      "path": "Harness/scripts/tools/harness_doc_check.py",
-      "purpose": "Harness 문서가 길어지거나 state.md에 작업 이력이 섞이는지, 구버전 스크립트 경로가 남았는지 점검한다.",
+      "name": "harness_state_check",
+      "path": "Harness/scripts/tools/harness_state_check.py",
+      "purpose": "state.md/next.md/cycles/ 문서가 비대해지거나 작업 이력이 섞이는지, 구버전 스크립트 경로가 남았는지 점검한다.",
       "inputs": [
         "--target",
         "Harness/state.md",
@@ -205,7 +209,7 @@
       ],
       "writes_files": false,
       "safe_by_default": true,
-      "verify": "python Harness/scripts/tools/harness_doc_check.py --target . --json"
+      "verify": "python Harness/scripts/tools/harness_state_check.py --target . --json"
     },
     {
       "name": "harness_python_check",
@@ -223,6 +227,7 @@
       ],
       "writes_files": false,
       "safe_by_default": true,
+      "context_check": true,
       "verify": "python Harness/scripts/tools/harness_python_check.py --json"
     },
     {
@@ -260,6 +265,7 @@
       ],
       "writes_files": false,
       "safe_by_default": true,
+      "context_check": true,
       "verify": "python Harness/scripts/tools/harness_docs_index.py --json"
     },
     {
@@ -315,6 +321,7 @@
       ],
       "writes_files": false,
       "safe_by_default": true,
+      "context_check": true,
       "verify": "python Harness/scripts/tools/harness_unreal_risk.py --json"
     }
   ]

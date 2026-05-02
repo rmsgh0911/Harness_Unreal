@@ -17,7 +17,7 @@ MIN_VERSION = (3, 10)
 
 
 def run_version(command: list[str]) -> dict:
-    executable = shutil.which(command[0]) if len(command) == 1 else shutil.which(command[0])
+    executable = shutil.which(command[0])
     if not executable:
         return {"command": " ".join(command), "found": False, "ok": False, "version": "", "path": ""}
     try:

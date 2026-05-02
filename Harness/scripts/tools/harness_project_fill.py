@@ -27,12 +27,10 @@ def candidate_from_scan(root: Path) -> dict:
     report = scan(root, include_assets=False)
     candidate = report["project_json_candidate"]
     current = load_json(harness_dir(root) / "config" / "project.json", {}) or {}
-    merged = deep_fill(current if isinstance(current, dict) else {}, candidate)
     return {
         "scan": report,
         "current": current,
         "candidate": candidate,
-        "merged": merged,
     }
 
 

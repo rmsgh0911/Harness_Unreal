@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "note": "이 파일은 HARNESS.md의 사이클·기록·도구 규칙을 구조화한 보조 참조다. 규칙 변경 시 HARNESS.md를 기준으로 수정하고 이 파일도 함께 갱신한다.",
   "mode": "primary_single_worker",
   "default_max_cycles": 1,
   "cycle_flow": [

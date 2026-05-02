@@ -15,10 +15,12 @@ def parse_cycle_file(path: Path) -> dict:
     text = read_text(path)
     sections: list[dict] = []
     current: dict | None = None
+    current_key: str | None = None
     for line in text.splitlines():
         if line.startswith("## "):
             current = {"title": line[3:].strip(), "changed": [], "verified": [], "remaining": []}
             sections.append(current)
+            current_key = None
             continue
         if not current:
             continue
@@ -26,6 +28,11 @@ def parse_cycle_file(path: Path) -> dict:
         for key, label in [("changed", "- 변경:"), ("verified", "- 검증:"), ("remaining", "- 남은 것:")]:
             if stripped.startswith(label):
                 current[key].append(stripped.removeprefix(label).strip())
+                current_key = key
+                break
+        else:
+            if current_key and stripped.startswith("- "):
+                current[current_key].append(stripped[2:].strip())
     return {"path": path, "sections": sections, "lines": len(text.splitlines())}
 
 

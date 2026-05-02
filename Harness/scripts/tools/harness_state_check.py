@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -13,7 +14,6 @@ from harness_common import dump_json, find_project_root, harness_dir, load_json,
 
 HISTORY_HINTS = [
     "On 20",
-    "2026-",
     "migrated",
     "migration",
     "이식",
@@ -23,6 +23,7 @@ HISTORY_HINTS = [
     "검증:",
     "남은 것:",
 ]
+_DATE_PATTERN = re.compile(r"20\d\d-\d\d-\d\d")
 UNRESOLVED_HINTS = ["작성 필요", "TODO", "TBD"]
 OLD_PATH_HINTS = [
     "Harness/scripts/verify_project.py",
@@ -53,12 +54,13 @@ def check_file(root: Path, relative: str, soft_limit: int, hard_limit: int, allo
     text = read_text(path)
     lines = line_count(text)
     warnings: list[str] = []
+    errors: list[str] = []
     if not path.exists():
         warnings.append("missing")
     if lines > soft_limit:
         warnings.append(f"longer_than_soft_limit:{soft_limit}")
     if lines > hard_limit:
-        warnings.append(f"longer_than_hard_limit:{hard_limit}")
+        errors.append(f"longer_than_hard_limit:{hard_limit}")
     unresolved = count_hits(text, UNRESOLVED_HINTS)
     old_paths = count_hits(text, OLD_PATH_HINTS)
     if unresolved and not allow_placeholders:
@@ -71,13 +73,14 @@ def check_file(root: Path, relative: str, soft_limit: int, hard_limit: int, allo
         "lines": lines,
         "chars": len(text),
         "warnings": warnings,
+        "errors": errors,
     }
 
 
 def state_specific(root: Path) -> dict:
     relative = "Harness/state.md"
     text = read_text(root / relative)
-    history_hits = count_hits(text, HISTORY_HINTS)
+    history_hits = count_hits(text, HISTORY_HINTS) + len(_DATE_PATTERN.findall(text))
     return {
         "path": relative,
         "history_hint_count": history_hits,
@@ -114,6 +117,8 @@ def build_report(root: Path) -> dict:
     cycles = cycle_summary(root)
     findings: list[dict] = []
     for doc in docs:
+        for error in doc["errors"]:
+            findings.append({"level": "error", "path": doc["path"], "message": error})
         for warning in doc["warnings"]:
             findings.append({"level": "warning", "path": doc["path"], "message": warning})
     if state["looks_like_work_log"]:
@@ -133,7 +138,7 @@ def build_report(root: Path) -> dict:
 
 def format_text(report: dict) -> str:
     lines = [
-        "Harness Doc Check",
+        "Harness State Check",
         f"- Root: {report['root']}",
         f"- Status: {'ok' if report['ok'] else 'needs attention'}",
         f"- Cycle files: {report['cycles']['file_count']}",

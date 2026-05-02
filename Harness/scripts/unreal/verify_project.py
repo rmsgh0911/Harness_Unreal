@@ -67,12 +67,21 @@ def verify_startup_map(config):
         f"{startup_map}.{map_name}",
     }
 
+    # Only accept EditorStartupMap from the authoritative GameMapsSettings section.
+    target_section = "[/Script/EngineSettings.GameMapsSettings]"
+    in_section = False
     for line in text.splitlines():
-        key, separator, value = line.partition("=")
+        stripped = line.strip()
+        if stripped.startswith("["):
+            in_section = stripped == target_section
+            continue
+        if not in_section:
+            continue
+        key, separator, value = stripped.partition("=")
         if separator and key.strip() == "EditorStartupMap" and value.strip() in accepted_values:
             return
 
-    fail(f"EditorStartupMap is not {startup_map}")
+    fail(f"EditorStartupMap is not {startup_map} in {target_section}")
 
 
 def verify_uproject(config):

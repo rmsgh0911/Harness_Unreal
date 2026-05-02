@@ -73,7 +73,7 @@
 - `harness_handoff.py`: 새 에이전트 또는 새 세션용 최소 전달 브리프 생성
 - `harness_verify_all.py`: 작업 종료 전 표준 경량 검증 묶음 실행
 - `harness_migration_audit.py`: 구버전 Harness 이식 전 보존/갱신/정리 항목 점검
-- `harness_doc_check.py`: Harness 문서 길이, 구버전 경로, state/이력 혼합 점검
+- `harness_state_check.py`: state.md/next.md/cycles/ 문서 비대화, 구버전 경로, state/이력 혼합 점검
 - `harness_python_check.py`: Python 3 실행 가능 여부와 Unreal Python 후보 점검
 - `harness_init_plan.py`: 초기화/이식 시 보존, 채움, 검증 계획 요약
 - `harness_docs_index.py`: 문서 heading 색인 생성으로 읽기 범위 축소

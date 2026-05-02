@@ -90,6 +90,12 @@
 - 남은 것:
 ```
 
+## 정책 파일 관계
+
+- `Harness/config/cycle_policy.json`은 이 문서의 사이클·기록·도구 규칙을 구조화한 보조 참조다. 규칙이 충돌하면 이 문서가 우선이며, 변경 시 두 파일을 함께 갱신한다.
+- `Harness/config/agents.json`은 지원 작업자와 루트 지시 파일 매핑만 담는다.
+- `Harness/config/docs.json`은 프로젝트 문서 위치와 읽기 정책만 담는다.
+
 ## 작업자 전환
 
 - 작업자는 Codex 앱 또는 Claude Code 앱 중 하나를 사용한다. git worktree 기반 에이전트 모드는 사용하지 않는다.

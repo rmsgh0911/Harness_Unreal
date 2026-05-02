@@ -80,5 +80,31 @@ def create_level():
     unreal.EditorLoadingAndSavingUtils.save_dirty_packages(True, True)
     unreal.log(f"Harness level saved: {level_path}")
 
+    _suggest_actor_labels(config)
+
+
+HARNESS_ACTOR_LABELS = [
+    "PlayerStart_Harness",
+    "Floor_Harness",
+    "Harness_Target_01",
+    "Harness_Target_02",
+    "Harness_Target_03",
+    "Harness_KeyLight",
+    "Harness_SkyLight",
+]
+
+
+def _suggest_actor_labels(config):
+    """Log a hint when harness_level_required_actor_labels is not yet configured."""
+    existing = config.get("harness_level_required_actor_labels", [])
+    if existing:
+        return
+    labels_repr = json.dumps(HARNESS_ACTOR_LABELS, ensure_ascii=False)
+    unreal.log_warning(
+        "harness_level_required_actor_labels is empty in Harness/config/project.json. "
+        "To enable level-actor validation in verify_project.py, add the created actor labels:\n"
+        f'  "harness_level_required_actor_labels": {labels_repr}'
+    )
+
 
 create_level()
