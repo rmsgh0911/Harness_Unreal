@@ -10,7 +10,7 @@ function Fail($Message) {
 }
 
 function Get-ProjectDir {
-    return (Resolve-Path (Join-Path $PSScriptRoot "..\\..")).Path
+    return (Resolve-Path (Join-Path $PSScriptRoot "..\\..\\..")).Path
 }
 
 function Read-ProjectConfig {

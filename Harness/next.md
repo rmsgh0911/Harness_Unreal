@@ -5,8 +5,8 @@
 - 이 프로젝트 기준으로 `Harness/config/project.json`을 채운다.
 - 실제 Source, Config, 에셋 기준으로 `Harness/state.md`를 갱신한다.
 - Git 저장소를 사용할 예정이면 `.gitattributes`의 Git LFS 규칙을 팀 정책에 맞게 확인한다.
-- `Harness/scripts/verify_project.py`를 실행하고 필수 검증 항목을 프로젝트 현실에 맞춘다.
-- C++ 또는 모듈 작업이 예정되어 있으면 `Harness/scripts/build_verify.ps1`가 실행되도록 `build.engine_root`와 target 이름을 채운다.
+- `Harness/scripts/unreal/verify_project.py`를 실행하고 필수 검증 항목을 프로젝트 현실에 맞춘다.
+- C++ 또는 모듈 작업이 예정되어 있으면 `Harness/scripts/build/build_verify.ps1`가 실행되도록 `build.engine_root`와 target 이름을 채운다.
 - 오늘 날짜의 `Harness/cycles/YYYY-MM-DD.md`를 만들고 초기 Harness 설정 기록을 남긴다.
 
 ## 기능 작업

@@ -8,9 +8,28 @@
     "worker_runs_smallest_reasonable_verification",
     "worker_checks_unreal_risks",
     "worker_records_short_cycle_result",
+    "worker_decides_continue_or_stop",
     "worker_updates_state_snapshot_if_confirmed",
     "worker_updates_next_items_if_unresolved"
   ],
+  "cycle_count_rules": {
+    "phrases": [
+      "사이클",
+      "반복",
+      "최대 N회",
+      "최대 N사이클"
+    ],
+    "one_cycle_means": [
+      "implement_or_improve",
+      "smallest_reasonable_verification",
+      "self_review",
+      "short_record",
+      "continue_or_stop_decision"
+    ],
+    "max_cycles_is_upper_bound": true,
+    "stop_before_max_when_success_criteria_met": true,
+    "do_not_repeat_same_attempt_without_new_evidence": true
+  },
   "worker_switching": {
     "allowed": true,
     "requires_human_assignment": true,
@@ -48,6 +67,30 @@
     "state_keeps_only_latest_confirmed_facts": true,
     "next_keeps_only_unresolved_work": true,
     "avoid_duplicate_state_next_cycles": true
+  },
+  "tool_policy": {
+    "agent_may_add_tools": true,
+    "default_tool_directory": "Harness/scripts/tools",
+    "manifest": "Harness/scripts/tools/tool_manifest.json",
+    "create_when": [
+      "same_exploration_or_verification_will_repeat",
+      "output_can_be_short_text_or_json",
+      "project_specific_values_can_be_configured",
+      "tool_has_single_small_purpose"
+    ],
+    "avoid_when": [
+      "one_off_temporary_conversion",
+      "judgment_heavy_refactor",
+      "unreal_editor_state_is_required_for_reliable_result",
+      "existing_script_option_is_enough"
+    ],
+    "safety_rules": [
+      "default_execution_should_be_read_only",
+      "file_writes_require_explicit_option",
+      "project_specific_values_should_not_be_hardcoded",
+      "new_or_changed_tools_must_be_recorded_in_manifest",
+      "new_or_changed_tools_need_smallest_reasonable_verification"
+    ]
   },
   "language_policy": {
     "default_human_language": "ko",

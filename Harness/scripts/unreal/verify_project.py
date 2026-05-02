@@ -109,7 +109,7 @@ def verify_harness_level(config):
     if not unreal.EditorAssetLibrary.does_asset_exist(level_path):
         unreal.log_warning(
             f"Harness level has not been created yet: {level_path}. "
-            "Run Harness/scripts/create_level.py if level validation is needed."
+            "Run Harness/scripts/unreal/create_level.py if level validation is needed."
         )
         return
 

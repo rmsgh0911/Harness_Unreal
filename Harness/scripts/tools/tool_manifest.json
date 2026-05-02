@@ -1,0 +1,188 @@
+{
+  "version": 1,
+  "purpose": "agent_created_tool_registry",
+  "policy": {
+    "default_directory": "Harness/scripts/tools",
+    "safe_by_default": true,
+    "prefer_read_only_default": true,
+    "write_options_must_be_explicit": true,
+    "project_specific_values_source": "Harness/config/project.json"
+  },
+  "tools": [
+    {
+      "name": "harness_context",
+      "path": "Harness/scripts/tools/harness_context.py",
+      "purpose": "작업 시작 시 Harness 상태, 다음 작업, 오늘 사이클, 도구 정보를 짧게 요약해 에이전트의 초기 읽기 비용을 줄인다.",
+      "inputs": [
+        "HARNESS.md",
+        "Harness/state.md",
+        "Harness/next.md",
+        "Harness/config/project.json",
+        "Harness/config/cycle_policy.json",
+        "Harness/scripts/tools/tool_manifest.json"
+      ],
+      "outputs": [
+        "short_text",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_context.py --json"
+    },
+    {
+      "name": "harness_doctor",
+      "path": "Harness/scripts/tools/harness_doctor.py",
+      "purpose": "Harness 문서, 설정, 도구 manifest가 서로 맞는지 빠르게 점검한다.",
+      "inputs": [
+        "HARNESS.md",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "Harness/config/*.json",
+        "Harness/scripts/tools/tool_manifest.json"
+      ],
+      "outputs": [
+        "check_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_doctor.py --json"
+    },
+    {
+      "name": "harness_scan",
+      "path": "Harness/scripts/tools/harness_scan.py",
+      "purpose": "Unreal 프로젝트 구조를 훑어 project.json 후보와 주요 Source/Config/Plugin 정보를 요약한다.",
+      "inputs": [
+        "*.uproject",
+        "Source/**/*.Build.cs",
+        "Source/**/*Target.cs",
+        "Config/*.ini",
+        "Plugins/**/*.uplugin",
+        "Content/**/*.umap with --include-assets"
+      ],
+      "outputs": [
+        "scan_summary",
+        "project_json_candidate",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_scan.py --json"
+    },
+    {
+      "name": "harness_cycle",
+      "path": "Harness/scripts/tools/harness_cycle.py",
+      "purpose": "짧은 사이클 로그 항목을 dry run으로 만들고, 명시적 --write가 있을 때만 오늘 cycles 파일에 추가한다.",
+      "inputs": [
+        "title",
+        "--changed",
+        "--verified",
+        "--remaining",
+        "--date"
+      ],
+      "outputs": [
+        "cycle_log_entry"
+      ],
+      "writes_files": "only_with_--write",
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_cycle.py \"도구 검증\" --changed \"dry run\" --verified \"json\" --json"
+    },
+    {
+      "name": "harness_diff_guard",
+      "path": "Harness/scripts/tools/harness_diff_guard.py",
+      "purpose": "git status 또는 생성물 디렉터리 감지를 통해 Unreal 작업에서 위험한 변경 범위를 빠르게 요약한다.",
+      "inputs": [
+        "git status --short when available",
+        "Binaries/",
+        "Intermediate/",
+        "Saved/",
+        "DerivedDataCache/",
+        "changed Source headers and Build.cs files"
+      ],
+      "outputs": [
+        "risk_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_diff_guard.py --json"
+    },
+    {
+      "name": "harness_handoff",
+      "path": "Harness/scripts/tools/harness_handoff.py",
+      "purpose": "다른 에이전트나 새 세션으로 넘길 최소 컨텍스트를 dry run으로 생성하고, 명시적 --write가 있을 때만 handoff 문서를 쓴다.",
+      "inputs": [
+        "harness_context",
+        "harness_diff_guard",
+        "Harness/next.md",
+        "Harness/cycles/YYYY-MM-DD.md",
+        "--request"
+      ],
+      "outputs": [
+        "handoff_markdown"
+      ],
+      "writes_files": "only_with_--write",
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_handoff.py --request \"검증\""
+    },
+    {
+      "name": "harness_verify_all",
+      "path": "Harness/scripts/tools/harness_verify_all.py",
+      "purpose": "작업 종료 전 에이전트가 doctor, JSON 파싱, Python 컴파일, scan, diff guard, build readiness를 한 번에 확인한다.",
+      "inputs": [
+        "harness_doctor",
+        "harness_context",
+        "harness_scan",
+        "harness_diff_guard",
+        "Harness/config/*.json",
+        "Harness/scripts/**/*.py"
+      ],
+      "outputs": [
+        "verification_bundle_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_verify_all.py --json"
+    },
+    {
+      "name": "harness_migration_audit",
+      "path": "Harness/scripts/tools/harness_migration_audit.py",
+      "purpose": "구버전 Harness가 들어간 대상 프로젝트를 이식하기 전에 보존, 갱신, 정리 항목을 읽기 전용으로 점검한다.",
+      "inputs": [
+        "--target",
+        "target/Harness/state.md",
+        "target/Harness/next.md",
+        "target/Harness/cycles/",
+        "target/Harness/config/project.json",
+        "target active docs"
+      ],
+      "outputs": [
+        "migration_audit_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_migration_audit.py --target . --json"
+    },
+    {
+      "name": "harness_doc_check",
+      "path": "Harness/scripts/tools/harness_doc_check.py",
+      "purpose": "Harness 문서가 길어지거나 state.md에 작업 이력이 섞이는지, 구버전 스크립트 경로가 남았는지 점검한다.",
+      "inputs": [
+        "--target",
+        "Harness/state.md",
+        "Harness/next.md",
+        "Harness/README.md",
+        "Harness/cycles/"
+      ],
+      "outputs": [
+        "doc_health_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_doc_check.py --target . --json"
+    }
+  ]
+}
