@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import find_project_root, harness_dir, load_json, read_text, print_text_or_json
+from harness_common import find_project_root, harness_dir, load_json, read_text, print_text_or_json, rel
 
 
 def check(condition: bool, message: str, severity: str = "error") -> dict:
@@ -17,6 +17,10 @@ def check(condition: bool, message: str, severity: str = "error") -> dict:
 
 def includes(text: str, needle: str) -> bool:
     return needle in text
+
+
+def is_blank(value: object) -> bool:
+    return value in (None, "", [], {})
 
 
 def run_doctor(root: Path) -> dict:
@@ -33,11 +37,13 @@ def run_doctor(root: Path) -> dict:
         harness / "config" / "agents.json",
         harness / "config" / "cycle_policy.json",
         harness / "config" / "docs.json",
+        harness / "docs" / "README.md",
         harness / "scripts" / "unreal" / "verify_project.py",
         harness / "scripts" / "unreal" / "create_level.py",
         harness / "scripts" / "build" / "build_verify.ps1",
         harness / "scripts" / "build" / "build_verify.cmd",
         harness / "scripts" / "tools" / "tool_manifest.json",
+        harness / "scripts" / "tools" / "harness_common.py",
     ]
     for path in required_files:
         results.append(check(path.exists(), f"required file exists: {path.relative_to(root).as_posix()}"))
@@ -50,7 +56,7 @@ def run_doctor(root: Path) -> dict:
         results.append(check(includes(cl_text, "HARNESS.md"), "CLAUDE.md routes Claude Code to HARNESS.md"))
     results.append(check(includes(harness_text, "최대 N사이클"), "HARNESS.md explains max-cycle requests"))
     results.append(check(includes(harness_text, "도구 추가"), "HARNESS.md explains agent-added tools"))
-    results.append(check(includes(harness_text, "ProjectDocs"), "HARNESS.md explains project document roots"))
+    results.append(check(includes(harness_text, "Harness/docs"), "HARNESS.md explains default project document root"))
     results.append(check(includes(harness_text, "docs.json"), "HARNESS.md explains docs.json policy"))
 
     json_paths = [
@@ -77,6 +83,7 @@ def run_doctor(root: Path) -> dict:
             results.append(check(isinstance(tools, list), "tool_manifest.json has tools list"))
             names = [tool.get("name") for tool in tools if isinstance(tool, dict)]
             results.append(check(len(names) == len(set(names)), "tool_manifest.json tool names are unique"))
+            declared_paths = {tool.get("path") for tool in tools if isinstance(tool, dict)}
             for index, tool in enumerate(tools, start=1):
                 name = tool.get("name", f"tool #{index}") if isinstance(tool, dict) else f"tool #{index}"
                 results.append(check(isinstance(tool, dict), f"manifest entry is object: {name}"))
@@ -91,6 +98,60 @@ def run_doctor(root: Path) -> dict:
                 results.append(check("writes_files" in tool, f"manifest tool declares writes_files: {name}"))
                 results.append(check(tool.get("safe_by_default") is True, f"manifest tool is safe by default: {name}"))
                 results.append(check(bool(tool.get("verify")), f"manifest tool has verify command: {name}"))
+                if tool.get("verify"):
+                    results.append(
+                        check(
+                            str(declared_path) in str(tool.get("verify")),
+                            f"manifest verify command references tool path: {name}",
+                            "warning",
+                        )
+                    )
+
+            tool_scripts = sorted((harness / "scripts" / "tools").glob("*.py"))
+            for script in tool_scripts:
+                script_rel = rel(script, root)
+                if script.name == "harness_common.py":
+                    continue
+                results.append(
+                    check(
+                        script_rel in declared_paths,
+                        f"tool script is listed in manifest: {script_rel}",
+                        "warning",
+                    )
+                )
+
+    project = load_json(harness / "config" / "project.json", {}) or {}
+    if isinstance(project, dict):
+        project_fields = ["project_name", "uproject_file", "engine_version"]
+        blank_project_fields = [field for field in project_fields if is_blank(project.get(field))]
+        build = project.get("build", {}) if isinstance(project.get("build", {}), dict) else {}
+        blank_build_fields = [field for field in ["engine_root", "editor_target_name"] if is_blank(build.get(field))]
+        has_real_uproject = bool(list(root.glob("*.uproject")))
+        if has_real_uproject:
+            for field in blank_project_fields:
+                results.append(check(False, f"project.json field is configured: {field}", "warning"))
+            for field in blank_build_fields:
+                results.append(check(False, f"project.json build field is configured: build.{field}", "warning"))
+        else:
+            results.append(
+                check(
+                    True,
+                    "project.json may stay blank in the standalone template repository",
+                    "warning",
+                )
+            )
+
+    generated_python_files = [
+        *sorted((harness / "scripts").rglob("__pycache__")),
+        *sorted((harness / "scripts").rglob("*.pyc")),
+    ]
+    results.append(
+        check(
+            not generated_python_files,
+            "Harness scripts contain no generated Python cache files",
+            "warning",
+        )
+    )
 
     cycles_dir = harness / "cycles"
     tools_dir = harness / "scripts" / "tools"

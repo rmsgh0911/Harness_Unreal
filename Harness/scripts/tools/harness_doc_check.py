@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import dump_json, find_project_root, harness_dir, read_text, rel
+from harness_common import dump_json, find_project_root, harness_dir, load_json, read_text, rel
 
 
 HISTORY_HINTS = [
@@ -42,7 +42,13 @@ def count_hits(text: str, hints: list[str]) -> int:
     return sum(text.count(hint) for hint in hints)
 
 
-def check_file(root: Path, relative: str, soft_limit: int, hard_limit: int) -> dict:
+def is_template_unconfigured(root: Path) -> bool:
+    project = load_json(harness_dir(root) / "config" / "project.json", {}) or {}
+    project_configured = bool(project.get("project_name") and project.get("uproject_file")) if isinstance(project, dict) else False
+    return not project_configured and not list(root.glob("*.uproject"))
+
+
+def check_file(root: Path, relative: str, soft_limit: int, hard_limit: int, allow_placeholders: bool = False) -> dict:
     path = root / relative
     text = read_text(path)
     lines = line_count(text)
@@ -55,7 +61,7 @@ def check_file(root: Path, relative: str, soft_limit: int, hard_limit: int) -> d
         warnings.append(f"longer_than_hard_limit:{hard_limit}")
     unresolved = count_hits(text, UNRESOLVED_HINTS)
     old_paths = count_hits(text, OLD_PATH_HINTS)
-    if unresolved:
+    if unresolved and not allow_placeholders:
         warnings.append(f"unresolved_placeholders:{unresolved}")
     if old_paths:
         warnings.append(f"old_script_paths:{old_paths}")
@@ -98,9 +104,10 @@ def cycle_summary(root: Path) -> dict:
 
 
 def build_report(root: Path) -> dict:
+    template_unconfigured = is_template_unconfigured(root)
     docs = [
-        check_file(root, "Harness/state.md", soft_limit=140, hard_limit=220),
-        check_file(root, "Harness/next.md", soft_limit=100, hard_limit=160),
+        check_file(root, "Harness/state.md", soft_limit=140, hard_limit=220, allow_placeholders=template_unconfigured),
+        check_file(root, "Harness/next.md", soft_limit=100, hard_limit=160, allow_placeholders=template_unconfigured),
         check_file(root, "Harness/README.md", soft_limit=160, hard_limit=260),
     ]
     state = state_specific(root)
@@ -116,6 +123,7 @@ def build_report(root: Path) -> dict:
     return {
         "root": str(root),
         "ok": not any(item["level"] == "error" for item in findings),
+        "template_unconfigured": template_unconfigured,
         "docs": docs,
         "state": state,
         "cycles": cycles,

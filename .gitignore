@@ -88,3 +88,16 @@ DerivedDataCache/*
 
 # Claude Code local workspace/cache
 .claude/
+
+# Harness generated runtime files
+Harness/handoff.md
+__pycache__/
+*.pyc
+Harness/scripts/**/__pycache__/
+Harness/scripts/**/*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Local reference projects used while evolving the template
+Harness_ArcSaber_2/

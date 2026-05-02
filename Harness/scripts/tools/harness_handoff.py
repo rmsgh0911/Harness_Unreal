@@ -10,10 +10,12 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 
 from harness_common import (
+    dump_json,
     find_project_root,
     harness_dir,
     markdown_list_items,
     read_text,
+    rel,
     today_cycle_path,
     write_text,
 )
@@ -52,7 +54,10 @@ def build_handoff(root: Path, request: str = "") -> str:
 
     lines.extend(["", "## 다음 작업"])
     next_items = markdown_list_items(next_text, limit=8)
-    lines.extend(f"- {item}" for item in next_items) if next_items else lines.append("- 없음")
+    if next_items:
+        lines.extend(f"- {item}" for item in next_items)
+    else:
+        lines.append("- 없음")
 
     lines.extend(["", "## 변경 파일"])
     if diff["changed"]:
@@ -82,18 +87,32 @@ def main() -> None:
     parser.add_argument("--request", default="", help="Current user request or handoff reason.")
     parser.add_argument("--output", type=Path, default=None, help="Output path. Defaults to Harness/handoff.md.")
     parser.add_argument("--write", action="store_true", help="Write the handoff brief. Default is dry run.")
+    parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     args = parser.parse_args()
 
     root = find_project_root(args.root)
     output = args.output or (root / "Harness" / "handoff.md")
     text = build_handoff(root, args.request)
+    result = {
+        "root": str(root),
+        "output": rel(output, root),
+        "write": args.write,
+        "status": "written" if args.write else "dry_run",
+        "handoff": text,
+    }
     if args.write:
         write_text(output, text)
-        print(f"Wrote handoff brief: {output}")
+        if args.json:
+            print(dump_json(result))
+        else:
+            print(f"Wrote handoff brief: {output}")
     else:
-        print(text.rstrip())
-        print("")
-        print(f"Dry run only. Add --write to write {output}")
+        if args.json:
+            print(dump_json(result))
+        else:
+            print(text.rstrip())
+            print("")
+            print(f"Dry run only. Add --write to write {output}")
 
 
 if __name__ == "__main__":

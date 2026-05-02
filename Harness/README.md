@@ -21,6 +21,7 @@
 - `state.md`: 최신 확정 상태만 유지
 - `next.md`: 남은 작업, 보류 리스크, 사람 판단 필요 항목
 - `cycles/`: 날짜별 짧은 작업 기록
+- `docs/`: 기획서, 구현기준서, 시나리오, 검증 기준, 회고 문서의 기본 위치
 - `scripts/`: Harness 실행 스크립트 루트
 - `scripts/unreal/`: Unreal Editor 안에서 실행되는 Python 스크립트
 - `scripts/build/`: UBT 빌드와 프로젝트 파일 생성 보조 스크립트
@@ -35,9 +36,11 @@
 
 ## 프로젝트 문서
 
-기획서, 구현기준서, 시뮬레이션 시나리오, 검증 기준, 회고 문서는 `Harness/` 안에 두지 않는다.
+기획서, 구현기준서, 시뮬레이션 시나리오, 검증 기준, 회고 문서는 기본적으로 `Harness/docs/`에 둔다.
 
-기본 권장 위치는 루트 `ProjectDocs/`이며, 실제 위치와 읽기 정책은 `Harness/config/docs.json`에 둔다. 에이전트는 사용자가 문서 참고를 요청했거나 작업 의도 확인이 필요할 때만 관련 문서를 읽는다.
+이 구조는 템플릿을 다른 프로젝트로 옮길 때 `HARNESS.md`와 `Harness/`만 챙기면 문서 지도까지 함께 이동하게 만든다. 문서가 너무 크거나 팀에서 이미 쓰는 외부 문서 폴더가 있으면 루트 `ProjectDocs/`, `Docs/`, `DesignDocs/` 같은 폴더를 추가로 쓰고 `Harness/config/docs.json`에 등록한다.
+
+에이전트는 사용자가 문서 참고를 요청했거나 작업 의도 확인이 필요할 때만 관련 문서를 읽는다.
 
 ## 검증 도구
 
@@ -63,7 +66,7 @@
 
 - `harness_context.py`: 작업 시작용 짧은 Harness 브리핑
 - `harness_doctor.py`: Harness 구조와 정책 파일 점검
-- `harness_docs_check.py`: `ProjectDocs`와 `docs.json`의 문서 발견/읽기 정책 점검
+- `harness_docs_check.py`: `Harness/docs`와 `docs.json`의 문서 발견/읽기 정책 점검
 - `harness_scan.py`: Unreal 프로젝트 구조와 `project.json` 후보 요약
 - `harness_cycle.py`: 사이클 로그 항목 생성, `--write`가 있을 때만 기록
 - `harness_diff_guard.py`: 변경 범위와 Unreal 위험 신호 점검
@@ -71,6 +74,12 @@
 - `harness_verify_all.py`: 작업 종료 전 표준 경량 검증 묶음 실행
 - `harness_migration_audit.py`: 구버전 Harness 이식 전 보존/갱신/정리 항목 점검
 - `harness_doc_check.py`: Harness 문서 길이, 구버전 경로, state/이력 혼합 점검
+- `harness_python_check.py`: Python 3 실행 가능 여부와 Unreal Python 후보 점검
+- `harness_init_plan.py`: 초기화/이식 시 보존, 채움, 검증 계획 요약
+- `harness_docs_index.py`: 문서 heading 색인 생성으로 읽기 범위 축소
+- `harness_project_fill.py`: `project.json` 후보 생성, `--write`가 있을 때만 빈 필드 채움
+- `harness_cycle_summary.py`: 최근 cycle 로그 요약
+- `harness_unreal_risk.py`: 변경 파일의 Unreal 위험 신호 요약
 
 도구 추가 원칙:
 

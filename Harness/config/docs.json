@@ -1,10 +1,15 @@
 {
   "version": 1,
   "doc_roots": [
-    "ProjectDocs"
+    "Harness/docs"
   ],
   "entry_points": [
-    "ProjectDocs/README.md"
+    "Harness/docs/README.md"
+  ],
+  "optional_external_roots": [
+    "ProjectDocs",
+    "Docs",
+    "DesignDocs"
   ],
   "read_policy": {
     "default": "on_demand",

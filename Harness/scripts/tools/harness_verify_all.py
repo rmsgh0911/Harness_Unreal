@@ -93,6 +93,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
         "ok": hard_ok,
         "summary": {
             "doctor": "ok" if doctor["ok"] else "failed",
+            "doctor_warnings": doctor["summary"].get("warnings", 0),
             "json": "ok" if json_check["ok"] else "failed",
             "python_compile": "ok" if compile_check["ok"] else "failed",
             "scan": "ok",
@@ -139,12 +140,13 @@ def format_text(report: dict) -> str:
         f"- Root: {report['root']}",
         f"- Status: {'ok' if report['ok'] else 'needs attention'}",
         f"- Doctor: {report['summary']['doctor']}",
+        f"- Doctor warnings: {report['summary']['doctor_warnings']}",
         f"- JSON: {report['summary']['json']}",
         f"- Python compile: {report['summary']['python_compile']}",
         f"- Scan: {report['summary']['scan']}",
         f"- Diff guard: {report['summary']['diff_guard']} ({report['diff_guard']['mode']})",
-        f"- Doc check: {report['summary']['doc_check']}",
-        f"- Docs policy: {report['summary']['docs_check']}",
+        f"- Doc health (state/next/cycles 길이·포맷): {report['summary']['doc_check']}",
+        f"- Docs policy (문서 루트 발견·읽기정책): {report['summary']['docs_check']}",
         f"- Build: {report['summary']['build']}",
     ]
     if report["context_warnings"]:

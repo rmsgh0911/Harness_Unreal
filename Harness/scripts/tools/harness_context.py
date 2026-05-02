@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 import sys
 from pathlib import Path
 
@@ -32,10 +33,27 @@ def build_context(root: Path, request: str = "") -> dict:
     state_text = read_text(harness / "state.md")
     next_text = read_text(harness / "next.md")
     cycle_path = today_cycle_path(root)
+    project_configured = bool(project.get("project_name") and project.get("uproject_file"))
+    recommended_first_reads = [
+        "HARNESS.md",
+        "Harness/state.md",
+        "Harness/next.md",
+    ]
+    if cycle_path.exists():
+        recommended_first_reads.append(rel(cycle_path, root))
 
     uproject_files = sorted(path.name for path in root.glob("*.uproject"))
     immediate_items = markdown_list_items(next_text, limit=6)
     request_eval = evaluate_request(request, docs_config)
+    files = {
+        "HARNESS.md": file_status(root / "HARNESS.md"),
+        "AGENTS.md": file_status(root / "AGENTS.md"),
+        "CLAUDE.md": file_status(root / "CLAUDE.md"),
+        "Harness/state.md": file_status(harness / "state.md"),
+        "Harness/next.md": file_status(harness / "next.md"),
+    }
+    if project_configured or cycle_path.exists():
+        files[rel(cycle_path, root)] = file_status(cycle_path)
 
     return {
         "root": str(root),
@@ -43,16 +61,9 @@ def build_context(root: Path, request: str = "") -> dict:
             "name": project.get("project_name") or (uproject_files[0].removesuffix(".uproject") if len(uproject_files) == 1 else ""),
             "uproject_file": project.get("uproject_file") or (uproject_files[0] if len(uproject_files) == 1 else ""),
             "engine_version": project.get("engine_version", ""),
-            "configured": bool(project.get("project_name") and project.get("uproject_file")),
+            "configured": project_configured,
         },
-        "files": {
-            "HARNESS.md": file_status(root / "HARNESS.md"),
-            "AGENTS.md": file_status(root / "AGENTS.md"),
-            "CLAUDE.md": file_status(root / "CLAUDE.md"),
-            "Harness/state.md": file_status(harness / "state.md"),
-            "Harness/next.md": file_status(harness / "next.md"),
-            rel(cycle_path, root): file_status(cycle_path),
-        },
+        "files": files,
         "state_heading": first_heading(state_text),
         "next_items": immediate_items,
         "cycle_policy": {
@@ -63,6 +74,7 @@ def build_context(root: Path, request: str = "") -> dict:
         "project_docs": {
             "doc_roots": docs_config.get("doc_roots", []),
             "entry_points": docs_config.get("entry_points", []),
+            "optional_external_roots": docs_config.get("optional_external_roots", []),
             "read_policy": docs_config.get("read_policy", {}).get("default", "on_demand"),
             "request_eval": request_eval,
         },
@@ -72,29 +84,28 @@ def build_context(root: Path, request: str = "") -> dict:
             "manifest": file_status(harness / "scripts" / "tools" / "tool_manifest.json"),
         },
         "verification_commands": [
+            "python Harness/scripts/tools/harness_python_check.py",
             "python Harness/scripts/tools/harness_doctor.py",
             "python Harness/scripts/tools/harness_docs_check.py --json",
+            "python Harness/scripts/tools/harness_docs_index.py",
             "python Harness/scripts/tools/harness_scan.py --json",
             "python Harness/scripts/tools/harness_diff_guard.py",
+            "python Harness/scripts/tools/harness_unreal_risk.py",
         ],
         "warnings": build_warnings(root, project, cycle_path),
-        "recommended_first_reads": [
-            "HARNESS.md",
-            "Harness/state.md",
-            "Harness/next.md",
-            rel(cycle_path, root),
-        ],
+        "recommended_first_reads": recommended_first_reads,
     }
 
 
 def build_warnings(root: Path, project: dict, cycle_path: Path) -> list[str]:
     warnings: list[str] = []
-    if not project.get("project_name") or not project.get("uproject_file"):
+    project_configured = bool(project.get("project_name") and project.get("uproject_file"))
+    if not project_configured:
         warnings.append("project.json is not fully configured")
-    if not cycle_path.exists():
+    if project_configured and not cycle_path.exists():
         warnings.append(f"today cycle log is missing: {rel(cycle_path, root)}")
-    if (root / ".git").exists():
-        warnings.append("git directory exists; use harness_diff_guard.py to check whether git is available")
+    if (root / ".git").exists() and not shutil.which("git"):
+        warnings.append("git repository found but git CLI not in PATH; change tracking will be limited (harness_diff_guard.py will use directory scan mode)")
     return warnings
 
 
@@ -112,6 +123,8 @@ def format_text(context: dict) -> str:
         lines.append("- Warnings: " + "; ".join(context["warnings"]))
     if context["project_docs"]["doc_roots"]:
         lines.append("- Project docs: " + ", ".join(context["project_docs"]["doc_roots"]))
+    if context["project_docs"]["optional_external_roots"]:
+        lines.append("- Optional external docs: " + ", ".join(context["project_docs"]["optional_external_roots"]))
     request_eval = context["project_docs"].get("request_eval", {})
     if request_eval.get("request"):
         lines.append(f"- Should read docs: {request_eval.get('should_read_docs')}")

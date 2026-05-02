@@ -40,6 +40,11 @@ def parse_uproject(path: Path) -> dict:
     }
 
 
+def target_name(path: Path) -> str:
+    name = path.name
+    return name.removesuffix(".Target.cs")
+
+
 def scan(root: Path, include_assets: bool = False) -> dict:
     uprojects = [parse_uproject(path) for path in sorted(root.glob("*.uproject"))]
     source_dir = root / "Source"
@@ -53,8 +58,8 @@ def scan(root: Path, include_assets: bool = False) -> dict:
     maps, maps_truncated = safe_rglob(root / "Content", "*.umap", limit=80) if include_assets and (root / "Content").exists() else ([], False)
 
     module_names = sorted({path.stem.removesuffix(".Build") for path in build_cs})
-    editor_targets = sorted(path.stem for path in targets if "Editor" in path.stem)
-    game_targets = sorted(path.stem for path in targets if "Editor" not in path.stem)
+    editor_targets = sorted(target_name(path) for path in targets if "Editor" in target_name(path))
+    game_targets = sorted(target_name(path) for path in targets if "Editor" not in target_name(path))
 
     project_json_candidate = {
         "project_name": uprojects[0]["file"].removesuffix(".uproject") if len(uprojects) == 1 else "",

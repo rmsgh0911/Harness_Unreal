@@ -72,8 +72,7 @@ def verify_startup_map(config):
         if separator and key.strip() == "EditorStartupMap" and value.strip() in accepted_values:
             return
 
-    if not any(f"EditorStartupMap={value}" in text for value in accepted_values):
-        fail(f"EditorStartupMap is not {startup_map}")
+    fail(f"EditorStartupMap is not {startup_map}")
 
 
 def verify_uproject(config):

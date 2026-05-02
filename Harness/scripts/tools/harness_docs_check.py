@@ -1,4 +1,4 @@
-"""Check ProjectDocs discovery and on-demand read policy."""
+"""Check Harness project-doc discovery and on-demand read policy."""
 
 from __future__ import annotations
 
@@ -11,6 +11,9 @@ sys.dont_write_bytecode = True
 from harness_common import dump_json, find_project_root, harness_dir, load_json, read_text, rel
 
 
+# Fallback hints used when docs.json is absent or does not define request_hints.
+# If you update docs.json request_hints, keep these in sync so the fallback
+# behaves consistently with a missing or empty config.
 REQUEST_READ_HINTS = [
     "기획",
     "GDD",
@@ -52,6 +55,11 @@ def is_safe_relative_path(value: str) -> bool:
     return not path.is_absolute() and ".." not in path.parts
 
 
+def is_harness_docs_path(value: str) -> bool:
+    normalized = Path(value).as_posix().rstrip("/")
+    return normalized == "Harness/docs" or normalized.startswith("Harness/docs/")
+
+
 def list_markdown_files(root: Path, doc_roots: list[str]) -> list[str]:
     files: list[str] = []
     for doc_root in doc_roots:
@@ -60,6 +68,12 @@ def list_markdown_files(root: Path, doc_roots: list[str]) -> list[str]:
             continue
         files.extend(rel(path, root) for path in sorted(base.glob("**/*.md")) if path.is_file())
     return files
+
+
+def normalize_string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
 
 
 def configured_hints(docs_config: dict, key: str, fallback: list[str]) -> list[str]:
@@ -110,6 +124,7 @@ def build_report(root: Path, request: str = "") -> dict:
 
     doc_roots = docs_config.get("doc_roots", [])
     entry_points = docs_config.get("entry_points", [])
+    optional_external_roots = docs_config.get("optional_external_roots", [])
     read_policy = docs_config.get("read_policy", {})
 
     if not isinstance(doc_roots, list) or not all(isinstance(item, str) for item in doc_roots):
@@ -118,11 +133,16 @@ def build_report(root: Path, request: str = "") -> dict:
     if not isinstance(entry_points, list) or not all(isinstance(item, str) for item in entry_points):
         add_finding(findings, "error", "entry_points must be a list of relative paths", rel(config_path, root))
         entry_points = []
+    if optional_external_roots and (
+        not isinstance(optional_external_roots, list) or not all(isinstance(item, str) for item in optional_external_roots)
+    ):
+        add_finding(findings, "error", "optional_external_roots must be a list of relative paths", rel(config_path, root))
+        optional_external_roots = []
     if not isinstance(read_policy, dict):
         add_finding(findings, "error", "read_policy must be an object", rel(config_path, root))
         read_policy = {}
 
-    for path_text in [*doc_roots, *entry_points]:
+    for path_text in [*doc_roots, *entry_points, *normalize_string_list(optional_external_roots)]:
         if not is_safe_relative_path(path_text):
             add_finding(findings, "error", f"path must be safe and relative: {path_text}", rel(config_path, root))
 
@@ -139,8 +159,17 @@ def build_report(root: Path, request: str = "") -> dict:
         root_status.append({"path": doc_root, "exists": exists, "inside_harness": inside_harness})
         if not exists:
             add_finding(findings, "warning", "doc root is missing", doc_root)
-        if inside_harness:
-            add_finding(findings, "error", "project documents must live outside Harness", doc_root)
+        if inside_harness and not is_harness_docs_path(doc_root):
+            add_finding(findings, "error", "project documents inside Harness must use Harness/docs", doc_root)
+
+    optional_status: list[dict] = []
+    for optional_root in normalize_string_list(optional_external_roots):
+        path = root / optional_root
+        exists = path.exists() and path.is_dir()
+        registered = optional_root in doc_roots
+        optional_status.append({"path": optional_root, "exists": exists, "registered": registered})
+        if exists and not registered:
+            add_finding(findings, "info", "optional external doc root exists but is not registered in doc_roots", optional_root)
 
     entry_status: list[dict] = []
     for entry in entry_points:
@@ -155,7 +184,7 @@ def build_report(root: Path, request: str = "") -> dict:
             add_finding(findings, "info", "entry point exists but does not look like a document map", entry)
 
     if (root / "Harness" / "doc").exists():
-        add_finding(findings, "warning", "legacy Harness/doc exists; move project documents to ProjectDocs", "Harness/doc")
+        add_finding(findings, "warning", "legacy Harness/doc exists; migrate project documents to Harness/docs", "Harness/doc")
 
     default_policy = read_policy.get("default")
     if default_policy != "on_demand":
@@ -183,10 +212,12 @@ def build_report(root: Path, request: str = "") -> dict:
         "summary": {
             "doc_roots": len(doc_roots),
             "entry_points": len(entry_points),
+            "optional_external_roots": len(normalize_string_list(optional_external_roots)),
             "markdown_files": len(markdown_files),
             "findings": len(findings),
         },
         "doc_roots": root_status,
+        "optional_external_roots": optional_status,
         "entry_points": entry_status,
         "markdown_files": markdown_files,
         "read_policy": {
@@ -209,6 +240,7 @@ def format_text(report: dict) -> str:
         f"- Root: {report['root']}",
         f"- Status: {'ok' if report['ok'] else 'needs attention'}",
         f"- Doc roots: {report['summary']['doc_roots']}",
+        f"- Optional external roots: {report['summary']['optional_external_roots']}",
         f"- Entry points: {report['summary']['entry_points']}",
         f"- Markdown files: {report['summary']['markdown_files']}",
         f"- Read policy: {report['read_policy']['default'] or 'missing'}",
@@ -232,7 +264,7 @@ def format_text(report: dict) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Check ProjectDocs discovery and docs.json read policy.")
+    parser = argparse.ArgumentParser(description="Check Harness project-doc discovery and docs.json read policy.")
     parser.add_argument("--root", type=Path, default=None, help="Project root. Defaults to nearest Harness root.")
     parser.add_argument("--request", default="", help="Optional user request to evaluate against the docs read policy.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")

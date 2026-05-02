@@ -126,6 +126,7 @@ def audit(root: Path) -> dict:
     harness = root / "Harness"
     scripts = harness / "scripts"
     cycles = harness / "cycles"
+    harness_docs = harness / "docs"
     legacy_doc = harness / "doc"
     project_docs = root / "ProjectDocs"
     reviews = harness / "reviews"
@@ -144,12 +145,14 @@ def audit(root: Path) -> dict:
         preserve.append("Harness/next.md")
     if cycle_files:
         preserve.append("Harness/cycles/")
+    if harness_docs.exists():
+        preserve.append("Harness/docs/")
     if project_docs.exists():
-        preserve.append("ProjectDocs/")
+        preserve.append("ProjectDocs/ as optional external docs")
     if legacy_doc.exists():
-        preserve.append("Harness/doc/ until moved to ProjectDocs/")
-        update.append("move legacy Harness/doc project documents to ProjectDocs/ and register them in Harness/config/docs.json")
-        findings.append({"level": "warning", "message": "legacy Harness/doc exists; move project documents outside Harness"})
+        preserve.append("Harness/doc/ until migrated to Harness/docs/")
+        update.append("migrate legacy Harness/doc project documents to Harness/docs/ or register the existing folder in Harness/config/docs.json")
+        findings.append({"level": "warning", "message": "legacy Harness/doc exists; migrate project documents to Harness/docs"})
     if existing(harness / "config" / "project.json"):
         preserve.append("Harness/config/project.json")
     if existing(harness / "config" / "docs.json"):
@@ -202,6 +205,7 @@ def audit(root: Path) -> dict:
         "ok": not any(item["level"] == "error" for item in findings),
         "summary": {
             "cycle_files": len(cycle_files),
+            "harness_docs_files": len([path for path in harness_docs.glob("**/*") if path.is_file() and path.name != ".gitkeep"]) if harness_docs.exists() else 0,
             "project_doc_files": len([path for path in project_docs.glob("**/*") if path.is_file()]) if project_docs.exists() else 0,
             "legacy_harness_doc_files": len([path for path in legacy_doc.glob("**/*") if path.is_file() and path.name != ".gitkeep"]) if legacy_doc.exists() else 0,
             "custom_scripts": len(custom_scripts),
@@ -221,6 +225,7 @@ def audit(root: Path) -> dict:
             "old_script_layout": old_script_layout,
             "has_tools_manifest": existing(scripts / "tools" / "tool_manifest.json"),
             "has_project_docs": project_docs.exists(),
+            "has_harness_docs": harness_docs.exists(),
             "has_legacy_harness_doc": legacy_doc.exists(),
         },
         "old_path_refs": old_refs,

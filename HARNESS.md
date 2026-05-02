@@ -63,8 +63,9 @@
 
 ## 프로젝트 문서 참고
 
-- 기획서, 구현기준서, 시뮬레이션 시나리오, 검증 기준, 회고 문서는 `Harness/` 밖의 프로젝트 문서 폴더에 둔다. 기본 권장 위치는 루트 `ProjectDocs/`다.
-- `Harness/config/docs.json`은 프로젝트 문서 위치와 참조 정책만 담는다. 실제 기획 문서를 `Harness/config/`나 `Harness/` 아래에 저장하지 않는다.
+- 기획서, 구현기준서, 시뮬레이션 시나리오, 검증 기준, 회고 문서는 기본적으로 `Harness/docs/`에 둔다.
+- 템플릿 이식 단위를 작게 유지하기 위해 기본 문서 루트는 `Harness/docs/`를 사용한다. 문서가 너무 크거나 팀에서 이미 쓰는 문서 폴더가 있으면 루트 `ProjectDocs/`, `Docs/`, `DesignDocs/` 같은 외부 폴더를 추가로 쓰고 `Harness/config/docs.json`에 등록한다.
+- `Harness/config/docs.json`은 프로젝트 문서 위치와 참조 정책만 담는다. 실제 기획 문서를 `Harness/config/` 아래에 저장하지 않는다.
 - 에이전트는 프로젝트 문서를 항상 읽지 않는다. 사용자가 문서 참고를 요청했거나, 게임 규칙, 시뮬레이션 요구사항, 입력/UX 흐름, 검증 기준, 구현 의도가 불명확한 작업에서만 관련 문서를 읽는다.
 - 문서를 읽을 때는 `entry_points`와 관련 섹션을 우선 확인하고, 전체 문서를 무작정 훑지 않는다.
 - 요청이 프로젝트 문서를 참고해야 하는지 애매하면 `Harness/scripts/tools/harness_context.py --request "<요청>"` 또는 `Harness/scripts/tools/harness_docs_check.py --request "<요청>"`로 읽기 여부와 첫 진입 문서를 확인한다.
