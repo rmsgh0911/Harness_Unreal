@@ -32,6 +32,7 @@ def run_doctor(root: Path) -> dict:
         harness / "config" / "project.json",
         harness / "config" / "agents.json",
         harness / "config" / "cycle_policy.json",
+        harness / "config" / "docs.json",
         harness / "scripts" / "unreal" / "verify_project.py",
         harness / "scripts" / "unreal" / "create_level.py",
         harness / "scripts" / "build" / "build_verify.ps1",
@@ -49,11 +50,14 @@ def run_doctor(root: Path) -> dict:
         results.append(check(includes(cl_text, "HARNESS.md"), "CLAUDE.md routes Claude Code to HARNESS.md"))
     results.append(check(includes(harness_text, "최대 N사이클"), "HARNESS.md explains max-cycle requests"))
     results.append(check(includes(harness_text, "도구 추가"), "HARNESS.md explains agent-added tools"))
+    results.append(check(includes(harness_text, "ProjectDocs"), "HARNESS.md explains project document roots"))
+    results.append(check(includes(harness_text, "docs.json"), "HARNESS.md explains docs.json policy"))
 
     json_paths = [
         harness / "config" / "project.json",
         harness / "config" / "agents.json",
         harness / "config" / "cycle_policy.json",
+        harness / "config" / "docs.json",
         harness / "scripts" / "tools" / "tool_manifest.json",
     ]
     for path in json_paths:
@@ -89,14 +93,12 @@ def run_doctor(root: Path) -> dict:
                 results.append(check(bool(tool.get("verify")), f"manifest tool has verify command: {name}"))
 
     cycles_dir = harness / "cycles"
-    doc_dir = harness / "doc"
     tools_dir = harness / "scripts" / "tools"
     unreal_dir = harness / "scripts" / "unreal"
     build_dir = harness / "scripts" / "build"
     results.extend(
         [
             check(cycles_dir.is_dir(), "cycles directory exists"),
-            check(doc_dir.is_dir(), "doc directory exists"),
             check(unreal_dir.is_dir(), "unreal scripts directory exists"),
             check(build_dir.is_dir(), "build scripts directory exists"),
             check(tools_dir.is_dir(), "tools directory exists"),

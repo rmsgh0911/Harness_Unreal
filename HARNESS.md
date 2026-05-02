@@ -18,7 +18,8 @@
 3. 오늘 날짜의 `Harness/cycles/YYYY-MM-DD.md`가 있으면 확인한다.
 4. 작업자 전환이 명시적으로 필요하면 `Harness/config/agents.json`, `Harness/config/cycle_policy.json`을 확인한다.
 5. 사용자가 "사이클", "반복", "최대 N회", "최대 N사이클"처럼 요청하면 `Harness/config/cycle_policy.json`이 있는 경우 확인한다.
-6. 현재 요청에 필요한 `Source/`, `Config/`, `Plugins/`, `Content/` 파일만 추가로 확인한다.
+6. 사용자가 기획서, 명세, 시나리오, 검증 기준 참고를 요청했거나 작업 의도 확인이 필요하면 `Harness/config/docs.json`을 확인하고 등록된 프로젝트 문서 중 관련 항목만 읽는다.
+7. 현재 요청에 필요한 `Source/`, `Config/`, `Plugins/`, `Content/` 파일만 추가로 확인한다.
 
 ## 사용자 지시 해석
 
@@ -59,6 +60,16 @@
 5. 기록 정리
 
 로그 문구, 한글 깨짐, 주석, 포맷 정리는 현재 기능 검증이나 디버깅을 막는 경우가 아니면 반복 사이클의 주 작업으로 삼지 않는다.
+
+## 프로젝트 문서 참고
+
+- 기획서, 구현기준서, 시뮬레이션 시나리오, 검증 기준, 회고 문서는 `Harness/` 밖의 프로젝트 문서 폴더에 둔다. 기본 권장 위치는 루트 `ProjectDocs/`다.
+- `Harness/config/docs.json`은 프로젝트 문서 위치와 참조 정책만 담는다. 실제 기획 문서를 `Harness/config/`나 `Harness/` 아래에 저장하지 않는다.
+- 에이전트는 프로젝트 문서를 항상 읽지 않는다. 사용자가 문서 참고를 요청했거나, 게임 규칙, 시뮬레이션 요구사항, 입력/UX 흐름, 검증 기준, 구현 의도가 불명확한 작업에서만 관련 문서를 읽는다.
+- 문서를 읽을 때는 `entry_points`와 관련 섹션을 우선 확인하고, 전체 문서를 무작정 훑지 않는다.
+- 요청이 프로젝트 문서를 참고해야 하는지 애매하면 `Harness/scripts/tools/harness_context.py --request "<요청>"` 또는 `Harness/scripts/tools/harness_docs_check.py --request "<요청>"`로 읽기 여부와 첫 진입 문서를 확인한다.
+- 기획 문서와 실제 코드, 설정, 에셋, 빌드 결과가 다르면 즉시 추측으로 맞추지 말고 차이를 보고하고 필요한 경우 사용자 판단을 받는다.
+- 명확한 컴파일 오류, 빌드 설정 오류, 포맷, 작은 리네임, 파일 이동처럼 의도가 코드만으로 충분한 작업에서는 프로젝트 문서를 기본으로 읽지 않는다.
 
 ## 기록 규칙
 
@@ -102,6 +113,7 @@
 
 - 가능한 가장 작은 빌드 또는 검증 명령을 실행한다.
 - `Harness/scripts/unreal/verify_project.py` 통과만으로 성공 판정을 내리지 않는다.
+- 프로젝트 문서 참조 정책을 바꿨다면 `Harness/scripts/tools/harness_docs_check.py --json`을 실행한다.
 - C++나 모듈 변경이 있으면 가능한 범위에서 실제 빌드 검증을 우선한다.
 - 빌드 검증이 필요하면 `Harness/scripts/build/build_verify.cmd` 또는 `Harness/scripts/build/build_verify.ps1`를 우선 사용한다.
 - 에디터가 켜진 상태에서 C++ 검증이 DLL 잠금 또는 hot reload 산출물 문제로 실패하면, 에디터 종료 후 `-NoHotReload` 정식 빌드를 우선 재시도한다.

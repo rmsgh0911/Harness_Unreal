@@ -15,6 +15,7 @@ from harness_context import build_context
 from harness_diff_guard import build_report as build_diff_report
 from harness_doctor import run_doctor
 from harness_doc_check import build_report as build_doc_report
+from harness_docs_check import build_report as build_docs_report
 from harness_scan import scan
 
 
@@ -81,11 +82,12 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
     scan_report = scan(root, include_assets=include_assets)
     diff = build_diff_report(root)
     doc_check = build_doc_report(root)
+    docs_check = build_docs_report(root)
     json_check = check_json_files(root)
     compile_check = compile_python_files(root) if compile_python else {"ok": True, "checked": [], "failures": [], "skipped": True}
     build_readiness = check_build_readiness(root)
 
-    hard_ok = doctor["ok"] and json_check["ok"] and compile_check["ok"]
+    hard_ok = doctor["ok"] and docs_check["ok"] and json_check["ok"] and compile_check["ok"]
     return {
         "root": str(root),
         "ok": hard_ok,
@@ -96,6 +98,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
             "scan": "ok",
             "diff_guard": "ok" if diff["ok"] else "needs_attention",
             "doc_check": "ok" if doc_check["ok"] else "needs_attention",
+            "docs_check": "ok" if docs_check["ok"] else "failed",
             "build": build_readiness["status"],
         },
         "context_warnings": context.get("warnings", []),
@@ -120,6 +123,12 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
             "cycle_files": doc_check["cycles"]["file_count"],
             "cycle_total_lines": doc_check["cycles"]["total_lines"],
         },
+        "docs_check": {
+            "finding_count": len(docs_check["findings"]),
+            "doc_roots": docs_check["summary"]["doc_roots"],
+            "entry_points": docs_check["summary"]["entry_points"],
+            "markdown_files": docs_check["summary"]["markdown_files"],
+        },
         "build_readiness": build_readiness,
     }
 
@@ -135,6 +144,7 @@ def format_text(report: dict) -> str:
         f"- Scan: {report['summary']['scan']}",
         f"- Diff guard: {report['summary']['diff_guard']} ({report['diff_guard']['mode']})",
         f"- Doc check: {report['summary']['doc_check']}",
+        f"- Docs policy: {report['summary']['docs_check']}",
         f"- Build: {report['summary']['build']}",
     ]
     if report["context_warnings"]:

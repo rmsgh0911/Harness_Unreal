@@ -9,17 +9,18 @@
 3. `Harness/next.md`
 4. 오늘 날짜의 `Harness/cycles/YYYY-MM-DD.md`
 5. 사이클, 반복, 최대 N회, 최대 N사이클 요청이면 `Harness/config/cycle_policy.json`
-6. 현재 요청에 필요한 `Source/`, `Config/`, `Content/`, `Plugins/`, `Harness/scripts/` 파일
+6. 문서 참고가 필요하면 `Harness/config/docs.json`과 등록된 프로젝트 문서의 관련 항목
+7. 현재 요청에 필요한 `Source/`, `Config/`, `Content/`, `Plugins/`, `Harness/scripts/` 파일
 
 ## 폴더 역할
 
 - `config/project.json`: 프로젝트별 검증 설정
 - `config/agents.json`: 지원 작업자와 루트 지시 파일 매핑
 - `config/cycle_policy.json`: 단일 작업자 사이클, 사이클 횟수 해석, 기록, 도구 추가, 중단 조건
+- `config/docs.json`: 프로젝트 문서 위치와 필요할 때만 읽는 참조 정책
 - `state.md`: 최신 확정 상태만 유지
 - `next.md`: 남은 작업, 보류 리스크, 사람 판단 필요 항목
 - `cycles/`: 날짜별 짧은 작업 기록
-- `doc/`: 기획서, 참고 문서, 원본 자료
 - `scripts/`: Harness 실행 스크립트 루트
 - `scripts/unreal/`: Unreal Editor 안에서 실행되는 Python 스크립트
 - `scripts/build/`: UBT 빌드와 프로젝트 파일 생성 보조 스크립트
@@ -31,6 +32,12 @@
 - `state.md`는 누적 작업 일지가 아니며 최신 확정 사실만 둔다.
 - `next.md`에는 아직 끝나지 않은 일만 둔다.
 - 같은 내용을 `state.md`, `next.md`, `cycles/`에 중복해서 길게 남기지 않는다.
+
+## 프로젝트 문서
+
+기획서, 구현기준서, 시뮬레이션 시나리오, 검증 기준, 회고 문서는 `Harness/` 안에 두지 않는다.
+
+기본 권장 위치는 루트 `ProjectDocs/`이며, 실제 위치와 읽기 정책은 `Harness/config/docs.json`에 둔다. 에이전트는 사용자가 문서 참고를 요청했거나 작업 의도 확인이 필요할 때만 관련 문서를 읽는다.
 
 ## 검증 도구
 
@@ -56,6 +63,7 @@
 
 - `harness_context.py`: 작업 시작용 짧은 Harness 브리핑
 - `harness_doctor.py`: Harness 구조와 정책 파일 점검
+- `harness_docs_check.py`: `ProjectDocs`와 `docs.json`의 문서 발견/읽기 정책 점검
 - `harness_scan.py`: Unreal 프로젝트 구조와 `project.json` 후보 요약
 - `harness_cycle.py`: 사이클 로그 항목 생성, `--write`가 있을 때만 기록
 - `harness_diff_guard.py`: 변경 범위와 Unreal 위험 신호 점검
@@ -71,6 +79,12 @@
 - 프로젝트 전용 값은 도구 코드에 하드코딩하지 않고 `Harness/config/project.json` 또는 명령행 인자로 받는다.
 - 새 도구를 추가하면 `Harness/scripts/tools/tool_manifest.json`에 목적, 입력, 출력, 쓰기 여부, 최소 검증 명령을 기록한다.
 - 도구 추가 후 `--help`, dry run, JSON 파싱 확인 등 가능한 가장 작은 검증을 실행한다.
+
+작업 요청이 프로젝트 문서를 참고해야 하는지 애매하면 아래처럼 시작 브리핑에 요청을 함께 넘긴다.
+
+```powershell
+python Harness/scripts/tools/harness_context.py --request "시뮬레이션 요구사항 보고 검증 기준 맞춰줘"
+```
 
 ## 표준 명령
 

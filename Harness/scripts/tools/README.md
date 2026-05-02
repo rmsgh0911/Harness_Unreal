@@ -43,6 +43,7 @@ python Harness/scripts/tools/example_tool.py --write
 
 - `harness_context.py`: 작업 시작용 짧은 Harness 브리핑을 출력한다.
 - `harness_doctor.py`: Harness 문서, 설정, manifest 일관성을 점검한다.
+- `harness_docs_check.py`: `ProjectDocs`와 `docs.json`의 문서 발견/읽기 정책을 점검한다.
 - `harness_scan.py`: Unreal 프로젝트 구조와 `project.json` 후보를 요약한다.
 - `harness_cycle.py`: 사이클 로그 항목을 만들고, `--write`가 있을 때만 기록한다.
 - `harness_diff_guard.py`: 변경 파일과 Unreal 위험 신호를 짧게 점검한다.
@@ -55,7 +56,9 @@ python Harness/scripts/tools/example_tool.py --write
 
 ```powershell
 python Harness/scripts/tools/harness_context.py
+python Harness/scripts/tools/harness_context.py --request "전투 기획서 참고해서 입력 흐름 개선"
 python Harness/scripts/tools/harness_doctor.py --json
+python Harness/scripts/tools/harness_docs_check.py --json
 python Harness/scripts/tools/harness_scan.py --json
 python Harness/scripts/tools/harness_cycle.py "입력 수정" --changed "..." --verified "..." --remaining "..."
 python Harness/scripts/tools/harness_diff_guard.py

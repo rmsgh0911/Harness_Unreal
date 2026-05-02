@@ -80,12 +80,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Create a compact Harness handoff brief.")
     parser.add_argument("--root", type=Path, default=None, help="Project root. Defaults to nearest Harness root.")
     parser.add_argument("--request", default="", help="Current user request or handoff reason.")
-    parser.add_argument("--output", type=Path, default=None, help="Output path. Defaults to Harness/doc/handoff.md.")
+    parser.add_argument("--output", type=Path, default=None, help="Output path. Defaults to Harness/handoff.md.")
     parser.add_argument("--write", action="store_true", help="Write the handoff brief. Default is dry run.")
     args = parser.parse_args()
 
     root = find_project_root(args.root)
-    output = args.output or (root / "Harness" / "doc" / "handoff.md")
+    output = args.output or (root / "Harness" / "handoff.md")
     text = build_handoff(root, args.request)
     if args.write:
         write_text(output, text)

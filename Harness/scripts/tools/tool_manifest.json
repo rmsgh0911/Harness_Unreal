@@ -10,6 +10,23 @@
   },
   "tools": [
     {
+      "name": "harness_docs_check",
+      "path": "Harness/scripts/tools/harness_docs_check.py",
+      "purpose": "ProjectDocs와 Harness/config/docs.json의 문서 발견 경로, on-demand 읽기 정책, 요청별 문서 참고 여부를 점검한다.",
+      "inputs": [
+        "Harness/config/docs.json",
+        "ProjectDocs/README.md",
+        "--request"
+      ],
+      "outputs": [
+        "docs_policy_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_docs_check.py --json"
+    },
+    {
       "name": "harness_context",
       "path": "Harness/scripts/tools/harness_context.py",
       "purpose": "작업 시작 시 Harness 상태, 다음 작업, 오늘 사이클, 도구 정보를 짧게 요약해 에이전트의 초기 읽기 비용을 줄인다.",
@@ -18,8 +35,10 @@
         "Harness/state.md",
         "Harness/next.md",
         "Harness/config/project.json",
+        "Harness/config/docs.json",
         "Harness/config/cycle_policy.json",
-        "Harness/scripts/tools/tool_manifest.json"
+        "Harness/scripts/tools/tool_manifest.json",
+        "--request"
       ],
       "outputs": [
         "short_text",
@@ -155,6 +174,9 @@
         "target/Harness/next.md",
         "target/Harness/cycles/",
         "target/Harness/config/project.json",
+        "target/Harness/config/docs.json",
+        "target/ProjectDocs/",
+        "target/Harness/doc/ legacy project documents",
         "target active docs"
       ],
       "outputs": [

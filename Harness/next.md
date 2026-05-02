@@ -3,6 +3,7 @@
 ## 바로 정렬할 작업
 
 - 이 프로젝트 기준으로 `Harness/config/project.json`을 채운다.
+- 프로젝트 문서가 있으면 루트 `ProjectDocs/` 같은 폴더로 정리하고 `Harness/config/docs.json`에 참조 경로를 등록한다.
 - 실제 Source, Config, 에셋 기준으로 `Harness/state.md`를 갱신한다.
 - Git 저장소를 사용할 예정이면 `.gitattributes`의 Git LFS 규칙을 팀 정책에 맞게 확인한다.
 - `Harness/scripts/unreal/verify_project.py`를 실행하고 필수 검증 항목을 프로젝트 현실에 맞춘다.
