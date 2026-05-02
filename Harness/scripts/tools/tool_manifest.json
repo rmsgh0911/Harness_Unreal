@@ -204,7 +204,7 @@
         "Harness/cycles/"
       ],
       "outputs": [
-        "doc_health_report",
+        "state_health_report",
         "json"
       ],
       "writes_files": false,

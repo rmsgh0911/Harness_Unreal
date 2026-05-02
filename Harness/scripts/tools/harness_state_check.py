@@ -157,7 +157,7 @@ def format_text(report: dict) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Check Harness docs for bloat, stale paths, and misplaced history.")
+    parser = argparse.ArgumentParser(description="Check Harness state, next, and cycle documents for bloat, stale paths, and misplaced history.")
     parser.add_argument("--target", type=Path, default=None, help="Target project root. Defaults to nearest Harness root.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     args = parser.parse_args()

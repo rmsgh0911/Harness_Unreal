@@ -14,7 +14,7 @@ from harness_common import dump_json, find_project_root, harness_dir, load_json,
 from harness_context import build_context
 from harness_diff_guard import build_report as build_diff_report
 from harness_doctor import run_doctor
-from harness_state_check import build_report as build_doc_report
+from harness_state_check import build_report as build_state_report
 from harness_docs_check import build_report as build_docs_report
 from harness_scan import scan
 
@@ -81,13 +81,18 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
     context = build_context(root)
     scan_report = scan(root, include_assets=include_assets)
     diff = build_diff_report(root)
-    doc_check = build_doc_report(root)
+    state_check = build_state_report(root)
     docs_check = build_docs_report(root)
     json_check = check_json_files(root)
     compile_check = compile_python_files(root) if compile_python else {"ok": True, "checked": [], "failures": [], "skipped": True}
     build_readiness = check_build_readiness(root)
 
-    hard_ok = doctor["ok"] and docs_check["ok"] and json_check["ok"] and compile_check["ok"] and doc_check["ok"]
+    hard_ok = doctor["ok"] and docs_check["ok"] and json_check["ok"] and compile_check["ok"] and state_check["ok"]
+    state_check_summary = {
+        "finding_count": len(state_check["findings"]),
+        "cycle_files": state_check["cycles"]["file_count"],
+        "cycle_total_lines": state_check["cycles"]["total_lines"],
+    }
     return {
         "root": str(root),
         "ok": hard_ok,
@@ -98,7 +103,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
             "python_compile": "ok" if compile_check["ok"] else "failed",
             "scan": "ok",
             "diff_guard": "ok" if diff["ok"] else "needs_attention",
-            "state_check": "ok" if doc_check["ok"] else "failed",
+            "state_check": "ok" if state_check["ok"] else "failed",
             "docs_check": "ok" if docs_check["ok"] else "failed",
             "build": build_readiness["status"],
         },
@@ -119,11 +124,8 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
             "risk_count": diff["risk_count"],
             "change_list_reliable": diff["change_list_reliable"],
         },
-        "doc_check": {
-            "finding_count": len(doc_check["findings"]),
-            "cycle_files": doc_check["cycles"]["file_count"],
-            "cycle_total_lines": doc_check["cycles"]["total_lines"],
-        },
+        "state_check": state_check_summary,
+        "doc_check": state_check_summary,
         "docs_check": {
             "finding_count": len(docs_check["findings"]),
             "doc_roots": docs_check["summary"]["doc_roots"],
