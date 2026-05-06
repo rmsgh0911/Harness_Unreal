@@ -1,9 +1,9 @@
 # AGENTS.md
 
-이 저장소는 Harness 운영 방식을 사용한다.
+This repository uses the Harness workflow.
 
-작업 전 루트 `HARNESS.md`를 먼저 읽고 따른다.
+Before starting any task, read the root `HARNESS.md` and follow it.
 
-사용자가 기능 구현, 버그 수정, 검증, 사이클, 반복, 최대 N회, 최대 N사이클 작업을 요청하면 `HARNESS.md`의 작업 루프와 기록 규칙을 적용한다.
+When the user asks for feature work, bug fixes, verification, cycles, iteration, "up to N times", or "up to N cycles", apply the work loop and recording rules in `HARNESS.md`.
 
-프로젝트별 추가 규칙이 필요하면 이 파일 아래에 짧게 덧붙인다.
+Keep repository-specific additions short and append them below this section only when needed.

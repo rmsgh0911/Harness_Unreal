@@ -1,122 +1,123 @@
-# Harness 폴더
+# Harness Folder
 
-루트 `HARNESS.md`가 작업 규칙의 기준 파일이다. 이 문서는 `Harness/` 폴더의 역할과 표준 명령만 설명한다.
+The root `HARNESS.md` is the source of truth for operating rules. This file explains the role of the `Harness/` folder and its standard commands.
 
-## 읽는 순서
+## Read Order
 
-1. 루트 `HARNESS.md`
+1. Root `HARNESS.md`
 2. `Harness/state.md`
 3. `Harness/next.md`
-4. 오늘 날짜의 `Harness/cycles/YYYY-MM-DD.md`
-5. 사이클, 반복, 최대 N회, 최대 N사이클 요청이면 `Harness/config/cycle_policy.json`
-6. 문서 참고가 필요하면 `Harness/config/docs.json`과 등록된 프로젝트 문서의 관련 항목
-7. 현재 요청에 필요한 `Source/`, `Config/`, `Content/`, `Plugins/`, `Harness/scripts/` 파일
+4. Today's `Harness/cycles/YYYY-MM-DD.md` if it exists
+5. `Harness/config/cycle_policy.json` when the user asks for cycles, iteration, "up to N times", or "up to N cycles"
+6. `Harness/config/docs.json` and relevant docs only when project docs are needed
+7. Files directly required by the current request under `Source/`, `Config/`, `Content/`, `Plugins/`, or `Harness/scripts/`
 
-## 폴더 역할
+## Folder Roles
 
-- `config/project.json`: 프로젝트별 검증 설정
-- `config/agents.json`: 지원 작업자와 루트 지시 파일 매핑
-- `config/cycle_policy.json`: 단일 작업자 사이클, 사이클 횟수 해석, 기록, 도구 추가, 중단 조건
-- `config/docs.json`: 프로젝트 문서 위치와 필요할 때만 읽는 참조 정책
-- `state.md`: 최신 확정 상태만 유지
-- `next.md`: 남은 작업, 보류 리스크, 사람 판단 필요 항목
-- `cycles/`: 날짜별 짧은 작업 기록
-- `docs/`: 기획서, 구현기준서, 시나리오, 검증 기준, 회고 문서의 기본 위치
-- `scripts/`: Harness 실행 스크립트 루트
-- `scripts/unreal/`: Unreal Editor 안에서 실행되는 Python 스크립트
-- `scripts/build/`: UBT 빌드와 프로젝트 파일 생성 보조 스크립트
-- `scripts/tools/`: 작업 중 반복 비용을 줄이기 위해 에이전트가 추가하는 작은 CLI 도구
+- `config/project.json`: project-specific Unreal verification settings
+- `config/agents.json`: supported worker to root instruction file mapping
+- `config/cycle_policy.json`: structured helper for cycle count interpretation, recording, tool addition, and stop conditions
+- `config/docs.json`: project document roots and on-demand reading policy
+- `state.md`: latest confirmed project state only
+- `next.md`: unresolved work, deferred risks, and human decisions needed
+- `cycles/`: short date-based cycle records
+- `docs/`: default location for design docs, specs, scenarios, validation criteria, and retrospectives
+- `docs/Progress.md`: Korean human-facing dashboard for current progress and confirmation needs
+- `scripts/`: Harness script root
+- `scripts/unreal/`: Python scripts intended to run inside Unreal Editor
+- `scripts/build/`: UBT build and project-file helper scripts
+- `scripts/tools/`: small CLI tools that reduce repeated agent work
 
-## 기록 원칙
+## Recording Principles
 
-- `cycles/`는 긴 작업 일지가 아니라 짧은 사이클 로그로 유지한다.
-- `state.md`는 누적 작업 일지가 아니며 최신 확정 사실만 둔다.
-- `next.md`에는 아직 끝나지 않은 일만 둔다.
-- 같은 내용을 `state.md`, `next.md`, `cycles/`에 중복해서 길게 남기지 않는다.
+- Keep `cycles/` as short progress records, not a long diary.
+- Keep `state.md` to current confirmed facts only.
+- Keep `next.md` to work that is still unresolved.
+- Keep `docs/Progress.md` in Korean and short. It is for human status review, not agent history.
+- Do not duplicate the same details across `state.md`, `next.md`, `cycles/`, and `docs/Progress.md`.
 
-## 프로젝트 문서
+## Project Docs
 
-기획서, 구현기준서, 시뮬레이션 시나리오, 검증 기준, 회고 문서는 기본적으로 `Harness/docs/`에 둔다.
+Design docs, implementation specs, simulation scenarios, validation criteria, and retrospectives live under `Harness/docs/` by default.
 
-이 구조는 템플릿을 다른 프로젝트로 옮길 때 `HARNESS.md`와 `Harness/`만 챙기면 문서 지도까지 함께 이동하게 만든다. 문서가 너무 크거나 팀에서 이미 쓰는 외부 문서 폴더가 있으면 루트 `ProjectDocs/`, `Docs/`, `DesignDocs/` 같은 폴더를 추가로 쓰고 `Harness/config/docs.json`에 등록한다.
+`Harness/docs/Progress.md` is the exception to the English Harness-file rule: write it in Korean because it is a human-facing dashboard. Update it only after major feature completion, before commits, when direction changes, or when human confirmation is needed.
 
-에이전트는 사용자가 문서 참고를 요청했거나 작업 의도 확인이 필요할 때만 관련 문서를 읽는다.
+This layout keeps template migration simple: moving `HARNESS.md` and `Harness/` moves the operating rules, state docs, and document map together. If docs are too large or the team already uses an external docs folder, register root-level `ProjectDocs/`, `Docs/`, or `DesignDocs/` in `Harness/config/docs.json`.
 
-## 검증 도구
+Agents read project docs only when the user asks for them or when the task intent cannot be confirmed from code/config/assets alone.
 
-- `unreal/verify_project.py`: 구조, 클래스, 에셋, 설정, Harness 테스트 레벨 확인
-- `unreal/create_level.py`: Harness 테스트 레벨 생성 또는 갱신
-- `build/build_verify.ps1`: UBT 기반 빌드 또는 프로젝트 파일 재생성
-- `build/build_verify.cmd`: Windows PowerShell 실행 정책을 우회해 `build_verify.ps1` 실행
-- `tools/tool_manifest.json`: 에이전트가 추가한 보조 도구 목록과 안전 규칙
+## Verification Tools
 
-`verify_project.py`가 통과해도 C++ 변경이 있으면 가능한 범위에서 실제 빌드 검증을 추가한다.
+- `unreal/verify_project.py`: checks basic project structure, classes, assets, config, and Harness test level readiness
+- `unreal/create_level.py`: creates or updates a Harness test level
+- `build/build_verify.ps1`: UBT-based build or project-file verification helper
+- `build/build_verify.cmd`: Windows wrapper for `build_verify.ps1`
+- `tools/tool_manifest.json`: registry of agent-created helper tools and their safety rules
 
-## 사이클 작업
+Passing `verify_project.py` does not prove feature success. Add a real build or manual PIE check when the change requires it.
 
-사용자가 "최대 N사이클"처럼 요청하면 한 사이클은 `구현 또는 개선 -> 최소 검증 -> 자기 리뷰 -> 짧은 기록 -> 계속 여부 판단`을 뜻한다.
+## Cycle Work
 
-최대 횟수는 상한선이다. 성공 기준을 만족하면 더 적은 사이클에서 멈추고, 같은 실패가 반복되거나 예상보다 큰 변경이 필요하면 이유와 다음 선택지를 남긴다.
+When the user asks for "up to N cycles", each cycle means:
 
-## 에이전트 추가 도구
+`implement or improve -> minimal verification -> self-review -> short record -> decide whether to continue`
 
-작업 중 같은 탐색, 검증, 요약, 기록을 반복하게 되면 에이전트는 `Harness/scripts/tools/` 아래에 작은 CLI 도구를 추가할 수 있다.
+The maximum count is an upper bound. Stop early when success criteria are met. Stop and report if the same failure repeats or the diff grows beyond the request.
 
-기본 제공 도구:
+## Agent Tools
 
-- `harness_context.py`: 작업 시작용 짧은 Harness 브리핑
-- `harness_doctor.py`: Harness 구조와 정책 파일 점검
-- `harness_docs_check.py`: `Harness/docs`와 `docs.json`의 문서 발견/읽기 정책 점검
-- `harness_scan.py`: Unreal 프로젝트 구조와 `project.json` 후보 요약
-- `harness_cycle.py`: 사이클 로그 항목 생성, `--write`가 있을 때만 기록
-- `harness_diff_guard.py`: 변경 범위와 Unreal 위험 신호 점검
-- `harness_handoff.py`: 새 에이전트 또는 새 세션용 최소 전달 브리프 생성
-- `harness_verify_all.py`: 작업 종료 전 표준 경량 검증 묶음 실행
-- `harness_migration_audit.py`: 구버전 Harness 이식 전 보존/갱신/정리 항목 점검
-- `harness_state_check.py`: state.md/next.md/cycles/ 문서 비대화, 구버전 경로, state/이력 혼합 점검
-- `harness_python_check.py`: Python 3 실행 가능 여부와 Unreal Python 후보 점검
-- `harness_init_plan.py`: 초기화/이식 시 보존, 채움, 검증 계획 요약
-- `harness_docs_index.py`: 문서 heading 색인 생성으로 읽기 범위 축소
-- `harness_project_fill.py`: `project.json` 후보 생성, `--write`가 있을 때만 빈 필드 채움
-- `harness_cycle_summary.py`: 최근 cycle 로그 요약
-- `harness_unreal_risk.py`: 변경 파일의 Unreal 위험 신호 요약
+Agents may add small CLI tools under `Harness/scripts/tools/` when repeated exploration, verification, summarization, or recording would otherwise cost tokens.
 
-도구 추가 원칙:
+Standard tools:
 
-- 기본 실행은 읽기 전용으로 둔다.
-- 파일 수정은 `--write`, `--apply`, `--update` 같은 명시적 옵션으로만 수행한다.
-- 프로젝트 전용 값은 도구 코드에 하드코딩하지 않고 `Harness/config/project.json` 또는 명령행 인자로 받는다.
-- 새 도구를 추가하면 `Harness/scripts/tools/tool_manifest.json`에 목적, 입력, 출력, 쓰기 여부, 최소 검증 명령을 기록한다.
-- 도구 추가 후 `--help`, dry run, JSON 파싱 확인 등 가능한 가장 작은 검증을 실행한다.
+- `harness_context.py`: prints a short Harness briefing for task startup
+- `harness_doctor.py`: checks Harness structure and config consistency
+- `harness_docs_check.py`: checks `Harness/docs` and `docs.json` reading policy
+- `harness_scan.py`: summarizes Unreal project structure and `project.json` candidates
+- `harness_cycle.py`: creates cycle log entries; writes only with `--write`
+- `harness_diff_guard.py`: summarizes changed files and Unreal risk signals
+- `harness_handoff.py`: creates a minimal handoff brief; writes only with `--write`
+- `harness_verify_all.py`: runs the standard lightweight end-of-task checks
+- `harness_migration_audit.py`: audits an older Harness project before migration
+- `harness_state_check.py`: checks that state/next/cycles stay compact and current
+- `harness_python_check.py`: checks Python 3 availability and Unreal Python candidates
+- `harness_init_plan.py`: summarizes preservation, fill, and verification work for initialization or migration
+- `harness_docs_index.py`: indexes doc headings before reading full docs
+- `harness_project_fill.py`: fills blank `project.json` fields only with `--write`
+- `harness_cycle_summary.py`: summarizes recent cycle logs
+- `harness_unreal_risk.py`: extracts Unreal-specific risk signals from changed files
+- `harness_unreal_script.py`: inspects or runs Unreal Python scripts; runs only with `--run`
 
-작업 요청이 프로젝트 문서를 참고해야 하는지 애매하면 아래처럼 시작 브리핑에 요청을 함께 넘긴다.
-
-```powershell
-python Harness/scripts/tools/harness_context.py --request "시뮬레이션 요구사항 보고 검증 기준 맞춰줘"
-```
-
-## 표준 명령
-
-프로젝트 검증:
+Examples:
 
 ```powershell
-& 'C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' 'C:\Path\To\Project\ProjectName.uproject' -run=pythonscript -script='C:\Path\To\Project\Harness\scripts\unreal\verify_project.py' -unattended -nop4 -nosplash
+python Harness/scripts/tools/harness_context.py
+python Harness/scripts/tools/harness_context.py --request "Improve lock-on input flow"
+python Harness/scripts/tools/harness_doctor.py --json
+python Harness/scripts/tools/harness_docs_check.py --json
+python Harness/scripts/tools/harness_scan.py --json
+python Harness/scripts/tools/harness_cycle.py "Input fix" --changed "..." --verified "..." --remaining "..."
+python Harness/scripts/tools/harness_diff_guard.py
+python Harness/scripts/tools/harness_handoff.py --request "Continue lock-on work"
+python Harness/scripts/tools/harness_verify_all.py
+python Harness/scripts/tools/harness_migration_audit.py --target C:\Path\To\OldProject
+python Harness/scripts/tools/harness_state_check.py --target C:\Path\To\Project
+python Harness/scripts/tools/harness_python_check.py
+python Harness/scripts/tools/harness_init_plan.py
+python Harness/scripts/tools/harness_docs_index.py
+python Harness/scripts/tools/harness_project_fill.py --json
+python Harness/scripts/tools/harness_cycle_summary.py
+python Harness/scripts/tools/harness_unreal_risk.py
+python Harness/scripts/tools/harness_unreal_script.py --script Harness/scripts/unreal/verify_project.py
 ```
 
-Harness 테스트 레벨 생성 또는 갱신:
+If `python` resolves to the Microsoft Store alias on Windows, use the real Python 3 executable or the workspace runtime Python path.
 
-```powershell
-& 'C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' 'C:\Path\To\Project\ProjectName.uproject' -run=pythonscript -script='C:\Path\To\Project\Harness\scripts\unreal\create_level.py' -unattended -nop4 -nosplash
-```
+## Template Quality Checks
 
-C++ 파일 추가 또는 삭제 후 IDE 프로젝트 파일 재생성:
+`harness_doctor.py` checks more than file existence:
 
-```powershell
-& 'C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.exe' -ProjectFiles -Project='C:\Path\To\Project\ProjectName.uproject' -Game -Engine
-```
-
-빌드 검증:
-
-```powershell
-& 'C:\Path\To\Project\Harness\scripts\build\build_verify.cmd' -Mode Editor
-```
+- every standard tool is registered in `tool_manifest.json`
+- each tool `verify` command points at the actual tool path
+- `project.json` can stay blank in the standalone template but should be filled after migration
+- no generated `__pycache__` or `*.pyc` files remain under `Harness/scripts/`

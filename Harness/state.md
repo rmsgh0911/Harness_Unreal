@@ -1,39 +1,40 @@
-# 상태
+# State
 
-## 프로젝트
+## Project
 
-- 프로젝트 종류: Unreal Engine 프로젝트
-- 프로젝트명: 작성 필요
-- 주 모듈: 작성 필요
-- 엔진 버전: 작성 필요
-- `.uproject`: 작성 필요
-- 에디터 시작 맵: 작성 필요
-- Harness 테스트 맵: 작성 필요
+- Project type: Unreal Engine project
+- Project name: TODO
+- Primary module: TODO
+- Engine version: TODO
+- `.uproject`: TODO
+- Editor startup map: TODO
+- Harness test map: TODO
 
-## 현재 검증된 상태
+## Current Confirmed State
 
-- 작성 필요: 실제 존재하는 시스템, 맵, 입력, 캐릭터, 컨트롤러, UI, 플러그인, 에셋을 기록한다.
-- 작성 필요: 기획 의도보다 Source, Config, 에디터 출력, 빌드 로그를 우선한다.
+- TODO: Record systems, maps, inputs, characters, controllers, UI, plugins, and assets that actually exist.
+- TODO: Prefer Source, Config, editor output, and build logs over design intent.
 
-## 프로젝트 문서
+## Project Docs
 
-- 작성 필요: 기획서, 명세, 시뮬레이션 시나리오, 검증 기준이 있다면 `Harness/docs/` 또는 등록된 외부 문서 폴더와 `Harness/config/docs.json` 등록 상태를 적는다.
+- TODO: If design docs, specs, simulation scenarios, or validation criteria exist, record whether they live in `Harness/docs/` or a registered external docs folder in `Harness/config/docs.json`.
+- `Harness/docs/Progress.md` is a Korean human-facing dashboard, not a technical state source.
 
-## 주요 파일
+## Key Files
 
-- 작성 필요: `Source/<Module>/...`
-- 작성 필요: `Config/...`
-- 작성 필요: `Content/...`
-- 작성 필요: `Plugins/...`
+- TODO: `Source/<Module>/...`
+- TODO: `Config/...`
+- TODO: `Content/...`
+- TODO: `Plugins/...`
 
-## 검증 상태
+## Verification State
 
-- 마지막 C++ 빌드: 작성 필요
-- 마지막 Harness 스크립트 문법 검사: 작성 필요
-- 마지막 프로젝트 구조 검증: 작성 필요
-- 마지막 테스트 레벨 생성: 작성 필요
-- 마지막 PIE/수동 검증: 작성 필요
+- Last C++ build: TODO
+- Last Harness script syntax check: TODO
+- Last project structure verification: TODO
+- Last test level creation: TODO
+- Last PIE/manual verification: TODO
 
-## 리스크
+## Risks
 
-- 작성 필요
+- TODO

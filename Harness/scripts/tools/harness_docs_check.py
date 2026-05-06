@@ -15,29 +15,44 @@ from harness_common import dump_json, find_project_root, harness_dir, load_json,
 # If you update docs.json request_hints, keep these in sync so the fallback
 # behaves consistently with a missing or empty config.
 REQUEST_READ_HINTS = [
-    "기획",
+    "\uae30\ud68d",
     "GDD",
-    "명세",
-    "구현기준",
-    "체크리스트",
-    "시나리오",
-    "검증 기준",
-    "요구사항",
-    "규칙",
-    "밸런스",
+    "\uba85\uc138",
+    "\uad6c\ud604\uae30\uc900",
+    "\uccb4\ud06c\ub9ac\uc2a4\ud2b8",
+    "\uc2dc\ub098\ub9ac\uc624",
+    "\uac80\uc99d \uae30\uc900",
+    "\uc694\uad6c\uc0ac\ud56d",
+    "\uaddc\uce59",
+    "\ubc38\ub7f0\uc2a4",
     "UX",
     "UI",
-    "레벨",
-    "캐릭터",
-    "시뮬레이션",
-    "설계",
+    "\ub808\ubca8",
+    "\uce90\ub9ad\ud130",
+    "\uc2dc\ubbac\ub808\uc774\uc158",
+    "\uc124\uacc4",
+    "design",
+    "spec",
+    "scenario",
+    "validation",
+    "requirements",
+    "rules",
+    "balance",
+    "level",
+    "character",
+    "simulation",
 ]
 REQUEST_SKIP_HINTS = [
-    "컴파일 오류",
-    "빌드 오류",
-    "포맷",
-    "리네임",
-    "파일 이동",
+    "\ucef4\ud30c\uc77c \uc624\ub958",
+    "\ube4c\ub4dc \uc624\ub958",
+    "\ud3ec\ub9f7",
+    "\ub9ac\ub124\uc784",
+    "\ud30c\uc77c \uc774\ub3d9",
+    "compile error",
+    "build error",
+    "format",
+    "rename",
+    "file move",
 ]
 
 
@@ -176,7 +191,7 @@ def build_report(root: Path, request: str = "") -> dict:
         path = root / entry
         exists = path.exists() and path.is_file()
         text = read_text(path)
-        has_map_hint = "문서 지도" in text or "Document Map" in text or "README" in path.name
+        has_map_hint = "Document Map" in text or "README" in path.name
         entry_status.append({"path": entry, "exists": exists, "has_map_hint": has_map_hint})
         if not exists:
             add_finding(findings, "warning", "entry point is missing", entry)

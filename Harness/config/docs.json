@@ -14,43 +14,58 @@
   "read_policy": {
     "default": "on_demand",
     "read_when": [
-      "사용자가 기획서, GDD, 명세, 구현기준서, 체크리스트, 시나리오, 검증 기준 참고를 요청할 때",
-      "작업이 게임 규칙, 시뮬레이션 요구사항, 입력, UX 흐름, 레벨 의도, 캐릭터/시스템 설계와 관련될 때",
-      "Source, Config, 에셋만으로 구현 의도나 성공 기준을 판단하기 어려울 때",
-      "기존 구현과 프로젝트 문서가 충돌할 가능성이 있을 때"
+      "the user asks to reference design docs, GDD, specs, implementation standards, checklists, scenarios, or validation criteria",
+      "the task involves game rules, simulation requirements, input, UX flow, level intent, character design, or system design",
+      "Source, Config, and assets are not enough to infer implementation intent or success criteria",
+      "existing implementation may conflict with project docs"
     ],
     "do_not_read_when": [
-      "단순 컴파일 오류 수정",
-      "명확한 빌드 설정 오류 수정",
-      "포맷, 작은 리네임, 파일 이동",
-      "사용자가 이미 구체적인 구현 기준을 준 경우"
+      "simple compile error fix",
+      "clear build configuration fix",
+      "formatting, small rename, or file move",
+      "the user already gave concrete implementation criteria"
     ]
   },
   "request_hints": {
     "read": [
-      "기획",
+      "\uae30\ud68d",
+      "\uba85\uc138",
+      "\uad6c\ud604\uae30\uc900",
+      "\uccb4\ud06c\ub9ac\uc2a4\ud2b8",
+      "\uc2dc\ub098\ub9ac\uc624",
+      "\uac80\uc99d \uae30\uc900",
+      "\uc694\uad6c\uc0ac\ud56d",
+      "\uaddc\uce59",
+      "\ubc38\ub7f0\uc2a4",
+      "\ub808\ubca8",
+      "\uce90\ub9ad\ud130",
+      "\uc2dc\ubbac\ub808\uc774\uc158",
+      "\uc124\uacc4",
       "GDD",
-      "명세",
-      "구현기준",
-      "체크리스트",
-      "시나리오",
-      "검증 기준",
-      "요구사항",
-      "규칙",
-      "밸런스",
+      "design",
+      "spec",
+      "scenario",
+      "validation",
+      "requirements",
+      "rules",
+      "balance",
       "UX",
       "UI",
-      "레벨",
-      "캐릭터",
-      "시뮬레이션",
-      "설계"
+      "level",
+      "character",
+      "simulation"
     ],
     "skip": [
-      "컴파일 오류",
-      "빌드 오류",
-      "포맷",
-      "리네임",
-      "파일 이동"
+      "\ucef4\ud30c\uc77c \uc624\ub958",
+      "\ube4c\ub4dc \uc624\ub958",
+      "\ud3ec\ub9f7",
+      "\ub9ac\ub124\uc784",
+      "\ud30c\uc77c \uc774\ub3d9",
+      "compile error",
+      "build error",
+      "format",
+      "rename",
+      "file move"
     ]
   }
 }

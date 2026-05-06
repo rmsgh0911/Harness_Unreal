@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "이 파일은 HARNESS.md의 사이클·기록·도구 규칙을 구조화한 보조 참조다. 규칙 변경 시 HARNESS.md를 기준으로 수정하고 이 파일도 함께 갱신한다.",
+  "note": "This file is a structured helper for the cycle, recording, and tool rules in HARNESS.md. If rules change, update HARNESS.md first and keep this file aligned.",
   "mode": "primary_single_worker",
   "default_max_cycles": 1,
   "cycle_flow": [
@@ -15,10 +15,14 @@
   ],
   "cycle_count_rules": {
     "phrases": [
-      "사이클",
-      "반복",
-      "최대 N회",
-      "최대 N사이클"
+      "\uc0ac\uc774\ud074",
+      "\ubc18\ubcf5",
+      "\ucd5c\ub300 N\ud68c",
+      "\ucd5c\ub300 N\uc0ac\uc774\ud074",
+      "cycle",
+      "iterate",
+      "up to N times",
+      "up to N cycles"
     ],
     "one_cycle_means": [
       "implement_or_improve",
@@ -95,9 +99,12 @@
   },
   "language_policy": {
     "default_human_language": "ko",
-    "state_language": "ko",
-    "cycle_log_language": "ko",
-    "next_language": "ko",
+    "agent_facing_harness_language": "en",
+    "state_language": "en",
+    "cycle_log_language": "en",
+    "next_language": "en",
+    "progress_language": "ko",
+    "progress_path": "Harness/docs/Progress.md",
     "preserve_original_for": [
       "code",
       "identifiers",

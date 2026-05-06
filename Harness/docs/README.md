@@ -1,28 +1,35 @@
 # Harness Docs
 
-이 폴더는 프로젝트별 기획서, 구현기준서, 시나리오, 검증 기준, 회고 문서를 두는 기본 문서 루트다.
+This folder is the default project document root for design docs, implementation specs, scenarios, validation criteria, and retrospectives.
 
-템플릿을 이식할 때는 `HARNESS.md`와 `Harness/`만 옮겨도 운영 규칙, 상태 문서, 참고 문서 구조가 함께 이동하도록 이 위치를 기본값으로 사용한다.
+The default migration unit is `HARNESS.md` plus `Harness/`, so keeping docs here makes the template easier to move between projects.
 
-## 문서 배치 원칙
+## Placement Rules
 
-- 운영 규칙은 루트 `HARNESS.md`에 둔다.
-- 프로젝트별 참고 문서는 `Harness/docs/` 아래에 둔다.
-- 문서가 너무 크거나 팀에서 이미 쓰는 외부 문서 폴더가 있으면 루트 `ProjectDocs/`, `Docs/`, `DesignDocs/` 같은 외부 폴더를 추가로 쓰고 `Harness/config/docs.json`에 등록한다.
-- 에이전트는 모든 문서를 항상 읽지 않고, 사용자가 문서 참고를 요청했거나 구현 의도와 성공 기준이 불명확할 때만 관련 문서를 읽는다.
+- Put operating rules in the root `HARNESS.md`.
+- Put project reference docs under `Harness/docs/`.
+- If docs are too large or the team already uses another docs folder, register root-level `ProjectDocs/`, `Docs/`, or `DesignDocs/` in `Harness/config/docs.json`.
+- Agents do not read every doc by default. Read docs only when the user asks, or when implementation intent and success criteria are unclear.
 
-## 권장 구조
+## Default File
 
-- `Systems/`: 전투, 입력, 상호작용, 시뮬레이션 시스템 명세
-- `Scenarios/`: 시뮬레이션 시나리오, 테스트 상황, 레벨 의도
-- `UX/`: HUD, 메뉴, 조작 흐름, 사용자 피드백
-- `Validation/`: 성공 기준, 수동 검증 체크리스트, 수용 기준
-- `References/`: 외부 참고 자료 요약, 회고, 실험 기록
+- `Progress.md`: Korean human-facing dashboard for current goal, status, recent completion, human confirmation, and next decisions.
 
-## 문서 지도
+`Progress.md` is intentionally written in Korean by default. Other Harness files should stay in English for agent portability.
 
-프로젝트에 문서를 추가하면 아래에 파일별 역할을 짧게 적는다.
+## Expansion Candidates
 
-- 작성 필요: `Systems/...`
-- 작성 필요: `Scenarios/...`
-- 작성 필요: `Validation/...`
+- `Systems/`: combat, input, interaction, and simulation system specs
+- `Scenarios/`: simulation scenarios, test situations, and level intent
+- `UX/`: HUD, menus, control flow, and user feedback
+- `Validation/`: success criteria, manual verification checklists, and acceptance criteria
+- `References/`: external references, retrospectives, and experiment notes
+
+## Document Map
+
+When adding project docs, keep this map short.
+
+- `Progress.md`: Korean human-facing dashboard for progress and confirmation needs
+- TODO: `Systems/...`
+- TODO: `Scenarios/...`
+- TODO: `Validation/...`

@@ -8,13 +8,13 @@
       "display_name": "Codex",
       "instruction_file": "AGENTS.md",
       "can_be_primary_worker": true,
-      "notes": "Codex 앱 또는 CLI에서 작업할 때 AGENTS.md를 통해 HARNESS.md를 읽는다."
+      "notes": "When working in the Codex app or CLI, AGENTS.md routes the worker to HARNESS.md."
     },
     "claude_code": {
       "display_name": "Claude Code",
       "instruction_file": "CLAUDE.md",
       "can_be_primary_worker": true,
-      "notes": "Claude Code 앱 또는 CLI에서 작업할 때 CLAUDE.md를 통해 HARNESS.md를 읽는다."
+      "notes": "When working in Claude Code, CLAUDE.md routes the worker to HARNESS.md."
     }
   },
   "handoff": {

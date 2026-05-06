@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -24,6 +25,11 @@ from harness_common import (
 from harness_docs_check import evaluate_request
 
 
+KOREAN_CYCLE = "\uc0ac\uc774\ud074"
+KOREAN_ITERATE = "\ubc18\ubcf5"
+KOREAN_MAX = "\ucd5c\ub300"
+
+
 def _context_check_commands(manifest: dict) -> list[str]:
     """Return verify commands for tools flagged with context_check: true."""
     tools = manifest.get("tools", []) if isinstance(manifest, dict) else []
@@ -32,6 +38,49 @@ def _context_check_commands(manifest: dict) -> list[str]:
         for tool in tools
         if isinstance(tool, dict) and tool.get("context_check") and tool.get("verify")
     ]
+
+
+def evaluate_cycle_request(request: str, cycle_policy: dict) -> dict:
+    request_text = request.strip()
+    if not request_text:
+        return {
+            "request": "",
+            "is_cycle_work": False,
+            "max_cycles": cycle_policy.get("default_max_cycles", 1),
+            "reason": "no request provided",
+        }
+
+    lowered = request_text.lower()
+    phrases = cycle_policy.get("cycle_count_rules", {}).get("phrases", [])
+    phrase_hits = [phrase for phrase in phrases if isinstance(phrase, str) and phrase.lower() in lowered]
+    cycle_words = ["cycle", "cycles", "iterate", KOREAN_CYCLE, KOREAN_ITERATE]
+    word_hits = [word for word in cycle_words if word.lower() in lowered]
+    max_cycles = None
+    patterns = [
+        rf"{KOREAN_MAX}\s*(\d+)\s*(?:\ud68c|{KOREAN_CYCLE})",
+        r"up to\s*(\d+)\s*(?:times|cycles?)",
+        r"max(?:imum)?\s*(\d+)\s*(?:times|cycles?)",
+        r"(\d+)\s*cycles?",
+        rf"(\d+)\s*{KOREAN_CYCLE}",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, lowered, flags=re.IGNORECASE)
+        if match:
+            max_cycles = int(match.group(1))
+            break
+    hits = list(dict.fromkeys([*phrase_hits, *word_hits]))
+    is_cycle_work = bool(hits or max_cycles)
+    return {
+        "request": request_text,
+        "is_cycle_work": is_cycle_work,
+        "max_cycles": max_cycles if max_cycles is not None else cycle_policy.get("default_max_cycles", 1),
+        "max_cycles_is_upper_bound": cycle_policy.get("cycle_count_rules", {}).get("max_cycles_is_upper_bound", True),
+        "stop_before_max_when_success_criteria_met": cycle_policy.get("cycle_count_rules", {}).get(
+            "stop_before_max_when_success_criteria_met", True
+        ),
+        "reason": "matched cycle request hints" if is_cycle_work else "no cycle trigger matched",
+        "hits": hits,
+    }
 
 
 def build_context(root: Path, request: str = "") -> dict:
@@ -55,6 +104,7 @@ def build_context(root: Path, request: str = "") -> dict:
     uproject_files = sorted(path.name for path in root.glob("*.uproject"))
     immediate_items = markdown_list_items(next_text, limit=6)
     request_eval = evaluate_request(request, docs_config)
+    cycle_eval = evaluate_cycle_request(request, cycle_policy)
     files = {
         "HARNESS.md": file_status(root / "HARNESS.md"),
         "AGENTS.md": file_status(root / "AGENTS.md"),
@@ -80,6 +130,7 @@ def build_context(root: Path, request: str = "") -> dict:
             "default_max_cycles": cycle_policy.get("default_max_cycles", 1),
             "stop_conditions": cycle_policy.get("stop_conditions", []),
             "tool_directory": cycle_policy.get("tool_policy", {}).get("default_tool_directory", "Harness/scripts/tools"),
+            "request_eval": cycle_eval,
         },
         "project_docs": {
             "doc_roots": docs_config.get("doc_roots", []),
@@ -132,6 +183,11 @@ def format_text(context: dict) -> str:
         lines.append(f"- Should read docs: {request_eval.get('should_read_docs')}")
         if request_eval.get("recommended_first_reads"):
             lines.append("- Docs first reads: " + ", ".join(request_eval["recommended_first_reads"]))
+    cycle_eval = context["cycle_policy"].get("request_eval", {})
+    if cycle_eval.get("request"):
+        lines.append(f"- Cycle work: {cycle_eval.get('is_cycle_work')}")
+        if cycle_eval.get("is_cycle_work"):
+            lines.append(f"- Max cycles: {cycle_eval.get('max_cycles')} (upper bound)")
     lines.extend(["", "Files:"])
     lines.extend(f"- {name}: {status}" for name, status in context["files"].items())
     lines.append("")

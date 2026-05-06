@@ -12,7 +12,7 @@
     {
       "name": "harness_docs_check",
       "path": "Harness/scripts/tools/harness_docs_check.py",
-      "purpose": "Harness/docs와 Harness/config/docs.json의 문서 발견 경로, on-demand 읽기 정책, 요청별 문서 참고 여부를 점검한다.",
+      "purpose": "Checks Harness/docs, Harness/config/docs.json, on-demand reading policy, and whether a request should read project docs.",
       "inputs": [
         "Harness/config/docs.json",
         "Harness/docs/README.md",
@@ -30,7 +30,7 @@
     {
       "name": "harness_context",
       "path": "Harness/scripts/tools/harness_context.py",
-      "purpose": "작업 시작 시 Harness 상태, 다음 작업, 오늘 사이클, 도구 정보를 짧게 요약해 에이전트의 초기 읽기 비용을 줄인다.",
+      "purpose": "Prints a short task-start briefing from Harness state, next work, today's cycle log, cycle request detection, docs policy, and tool metadata.",
       "inputs": [
         "HARNESS.md",
         "Harness/state.md",
@@ -52,7 +52,7 @@
     {
       "name": "harness_doctor",
       "path": "Harness/scripts/tools/harness_doctor.py",
-      "purpose": "Harness 문서, 설정, 도구 manifest가 서로 맞는지 빠르게 점검한다.",
+      "purpose": "Checks whether Harness documents, config files, and the tool manifest are consistent.",
       "inputs": [
         "HARNESS.md",
         "AGENTS.md",
@@ -72,7 +72,7 @@
     {
       "name": "harness_scan",
       "path": "Harness/scripts/tools/harness_scan.py",
-      "purpose": "Unreal 프로젝트 구조를 훑어 project.json 후보와 주요 Source/Config/Plugin 정보를 요약한다.",
+      "purpose": "Scans Unreal project structure and summarizes project.json candidates plus key Source, Config, and Plugin information.",
       "inputs": [
         "*.uproject",
         "Source/**/*.Build.cs",
@@ -94,7 +94,7 @@
     {
       "name": "harness_cycle",
       "path": "Harness/scripts/tools/harness_cycle.py",
-      "purpose": "짧은 사이클 로그 항목을 dry run으로 만들고, 명시적 --write가 있을 때만 오늘 cycles 파일에 추가한다. changed, verified, remaining 항목은 반복 입력할 수 있다.",
+      "purpose": "Creates a short cycle log entry as a dry run and appends it to today's cycle file only with explicit --write. changed, verified, and remaining are repeatable.",
       "inputs": [
         "title",
         "--changed",
@@ -112,7 +112,7 @@
     {
       "name": "harness_diff_guard",
       "path": "Harness/scripts/tools/harness_diff_guard.py",
-      "purpose": "git status 또는 생성물 디렉터리 감지를 통해 Unreal 작업에서 위험한 변경 범위를 빠르게 요약한다.",
+      "purpose": "Summarizes risky Unreal change scope from git status and generated-directory detection.",
       "inputs": [
         "git status --short when available",
         "Binaries/",
@@ -133,7 +133,7 @@
     {
       "name": "harness_handoff",
       "path": "Harness/scripts/tools/harness_handoff.py",
-      "purpose": "다른 에이전트나 새 세션으로 넘길 최소 컨텍스트를 dry run으로 생성하고, 명시적 --write가 있을 때만 handoff 문서를 쓴다.",
+      "purpose": "Creates a minimal handoff brief for another worker or new session as a dry run, and writes only with explicit --write.",
       "inputs": [
         "harness_context",
         "harness_diff_guard",
@@ -146,12 +146,12 @@
       ],
       "writes_files": "only_with_--write",
       "safe_by_default": true,
-      "verify": "python Harness/scripts/tools/harness_handoff.py --request \"검증\""
+      "verify": "python Harness/scripts/tools/harness_handoff.py --request \"verification\""
     },
     {
       "name": "harness_verify_all",
       "path": "Harness/scripts/tools/harness_verify_all.py",
-      "purpose": "작업 종료 전 에이전트가 doctor, JSON 파싱, Python 컴파일, scan, diff guard, build readiness를 한 번에 확인한다.",
+      "purpose": "Runs standard end-of-task checks: doctor, JSON parsing, Python compile, scan, diff guard, state check, docs policy, and build readiness.",
       "inputs": [
         "harness_doctor",
         "harness_context",
@@ -171,7 +171,7 @@
     {
       "name": "harness_migration_audit",
       "path": "Harness/scripts/tools/harness_migration_audit.py",
-      "purpose": "구버전 Harness가 들어간 대상 프로젝트를 이식하기 전에 보존, 갱신, 정리 항목을 읽기 전용으로 점검한다.",
+      "purpose": "Audits an older Harness project before migration and reports preserve, update, and cleanup items in read-only mode.",
       "inputs": [
         "--target",
         "target/Harness/state.md",
@@ -195,7 +195,7 @@
     {
       "name": "harness_state_check",
       "path": "Harness/scripts/tools/harness_state_check.py",
-      "purpose": "state.md/next.md/cycles/ 문서가 비대해지거나 작업 이력이 섞이는지, 구버전 스크립트 경로가 남았는지 점검한다.",
+      "purpose": "Checks whether state.md, next.md, and cycles are too large, mixed with history, or contain legacy script paths.",
       "inputs": [
         "--target",
         "Harness/state.md",
@@ -214,7 +214,7 @@
     {
       "name": "harness_python_check",
       "path": "Harness/scripts/tools/harness_python_check.py",
-      "purpose": "Python 3 실행 가능 여부와 Unreal Python 후보를 짧게 점검하고, 없을 경우 수동 설치 안내만 제공한다.",
+      "purpose": "Checks Python 3 availability and Unreal Python candidates, and provides manual installation guidance when missing.",
       "inputs": [
         "python --version",
         "py -3 --version",
@@ -233,7 +233,7 @@
     {
       "name": "harness_init_plan",
       "path": "Harness/scripts/tools/harness_init_plan.py",
-      "purpose": "새 프로젝트 초기화나 템플릿 이식 시 보존, 채울 값, 검증 명령을 짧은 계획으로 요약한다.",
+      "purpose": "Summarizes preservation, fields to fill, and verification commands for new project initialization or template migration.",
       "inputs": [
         "HARNESS.md",
         "Harness/",
@@ -252,7 +252,7 @@
     {
       "name": "harness_docs_index",
       "path": "Harness/scripts/tools/harness_docs_index.py",
-      "purpose": "Harness/docs 문서를 전체로 읽기 전에 파일별 제목과 heading만 인덱싱해 읽을 범위를 줄인다.",
+      "purpose": "Indexes titles and headings in Harness/docs to reduce full-document reading scope.",
       "inputs": [
         "Harness/config/docs.json",
         "Harness/docs/**/*.md",
@@ -271,7 +271,7 @@
     {
       "name": "harness_project_fill",
       "path": "Harness/scripts/tools/harness_project_fill.py",
-      "purpose": "Unreal 프로젝트 구조를 스캔해 Harness/config/project.json의 빈 필드 후보를 만들고, --write가 있을 때만 채운다.",
+      "purpose": "Scans Unreal project structure, proposes candidates for blank Harness/config/project.json fields, and writes only with --write.",
       "inputs": [
         "*.uproject",
         "Source/**/*.Build.cs",
@@ -292,7 +292,7 @@
     {
       "name": "harness_cycle_summary",
       "path": "Harness/scripts/tools/harness_cycle_summary.py",
-      "purpose": "최근 cycles 로그에서 변경, 검증, 남은 일을 짧게 요약해 누적 기록을 매번 길게 읽지 않게 한다.",
+      "purpose": "Summarizes changed, verified, and remaining items from recent cycle logs to avoid rereading long history.",
       "inputs": [
         "Harness/cycles/*.md",
         "--limit"
@@ -308,7 +308,7 @@
     {
       "name": "harness_unreal_risk",
       "path": "Harness/scripts/tools/harness_unreal_risk.py",
-      "purpose": "변경 파일 목록에서 Build.cs, Public 헤더, UPROPERTY/UFUNCTION, Config, 에셋 변경 같은 Unreal 위험 신호만 추린다.",
+      "purpose": "Extracts Unreal risk signals from changed files, including Build.cs, Public headers, UPROPERTY/UFUNCTION, Config, and asset changes.",
       "inputs": [
         "git status --short",
         "changed Source/ files",
@@ -323,6 +323,25 @@
       "safe_by_default": true,
       "context_check": true,
       "verify": "python Harness/scripts/tools/harness_unreal_risk.py --json"
+    },
+    {
+      "name": "harness_unreal_script",
+      "path": "Harness/scripts/tools/harness_unreal_script.py",
+      "purpose": "Checks readiness and command for running Harness/scripts/unreal/*.py through UnrealEditor-Cmd, and runs only with explicit --run.",
+      "inputs": [
+        "Harness/config/project.json",
+        "--script",
+        "--arg",
+        "--run"
+      ],
+      "outputs": [
+        "unreal_script_readiness",
+        "command",
+        "json"
+      ],
+      "writes_files": "only_when_target_unreal_script_writes",
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_unreal_script.py --json"
     }
   ]
 }

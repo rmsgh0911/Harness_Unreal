@@ -1,30 +1,32 @@
-# Harness 설정
+# Harness Config
 
-이 폴더는 Harness가 재사용할 프로젝트 설정과 에이전트 설정을 둔다.
+This folder stores reusable Harness configuration for the project and supported workers.
 
-- `project.json`: Unreal 프로젝트별 검증 설정
-- `agents.json`: 지원 작업자와 각 작업자의 루트 지시 파일 매핑
-- `cycle_policy.json`: 단일 작업자 기본 사이클, 사이클 횟수 해석, 작업자 전환, 도구 추가, 중단 규칙
-- `docs.json`: 프로젝트 문서 위치와 필요할 때만 읽는 참조 정책
+- `project.json`: project-specific Unreal verification settings
+- `agents.json`: supported workers and their root instruction files
+- `cycle_policy.json`: structured helper for the single-worker cycle flow, cycle count interpretation, worker switching, tool additions, and stop conditions
+- `docs.json`: project document locations and on-demand reading policy
 
-이 폴더는 선언적인 설정만 담는다. 사이클 로그, 긴 리뷰, 기획서 원문, 토큰, API 키, 로컬 인증 정보는 여기에 저장하지 않는다.
+This folder should contain declarative configuration only. Do not store cycle logs, long reviews, design documents, tokens, API keys, or local credentials here.
 
-인증은 각 사용자의 로컬 앱, CLI, 에이전트 환경에서 처리한다. Harness에는 토큰, API 키, 로그인 정보를 저장하지 않는다.
+Credentials belong to each user's local app, CLI, or agent environment. Harness must not store tokens, API keys, or login data.
 
-## 프로젝트 문서
+## Project Docs
 
-기획서, 구현기준서, 시뮬레이션 시나리오, 검증 기준, 회고 문서는 기본적으로 `Harness/docs/`에 둔다.
+Design docs, implementation specs, simulation scenarios, validation criteria, and retrospectives live under `Harness/docs/` by default.
 
-`docs.json`은 해당 문서 폴더의 위치, 에이전트가 언제 읽을지에 대한 정책, 요청 문장에서 문서 참고 필요성을 판단할 힌트만 담는다. 문서 자체를 `Harness/config/`에는 넣지 않는다.
+`docs.json` stores document roots, the policy for when agents should read docs, and request hints. Do not place full design docs under `Harness/config/`.
 
-문서가 너무 크거나 기존 팀 문서 위치가 있으면 루트 `ProjectDocs/`, `Docs/`, `DesignDocs/` 같은 외부 폴더를 추가로 등록할 수 있다. 기본 이식 단위는 `HARNESS.md`와 `Harness/`다.
+If docs are too large or the team already has an external docs folder, register root-level `ProjectDocs/`, `Docs/`, or `DesignDocs/`. The default migration unit remains `HARNESS.md` plus `Harness/`.
 
-## 주 작업자 변경
+`Harness/docs/Progress.md` is the default Korean human-facing dashboard. Other Harness operating files should stay in English for agent portability.
 
-Codex 앱에서 작업하면 `AGENTS.md`가, Claude Code에서 작업하면 `CLAUDE.md`가 먼저 적용된다.
+## Primary Worker Changes
 
-`agents.json`은 에이전트를 실행하는 설정 파일이 아니라, 어떤 작업자가 어떤 루트 지시 파일을 읽는지 알려주는 참고 설정이다.
+When working in Codex, `AGENTS.md` is the first root instruction file. When working in Claude Code, `CLAUDE.md` is the first root instruction file.
 
-주 작업자를 바꾸려면 사람이 사용할 앱 또는 CLI를 바꿔서 새 세션을 시작한다.
+`agents.json` does not launch agents. It only records which worker reads which root instruction file.
 
-작업자 전환은 자동 전환보다 사람이 명시하는 방식을 우선한다. 전환한 경우 오늘 `Harness/cycles/YYYY-MM-DD.md`에 전환 이유와 새 작업자가 먼저 볼 파일 범위를 짧게 기록한다.
+To change the primary worker, the human starts a new session in the target app or CLI.
+
+Worker switching should be explicit. When a switch happens, record the reason and the new worker's first-read files in today's `Harness/cycles/YYYY-MM-DD.md`.

@@ -54,8 +54,8 @@ def run_doctor(root: Path) -> dict:
     results.append(check(includes(ag_text, "HARNESS.md"), "AGENTS.md routes agents to HARNESS.md"))
     if (root / "CLAUDE.md").exists():
         results.append(check(includes(cl_text, "HARNESS.md"), "CLAUDE.md routes Claude Code to HARNESS.md"))
-    results.append(check(includes(harness_text, "최대 N사이클"), "HARNESS.md explains max-cycle requests"))
-    results.append(check(includes(harness_text, "도구 추가"), "HARNESS.md explains agent-added tools"))
+    results.append(check(includes(harness_text, "up to N cycles"), "HARNESS.md explains max-cycle requests"))
+    results.append(check(includes(harness_text, "Tool Additions"), "HARNESS.md explains agent-added tools"))
     results.append(check(includes(harness_text, "Harness/docs"), "HARNESS.md explains default project document root"))
     results.append(check(includes(harness_text, "docs.json"), "HARNESS.md explains docs.json policy"))
 
