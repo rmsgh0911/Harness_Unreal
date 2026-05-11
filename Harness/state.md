@@ -1,5 +1,8 @@
 # State
 
+Agent-facing technical reference. Keep only the latest confirmed facts in present tense.
+Do not use as a work log, history journal, or human dashboard — that is `Harness/docs/Progress.md`.
+
 ## Project
 
 - Project type: Unreal Engine project

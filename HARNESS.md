@@ -20,6 +20,8 @@ This file defines the default operating rules for agents working with this Unrea
 5. If the user asks to reference design docs, specs, scenarios, validation criteria, or if the implementation intent is unclear, check `Harness/config/docs.json` and read only the relevant project docs.
 6. Inspect only the `Source/`, `Config/`, `Plugins/`, `Content/`, or `Harness/scripts/` files needed for the current request.
 
+When Python is available, `python Harness/scripts/tools/harness_context.py` covers steps 2–3 in one command and also reports available tools, today's cycle log summary, and doc policy status. Pass `--request "<task>"` to get doc-read guidance for the current task.
+
 ## User Request Interpretation
 
 - If the user gives a clear feature name, bug, success criterion, or maximum cycle count, prioritize implementation and verification.
