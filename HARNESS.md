@@ -79,6 +79,15 @@ Do not spend cycle time on wording, formatting, comments, or naming cleanup unle
 - `docs/Progress.md` contains a short Korean human summary only. Do not duplicate long content from `state.md`, `next.md`, or `cycles/`.
 - Do not duplicate the same details across `state.md`, `next.md`, and `cycles/`.
 - When editing the template repository itself, do not create real project cycle logs unless the user explicitly asks.
+- Before finishing any user-requested feature work, bug fix, camera/asset/content change, or verification-driven iteration, explicitly check whether `Harness/docs/Progress.md` needs a brief Korean update, even if the user did not ask for a commit.
+- If the work changed user-visible behavior, assets, captures, maps, build/config behavior, or human confirmation needs, update `Harness/docs/Progress.md` before the final response and before staging any commit.
+
+Finish checklist before final response or user-requested commits:
+
+1. Verify the requested behavior with the smallest useful command or manual check.
+2. Inspect `git diff --stat` and confirm the changed files match the request.
+3. Update `Harness/docs/Progress.md` when the diff includes meaningful project work or a new human decision point.
+4. Run `python Harness/scripts/tools/harness_verify_all.py` and address any Progress/diff warning before committing.
 
 Recommended cycle log format:
 

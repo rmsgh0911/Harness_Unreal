@@ -16,6 +16,28 @@ from harness_common import find_project_root, rel, print_text_or_json
 GENERATED_DIRS = {"Binaries", "Intermediate", "Saved", "DerivedDataCache"}
 BINARY_ASSET_SUFFIXES = {".uasset", ".umap"}
 PUBLIC_API_MARKERS = ("UFUNCTION", "UPROPERTY", "UCLASS", "USTRUCT", "UENUM")
+PROGRESS_PATH = "Harness/docs/Progress.md"
+PROGRESS_TRIGGER_PREFIXES = (
+    "Source/",
+    "Config/",
+    "Content/",
+    "Plugins/",
+    "Harness/scripts/unreal/",
+    "Harness/docs/FluxityPntSample/",
+)
+PROGRESS_TRIGGER_SUFFIXES = {
+    ".uasset",
+    ".umap",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".ini",
+    ".json",
+    ".png",
+    ".jpg",
+    ".jpeg",
+}
 
 
 def resolve_git_executable() -> str | None:
@@ -38,6 +60,19 @@ def run_git_status(root: Path) -> tuple[bool, list[str]]:
     if not git_executable:
         return False, []
     try:
+        top_level = subprocess.run(
+            [git_executable, "rev-parse", "--show-toplevel"],
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        if top_level.returncode != 0:
+            return False, []
+        git_root = Path(top_level.stdout.strip()).resolve()
+        if git_root != root.resolve():
+            return False, []
         completed = subprocess.run(
             [git_executable, "status", "--short"],
             cwd=root,
@@ -108,6 +143,26 @@ def inspect_public_api_markers(root: Path, report: dict) -> None:
     report["public_api_marker_hits"] = marker_hits
 
 
+def inspect_progress_recording(report: dict) -> None:
+    changed_paths = [changed_path_from_status(item).replace("\\", "/") for item in report["changed"]]
+    progress_changed = PROGRESS_PATH in changed_paths
+    meaningful_paths: list[str] = []
+    for path_text in changed_paths:
+        if path_text == PROGRESS_PATH:
+            continue
+        suffix = Path(path_text).suffix.lower()
+        if path_text.startswith(PROGRESS_TRIGGER_PREFIXES) or suffix in BINARY_ASSET_SUFFIXES:
+            if suffix in PROGRESS_TRIGGER_SUFFIXES or path_text.startswith(("Content/", "Source/", "Config/", "Plugins/")):
+                meaningful_paths.append(path_text)
+    report["progress_recording"] = {
+        "progress_path": PROGRESS_PATH,
+        "progress_changed": progress_changed,
+        "meaningful_change_count": len(meaningful_paths),
+        "meaningful_changes_sample": meaningful_paths[:20],
+        "update_recommended": bool(meaningful_paths and not progress_changed),
+    }
+
+
 def build_report(root: Path) -> dict:
     git_available, changed = run_git_status(root)
     if not git_available:
@@ -125,6 +180,9 @@ def build_report(root: Path) -> dict:
         }
     )
     inspect_public_api_markers(root, report)
+    inspect_progress_recording(report)
+    if report["progress_recording"]["update_recommended"]:
+        report["ok"] = False
     return report
 
 
@@ -146,6 +204,13 @@ def format_text(report: dict) -> str:
         lines.append("Risks:")
         for risk in report["risks"]:
             lines.append(f"- [{risk['level']}] {risk['path']}: {risk['reason']}")
+    if report.get("progress_recording", {}).get("update_recommended"):
+        progress = report["progress_recording"]
+        lines.append("")
+        lines.append("Progress recording:")
+        lines.append(f"- Update recommended: {progress['progress_path']} is not changed, but meaningful project changes are pending.")
+        for path_text in progress["meaningful_changes_sample"][:10]:
+            lines.append(f"- {path_text}")
     if report.get("public_api_marker_hits"):
         lines.append("")
         lines.append("Public API marker hits:")

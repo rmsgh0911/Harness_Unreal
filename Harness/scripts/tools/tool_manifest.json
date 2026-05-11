@@ -112,14 +112,15 @@
     {
       "name": "harness_diff_guard",
       "path": "Harness/scripts/tools/harness_diff_guard.py",
-      "purpose": "Summarizes risky Unreal change scope from git status and generated-directory detection.",
+      "purpose": "Summarizes risky Unreal change scope from git status and generated-directory detection, and warns when meaningful project changes lack a Progress.md update.",
       "inputs": [
         "git status --short when available",
         "Binaries/",
         "Intermediate/",
         "Saved/",
         "DerivedDataCache/",
-        "changed Source headers and Build.cs files"
+        "changed Source headers and Build.cs files",
+        "Harness/docs/Progress.md"
       ],
       "outputs": [
         "risk_report",

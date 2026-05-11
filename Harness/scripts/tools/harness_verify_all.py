@@ -87,11 +87,17 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
     compile_check = compile_python_files(root) if compile_python else {"ok": True, "checked": [], "failures": [], "skipped": True}
     build_readiness = check_build_readiness(root)
 
-    hard_ok = doctor["ok"] and docs_check["ok"] and json_check["ok"] and compile_check["ok"] and state_check["ok"]
+    hard_ok = doctor["ok"] and docs_check["ok"] and json_check["ok"] and compile_check["ok"] and state_check["ok"] and diff["ok"]
     state_check_summary = {
         "finding_count": len(state_check["findings"]),
         "cycle_files": state_check["cycles"]["file_count"],
         "cycle_total_lines": state_check["cycles"]["total_lines"],
+    }
+    docs_check_summary = {
+        "finding_count": len(docs_check["findings"]),
+        "doc_roots": docs_check["summary"]["doc_roots"],
+        "entry_points": docs_check["summary"]["entry_points"],
+        "markdown_files": docs_check["summary"]["markdown_files"],
     }
     return {
         "root": str(root),
@@ -123,15 +129,10 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
             "mode": diff["mode"],
             "risk_count": diff["risk_count"],
             "change_list_reliable": diff["change_list_reliable"],
+            "progress_update_recommended": diff.get("progress_recording", {}).get("update_recommended", False),
         },
         "state_check": state_check_summary,
-        "doc_check": state_check_summary,
-        "docs_check": {
-            "finding_count": len(docs_check["findings"]),
-            "doc_roots": docs_check["summary"]["doc_roots"],
-            "entry_points": docs_check["summary"]["entry_points"],
-            "markdown_files": docs_check["summary"]["markdown_files"],
-        },
+        "docs_check": docs_check_summary,
         "build_readiness": build_readiness,
     }
 
@@ -147,6 +148,7 @@ def format_text(report: dict) -> str:
         f"- Python compile: {report['summary']['python_compile']}",
         f"- Scan: {report['summary']['scan']}",
         f"- Diff guard: {report['summary']['diff_guard']} ({report['diff_guard']['mode']})",
+        f"- Progress update: {'recommended' if report['diff_guard']['progress_update_recommended'] else 'ok'}",
         f"- State check (state/next/cycles 길이·포맷): {report['summary']['state_check']}",
         f"- Docs policy (문서 루트 발견·읽기정책): {report['summary']['docs_check']}",
         f"- Build: {report['summary']['build']}",

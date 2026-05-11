@@ -35,6 +35,7 @@ The root `HARNESS.md` is the source of truth for operating rules. This file expl
 - Keep `next.md` to work that is still unresolved.
 - Keep `docs/Progress.md` in Korean and short. It is for human status review, not agent history.
 - Do not duplicate the same details across `state.md`, `next.md`, `cycles/`, and `docs/Progress.md`.
+- Before finishing meaningful project work, with or without a commit, check `git diff --stat` and update `docs/Progress.md` if the change affects behavior, assets, captures, maps, verification state, or human decisions.
 
 ## Project Docs
 
@@ -75,7 +76,7 @@ Standard tools:
 - `harness_docs_check.py`: checks `Harness/docs` and `docs.json` reading policy
 - `harness_scan.py`: summarizes Unreal project structure and `project.json` candidates
 - `harness_cycle.py`: creates cycle log entries; writes only with `--write`
-- `harness_diff_guard.py`: summarizes changed files and Unreal risk signals
+- `harness_diff_guard.py`: summarizes changed files and Unreal risk signals, and warns when meaningful project changes are pending without a matching `docs/Progress.md` update
 - `harness_handoff.py`: creates a minimal handoff brief; writes only with `--write`
 - `harness_verify_all.py`: runs the standard lightweight end-of-task checks
 - `harness_migration_audit.py`: audits an older Harness project before migration
