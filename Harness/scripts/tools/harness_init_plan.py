@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import find_project_root, harness_dir, load_json, path_exists_text, print_text_or_json, rel
+from harness_common import cycles_dir, find_project_root, harness_dir, load_json, next_path, path_exists_text, print_text_or_json, rel, state_path
 
 
 def build_plan(root: Path) -> dict:
@@ -26,8 +26,11 @@ def build_plan(root: Path) -> dict:
         "HARNESS.md",
         "AGENTS.md",
         "Harness/README.md",
-        "Harness/state.md",
-        "Harness/next.md",
+        "Harness/work/README.md",
+        "Harness/work/state.md",
+        "Harness/work/next.md",
+        "Harness/index/README.md",
+        "Harness/index/project_index.md",
         "Harness/config/project.json",
         "Harness/config/docs.json",
         "Harness/config/cycle_policy.json",
@@ -37,8 +40,13 @@ def build_plan(root: Path) -> dict:
         if not (root / item).exists():
             missing.append(item)
 
-    for item in ["Harness/state.md", "Harness/next.md", "Harness/cycles/", "Harness/config/project.json"]:
-        if (root / item).exists():
+    for item, path in [
+        ("Harness/work/state.md", state_path(root)),
+        ("Harness/work/next.md", next_path(root)),
+        ("Harness/work/cycles/", cycles_dir(root)),
+        ("Harness/config/project.json", harness / "config" / "project.json"),
+    ]:
+        if path.exists():
             preserve.append(item)
 
     if not project.get("project_name"):

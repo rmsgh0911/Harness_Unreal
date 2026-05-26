@@ -9,6 +9,7 @@ from typing import Any
 
 
 HARNESS_DIR_NAME = "Harness"
+WORK_DIR_NAME = "work"
 
 
 def find_project_root(start: Path | None = None) -> Path:
@@ -23,6 +24,26 @@ def find_project_root(start: Path | None = None) -> Path:
 
 def harness_dir(root: Path) -> Path:
     return root / HARNESS_DIR_NAME
+
+
+def work_dir(root: Path) -> Path:
+    return harness_dir(root) / WORK_DIR_NAME
+
+
+def state_path(root: Path) -> Path:
+    return work_dir(root) / "state.md"
+
+
+def next_path(root: Path) -> Path:
+    return work_dir(root) / "next.md"
+
+
+def cycles_dir(root: Path) -> Path:
+    return work_dir(root) / "cycles"
+
+
+def index_dir(root: Path) -> Path:
+    return harness_dir(root) / "index"
 
 
 def read_text(path: Path, default: str = "") -> str:
@@ -48,7 +69,7 @@ def dump_json(data: Any) -> str:
 
 def today_cycle_path(root: Path, now: datetime | None = None) -> Path:
     date_text = (now or datetime.now()).strftime("%Y-%m-%d")
-    return harness_dir(root) / "cycles" / f"{date_text}.md"
+    return cycles_dir(root) / f"{date_text}.md"
 
 
 def parse_date_text(date_text: str) -> str:

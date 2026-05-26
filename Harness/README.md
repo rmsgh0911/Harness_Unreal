@@ -5,9 +5,9 @@ The root `HARNESS.md` is the source of truth for operating rules. This file expl
 ## Read Order
 
 1. Root `HARNESS.md`
-2. `Harness/state.md`
-3. `Harness/next.md`
-4. Today's `Harness/cycles/YYYY-MM-DD.md` if it exists
+2. `Harness/work/state.md`
+3. `Harness/work/next.md`
+4. Today's `Harness/work/cycles/YYYY-MM-DD.md` if it exists
 5. `Harness/config/cycle_policy.json` when the user asks for cycles, iteration, "up to N times", or "up to N cycles"
 6. `Harness/config/docs.json` and relevant docs only when project docs are needed
 7. Files directly required by the current request under `Source/`, `Config/`, `Content/`, `Plugins/`, or `Harness/scripts/`
@@ -27,23 +27,36 @@ This prints a combined briefing of state, next work, today's cycle log, doc poli
 - `config/agents.json`: supported worker to root instruction file mapping
 - `config/cycle_policy.json`: structured helper for cycle count interpretation, recording, tool addition, and stop conditions
 - `config/docs.json`: project document roots and on-demand reading policy
-- `state.md`: latest confirmed project state only
-- `next.md`: unresolved work, deferred risks, and human decisions needed
-- `cycles/`: short date-based cycle records
 - `docs/`: default location for design docs, specs, scenarios, validation criteria, and retrospectives
 - `docs/Progress.md`: Korean human-facing dashboard for current progress and confirmation needs
+- `index/`: compact project-understanding maps and routing hints
+- `work/`: current work-loop state and records
+- `work/state.md`: latest confirmed project state only
+- `work/next.md`: unresolved work, deferred risks, and human decisions needed
+- `work/cycles/`: short date-based cycle records
 - `scripts/`: Harness script root
 - `scripts/unreal/`: Python scripts intended to run inside Unreal Editor
 - `scripts/build/`: UBT build and project-file helper scripts
 - `scripts/tools/`: small CLI tools that reduce repeated agent work
 
+## Index Layer
+
+`Harness/index/` is the Project Understanding Layer. Use it to reduce repeated project exploration, not to replace reading actual code/config/assets.
+
+- `index/project_index.md`: compact project map and likely routing hints
+- `index/api_surface.md`: compatibility-sensitive Blueprint, integration, and external names
+- `index/verification_map.md`: task-type-specific minimum verification guidance
+- `index/source_map.json`: optional generated source/module map
+
+Index files are hints. If they conflict with code, config, assets, logs, or build output, trust the actual project files and report the stale index.
+
 ## Recording Principles
 
-- Keep `cycles/` as short progress records, not a long diary.
-- Keep `state.md` to current confirmed facts only.
-- Keep `next.md` to work that is still unresolved.
-- Keep `docs/Progress.md` in Korean and short. It is for human status review, not agent history.
-- Do not duplicate the same details across `state.md`, `next.md`, `cycles/`, and `docs/Progress.md`.
+- Keep `work/cycles/` as short progress records, not a long diary.
+- Keep `work/state.md` to current confirmed facts only.
+- Keep `work/next.md` to work that is still unresolved.
+- Keep `docs/Progress.md` in Korean and short. It is for human status review, not agent history; refresh bullets in place instead of appending long history.
+- Do not duplicate the same details across `work/state.md`, `work/next.md`, `work/cycles/`, and `docs/Progress.md`.
 - Before finishing meaningful project work, with or without a commit, check `git diff --stat` and update `docs/Progress.md` if the change affects behavior, assets, captures, maps, verification state, or human decisions.
 
 ## Project Docs
@@ -88,11 +101,14 @@ Standard tools:
 - `harness_diff_guard.py`: summarizes changed files and Unreal risk signals, and warns when meaningful project changes are pending without a matching `docs/Progress.md` update
 - `harness_handoff.py`: creates a minimal handoff brief; writes only with `--write`
 - `harness_verify_all.py`: runs the standard lightweight end-of-task checks
+- `harness_release_check.py`: checks template packaging hygiene before copying or zipping
 - `harness_migration_audit.py`: audits an older Harness project before migration
 - `harness_state_check.py`: checks that state/next/cycles stay compact and current
+- `harness_progress_check.py`: checks that Progress.md stays a compact dashboard, not an append-only work log
 - `harness_python_check.py`: checks Python 3 availability and Unreal Python candidates
 - `harness_init_plan.py`: summarizes preservation, fill, and verification work for initialization or migration
 - `harness_docs_index.py`: indexes doc headings before reading full docs
+- `harness_index_check.py`: checks that `Harness/index/` stays compact and complete
 - `harness_project_fill.py`: fills blank `project.json` fields only with `--write`
 - `harness_cycle_summary.py`: summarizes recent cycle logs
 - `harness_unreal_risk.py`: extracts Unreal-specific risk signals from changed files
@@ -110,11 +126,15 @@ python Harness/scripts/tools/harness_cycle.py "Input fix" --changed "..." --veri
 python Harness/scripts/tools/harness_diff_guard.py
 python Harness/scripts/tools/harness_handoff.py --request "Continue lock-on work"
 python Harness/scripts/tools/harness_verify_all.py
+python Harness/scripts/tools/harness_release_check.py --json
+python Harness/scripts/tools/harness_release_check.py --strict
 python Harness/scripts/tools/harness_migration_audit.py --target C:\Path\To\OldProject
 python Harness/scripts/tools/harness_state_check.py --target C:\Path\To\Project
+python Harness/scripts/tools/harness_progress_check.py --json
 python Harness/scripts/tools/harness_python_check.py
 python Harness/scripts/tools/harness_init_plan.py
 python Harness/scripts/tools/harness_docs_index.py
+python Harness/scripts/tools/harness_index_check.py --json
 python Harness/scripts/tools/harness_project_fill.py --json
 python Harness/scripts/tools/harness_cycle_summary.py
 python Harness/scripts/tools/harness_unreal_risk.py
@@ -131,3 +151,5 @@ If `python` resolves to the Microsoft Store alias on Windows, use the real Pytho
 - each tool `verify` command points at the actual tool path
 - `project.json` can stay blank in the standalone template but should be filled after migration
 - no generated `__pycache__` or `*.pyc` files remain under `Harness/scripts/`
+
+Use `harness_release_check.py --strict` before packaging or copying the template. Strict mode treats warnings as blockers, including active `Harness/work/cycles/*.md` files. Keep cycle logs while work is active; remove or omit them only for a clean template release.

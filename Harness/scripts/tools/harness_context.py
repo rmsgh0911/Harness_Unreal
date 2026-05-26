@@ -15,10 +15,13 @@ from harness_common import (
     find_project_root,
     first_heading,
     harness_dir,
+    index_dir,
     load_json,
     markdown_list_items,
+    next_path,
     read_text,
     rel,
+    state_path,
     today_cycle_path,
     print_text_or_json,
 )
@@ -29,6 +32,41 @@ KOREAN_CYCLE = "\uc0ac\uc774\ud074"
 KOREAN_ITERATE = "\ubc18\ubcf5"
 KOREAN_MAX = "\ucd5c\ub300"
 
+API_HINTS = [
+    "api",
+    "blueprint",
+    "ufunction",
+    "uproperty",
+    "mqtt",
+    "topic",
+    "json",
+    "payload",
+    "route",
+    "signature",
+]
+VERIFY_HINTS = [
+    "verify",
+    "verification",
+    "build",
+    "compile",
+    "test",
+    "pie",
+    "검증",
+    "빌드",
+    "컴파일",
+]
+SOURCE_HINTS = [
+    "source",
+    "module",
+    "class",
+    "c++",
+    "cpp",
+    "header",
+    "소스",
+    "모듈",
+    "클래스",
+]
+
 
 def _context_check_commands(manifest: dict) -> list[str]:
     """Return verify commands for tools flagged with context_check: true."""
@@ -38,6 +76,24 @@ def _context_check_commands(manifest: dict) -> list[str]:
         for tool in tools
         if isinstance(tool, dict) and tool.get("context_check") and tool.get("verify")
     ]
+
+
+def _request_has_any(request: str, hints: list[str]) -> bool:
+    lowered = request.lower()
+    return any(hint.lower() in lowered for hint in hints)
+
+
+def index_first_reads(root: Path, request: str) -> list[str]:
+    index = index_dir(root)
+    candidates = [index / "project_index.md"]
+    if _request_has_any(request, API_HINTS):
+        candidates.append(index / "api_surface.md")
+    if _request_has_any(request, VERIFY_HINTS):
+        candidates.append(index / "verification_map.md")
+    source_map = index / "source_map.json"
+    if source_map.exists() and _request_has_any(request, SOURCE_HINTS):
+        candidates.append(source_map)
+    return [rel(path, root) for path in candidates if path.exists()]
 
 
 def evaluate_cycle_request(request: str, cycle_policy: dict) -> dict:
@@ -89,15 +145,17 @@ def build_context(root: Path, request: str = "") -> dict:
     cycle_policy = load_json(harness / "config" / "cycle_policy.json", {}) or {}
     docs_config = load_json(harness / "config" / "docs.json", {}) or {}
     manifest = load_json(harness / "scripts" / "tools" / "tool_manifest.json", {}) or {}
-    state_text = read_text(harness / "state.md")
-    next_text = read_text(harness / "next.md")
+    state_text = read_text(state_path(root))
+    next_text = read_text(next_path(root))
     cycle_path = today_cycle_path(root)
+    index_reads = index_first_reads(root, request)
     project_configured = bool(project.get("project_name") and project.get("uproject_file"))
     recommended_first_reads = [
         "HARNESS.md",
-        "Harness/state.md",
-        "Harness/next.md",
+        "Harness/work/state.md",
+        "Harness/work/next.md",
     ]
+    recommended_first_reads.extend(path for path in index_reads if path not in recommended_first_reads)
     if cycle_path.exists():
         recommended_first_reads.append(rel(cycle_path, root))
 
@@ -109,8 +167,11 @@ def build_context(root: Path, request: str = "") -> dict:
         "HARNESS.md": file_status(root / "HARNESS.md"),
         "AGENTS.md": file_status(root / "AGENTS.md"),
         "CLAUDE.md": file_status(root / "CLAUDE.md"),
-        "Harness/state.md": file_status(harness / "state.md"),
-        "Harness/next.md": file_status(harness / "next.md"),
+        "Harness/work/state.md": file_status(state_path(root)),
+        "Harness/work/next.md": file_status(next_path(root)),
+        "Harness/index/project_index.md": file_status(index_dir(root) / "project_index.md"),
+        "Harness/index/api_surface.md": file_status(index_dir(root) / "api_surface.md"),
+        "Harness/index/verification_map.md": file_status(index_dir(root) / "verification_map.md"),
     }
     if project_configured or cycle_path.exists():
         files[rel(cycle_path, root)] = file_status(cycle_path)
@@ -138,6 +199,10 @@ def build_context(root: Path, request: str = "") -> dict:
             "optional_external_roots": docs_config.get("optional_external_roots", []),
             "read_policy": docs_config.get("read_policy", {}).get("default", "on_demand"),
             "request_eval": request_eval,
+        },
+        "project_index": {
+            "recommended_first_reads": index_reads,
+            "read_policy": "routing_hints_only",
         },
         "tools": {
             "registered_count": len(manifest.get("tools", [])),

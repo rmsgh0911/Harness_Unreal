@@ -23,9 +23,9 @@
     "record_in_cycle_log": true,
     "new_worker_reads_first": [
       "HARNESS.md",
-      "Harness/state.md",
-      "Harness/next.md",
-      "Harness/cycles/YYYY-MM-DD.md",
+      "Harness/work/state.md",
+      "Harness/work/next.md",
+      "Harness/work/cycles/YYYY-MM-DD.md",
       "git status --short",
       "git diff"
     ]
@@ -35,8 +35,8 @@
     "never_store_in_harness": true
   },
   "record_paths": {
-    "state": "Harness/state.md",
-    "next": "Harness/next.md",
-    "cycle_log": "Harness/cycles/YYYY-MM-DD.md"
+    "state": "Harness/work/state.md",
+    "next": "Harness/work/next.md",
+    "cycle_log": "Harness/work/cycles/YYYY-MM-DD.md"
   }
 }

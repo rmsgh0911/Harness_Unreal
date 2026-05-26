@@ -49,11 +49,14 @@ Keep tools small. Split them by purpose when they grow.
 - `harness_diff_guard.py`: checks changed files and Unreal risk signals.
 - `harness_handoff.py`: creates a minimal handoff brief for another worker or session.
 - `harness_verify_all.py`: runs lightweight standard checks before finishing work.
+- `harness_release_check.py`: checks template packaging hygiene before copying or zipping.
 - `harness_migration_audit.py`: audits an older Harness project before migration.
 - `harness_state_check.py`: checks whether state/next/cycles are too large, stale, or mixed with history.
+- `harness_progress_check.py`: checks whether Progress.md stays a compact dashboard instead of an append-only work log.
 - `harness_python_check.py`: checks Python 3 availability and Unreal Python candidates.
 - `harness_init_plan.py`: summarizes preservation, fill, and verification work for initialization or migration.
 - `harness_docs_index.py`: indexes project doc headings to reduce reading scope.
+- `harness_index_check.py`: checks whether `Harness/index/` stays compact, complete, and fresh enough.
 - `harness_project_fill.py`: creates `project.json` candidates and fills blank fields only with `--write`.
 - `harness_cycle_summary.py`: summarizes recent cycle logs.
 - `harness_unreal_risk.py`: extracts Unreal-specific risk signals from changed files.
@@ -71,11 +74,15 @@ python Harness/scripts/tools/harness_cycle.py "Input fix" --changed "..." --veri
 python Harness/scripts/tools/harness_diff_guard.py
 python Harness/scripts/tools/harness_handoff.py --request "Continue lock-on work"
 python Harness/scripts/tools/harness_verify_all.py
+python Harness/scripts/tools/harness_release_check.py --json
+python Harness/scripts/tools/harness_release_check.py --strict
 python Harness/scripts/tools/harness_migration_audit.py --target C:\Path\To\OldProject
 python Harness/scripts/tools/harness_state_check.py --target C:\Path\To\Project
+python Harness/scripts/tools/harness_progress_check.py --json
 python Harness/scripts/tools/harness_python_check.py
 python Harness/scripts/tools/harness_init_plan.py
 python Harness/scripts/tools/harness_docs_index.py
+python Harness/scripts/tools/harness_index_check.py --json
 python Harness/scripts/tools/harness_project_fill.py --json
 python Harness/scripts/tools/harness_cycle_summary.py
 python Harness/scripts/tools/harness_unreal_risk.py

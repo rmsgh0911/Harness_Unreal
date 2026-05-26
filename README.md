@@ -23,7 +23,8 @@ python Harness/scripts/tools/harness_context.py
 ```
 
 - 작업 규칙의 기준 파일은 `HARNESS.md`다.
-- 에이전트는 `HARNESS.md`, `Harness/state.md`, `Harness/next.md` 순서로 읽는다.
+- 에이전트는 `HARNESS.md`, `Harness/work/state.md`, `Harness/work/next.md` 순서로 읽는다.
+- `Harness/index/`는 프로젝트 구조를 반복 탐색하지 않기 위한 짧은 지도이고, `Harness/work/`는 반복 작업 상태와 기록을 담는다.
 - 도구 설명은 `Harness/README.md`와 `Harness/scripts/tools/README.md`에 있다.
 
 ## 목적
@@ -58,17 +59,19 @@ python Harness/scripts/tools/harness_context.py
 6. 프로젝트용 루트 `README.md`는 기존 프로젝트 내용을 우선한다.
 7. 실제 Unreal 프로젝트 기준으로 `Harness/config/project.json`을 채운다.
 8. 프로젝트 문서는 기본적으로 `Harness/docs/`에 둔다. 외부 문서 폴더를 쓸 때만 `Harness/config/docs.json`에 등록한다.
-9. `Harness/state.md`에 현재 확인된 프로젝트 상태를 적는다.
-10. `Harness/next.md`에 다음 작업과 수동 검증 필요 항목을 적는다.
-11. 실제 프로젝트 작업 기록이 필요할 때만 `Harness/cycles/YYYY-MM-DD.md`를 만든다.
+9. 프로젝트 구조 지도는 `Harness/index/project_index.md`에 짧게 적는다.
+10. `Harness/work/state.md`에 현재 확인된 프로젝트 상태를 적는다.
+11. `Harness/work/next.md`에 다음 작업과 수동 검증 필요 항목을 적는다.
+12. 실제 프로젝트 작업 기록이 필요할 때만 `Harness/work/cycles/YYYY-MM-DD.md`를 만든다.
 
 ## 이식할 때 보존할 것
 
 대상 프로젝트에 이미 Harness가 있다면 아래 항목은 보존한다.
 
-- `Harness/state.md`
-- `Harness/next.md` 또는 기존 후속 작업 문서의 의미
-- `Harness/cycles/`
+- `Harness/work/state.md`
+- `Harness/work/next.md` 또는 기존 후속 작업 문서의 의미
+- `Harness/work/cycles/`
+- `Harness/index/`의 프로젝트 구조 지도와 API/검증 힌트
 - `Harness/docs/`, `ProjectDocs/`, `Docs/`, `DesignDocs/` 같은 프로젝트 문서
 - 프로젝트별 `Harness/config/project.json`
 - 프로젝트별 `Harness/config/docs.json`
@@ -92,7 +95,7 @@ python Harness/scripts/tools/harness_context.py
 - 기존 프로젝트 파일을 무조건 덮어쓰지 않는다.
 - 프로젝트별 검증 마커, 에셋 경로, 클래스 경로, 문서, 로그를 삭제하지 않는다.
 - 구버전 `Harness/doc/`에 의미 있는 문서가 있으면 `Harness/docs/`로 옮기거나 병합하고 `Harness/config/docs.json`을 갱신한다.
-- 구버전 후속 작업 문서가 있으면 의미를 `Harness/next.md`로 옮긴 뒤 정리한다.
+- 구버전 후속 작업 문서가 있으면 의미를 `Harness/work/next.md`로 옮긴 뒤 정리한다.
 - 표준 스크립트에 프로젝트별 로직이 들어가 있으면 파일을 통째로 교체하지 말고 의미를 병합한다.
 
 ## 이식 감사
@@ -110,20 +113,23 @@ python Harness/scripts/tools/harness_migration_audit.py --target C:\Path\To\Proj
 3. 루트 `CLAUDE.md`
 4. 루트 `README.md`
 5. `Harness/README.md`
-6. `Harness/state.md`
-7. `Harness/next.md`
-8. `Harness/config/project.json`
-9. `Harness/config/agents.json`
-10. `Harness/config/cycle_policy.json`
-11. `Harness/config/docs.json`
-12. 프로젝트 문서 폴더
-13. `Harness/scripts/unreal/`, `Harness/scripts/build/`, `Harness/scripts/tools/`
+6. `Harness/index/`
+7. `Harness/work/state.md`
+8. `Harness/work/next.md`
+9. `Harness/work/cycles/`
+10. `Harness/config/project.json`
+11. `Harness/config/agents.json`
+12. `Harness/config/cycle_policy.json`
+13. `Harness/config/docs.json`
+14. 프로젝트 문서 폴더
+15. `Harness/scripts/unreal/`, `Harness/scripts/build/`, `Harness/scripts/tools/`
 
 ## 최종 점검
 
 ```powershell
 python Harness/scripts/tools/harness_doctor.py
 python Harness/scripts/tools/harness_verify_all.py
+python Harness/scripts/tools/harness_release_check.py --strict
 ```
 
 템플릿 저장소 자체에서는 `project.json`이 비어 있어도 된다. 실제 Unreal 프로젝트에 이식한 뒤에는 프로젝트 필드를 채우고 다시 점검한다.

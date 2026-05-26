@@ -14,6 +14,7 @@ from harness_common import (
     find_project_root,
     harness_dir,
     markdown_list_items,
+    next_path,
     read_text,
     rel,
     today_cycle_path,
@@ -33,7 +34,7 @@ def build_handoff(root: Path, request: str = "") -> str:
     context = build_context(root)
     diff = build_report(root)
     cycle_text = read_text(today_cycle_path(root))
-    next_text = read_text(harness / "next.md")
+    next_text = read_text(next_path(root))
 
     lines = [
         "# Harness Handoff",

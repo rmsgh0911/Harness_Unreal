@@ -29,4 +29,4 @@ When working in Codex, `AGENTS.md` is the first root instruction file. When work
 
 To change the primary worker, the human starts a new session in the target app or CLI.
 
-Worker switching should be explicit. When a switch happens, record the reason and the new worker's first-read files in today's `Harness/cycles/YYYY-MM-DD.md`.
+Worker switching should be explicit. When a switch happens, record the reason and the new worker's first-read files in today's `Harness/work/cycles/YYYY-MM-DD.md`.

@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import dump_json, find_project_root, parse_date_text, read_text, rel, today_cycle_path, write_text
+from harness_common import cycles_dir, dump_json, find_project_root, parse_date_text, read_text, rel, today_cycle_path, write_text
 
 
 def normalize_items(items: list[str], fallback: str) -> list[str]:
@@ -63,7 +63,7 @@ def main() -> None:
     parser.add_argument("--root", type=Path, default=None, help="Project root. Defaults to nearest Harness root.")
     parser.add_argument("--date", default="", help="Cycle date as YYYY-MM-DD. Defaults to today.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
-    parser.add_argument("--write", action="store_true", help="Append to Harness/cycles/YYYY-MM-DD.md.")
+    parser.add_argument("--write", action="store_true", help="Append to Harness/work/cycles/YYYY-MM-DD.md.")
     args = parser.parse_args()
 
     root = find_project_root(args.root)
@@ -73,7 +73,7 @@ def main() -> None:
             date_text = parse_date_text(args.date)
         except ValueError:
             parser.error("--date must be in YYYY-MM-DD format")
-        path = root / "Harness" / "cycles" / f"{date_text}.md"
+        path = cycles_dir(root) / f"{date_text}.md"
 
     entry = build_entry(args.title, args.changed, args.verified, args.remaining)
     result = {

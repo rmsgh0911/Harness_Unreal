@@ -14,6 +14,8 @@ from harness_common import dump_json, find_project_root, harness_dir, load_json,
 from harness_context import build_context
 from harness_diff_guard import build_report as build_diff_report
 from harness_doctor import run_doctor
+from harness_index_check import build_report as build_index_report
+from harness_progress_check import build_report as build_progress_report
 from harness_state_check import build_report as build_state_report
 from harness_docs_check import build_report as build_docs_report
 from harness_scan import scan
@@ -81,13 +83,24 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
     context = build_context(root)
     scan_report = scan(root, include_assets=include_assets)
     diff = build_diff_report(root)
+    index_check = build_index_report(root)
+    progress_check = build_progress_report(root)
     state_check = build_state_report(root)
     docs_check = build_docs_report(root)
     json_check = check_json_files(root)
     compile_check = compile_python_files(root) if compile_python else {"ok": True, "checked": [], "failures": [], "skipped": True}
     build_readiness = check_build_readiness(root)
 
-    hard_ok = doctor["ok"] and docs_check["ok"] and json_check["ok"] and compile_check["ok"] and state_check["ok"] and diff["ok"]
+    hard_ok = (
+        doctor["ok"]
+        and docs_check["ok"]
+        and json_check["ok"]
+        and compile_check["ok"]
+        and index_check["ok"]
+        and progress_check["ok"]
+        and state_check["ok"]
+        and diff["ok"]
+    )
     state_check_summary = {
         "finding_count": len(state_check["findings"]),
         "cycle_files": state_check["cycles"]["file_count"],
@@ -109,6 +122,8 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
             "python_compile": "ok" if compile_check["ok"] else "failed",
             "scan": "ok",
             "diff_guard": "ok" if diff["ok"] else "needs_attention",
+            "index_check": "ok" if index_check["ok"] else "failed",
+            "progress_check": "ok" if progress_check["ok"] else "failed",
             "state_check": "ok" if state_check["ok"] else "failed",
             "docs_check": "ok" if docs_check["ok"] else "failed",
             "build": build_readiness["status"],
@@ -131,6 +146,15 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
             "change_list_reliable": diff["change_list_reliable"],
             "progress_update_recommended": diff.get("progress_recording", {}).get("update_recommended", False),
         },
+        "index_check": {
+            "warnings": index_check["warnings"],
+            "errors": index_check["errors"],
+        },
+        "progress_check": {
+            "lines": progress_check["lines"],
+            "warnings": progress_check["warnings"],
+            "errors": progress_check["errors"],
+        },
         "state_check": state_check_summary,
         "docs_check": docs_check_summary,
         "build_readiness": build_readiness,
@@ -148,9 +172,11 @@ def format_text(report: dict) -> str:
         f"- Python compile: {report['summary']['python_compile']}",
         f"- Scan: {report['summary']['scan']}",
         f"- Diff guard: {report['summary']['diff_guard']} ({report['diff_guard']['mode']})",
+        f"- Index check: {report['summary']['index_check']}",
         f"- Progress update: {'recommended' if report['diff_guard']['progress_update_recommended'] else 'ok'}",
-        f"- State check (state/next/cycles 길이·포맷): {report['summary']['state_check']}",
-        f"- Docs policy (문서 루트 발견·읽기정책): {report['summary']['docs_check']}",
+        f"- Progress dashboard: {report['summary']['progress_check']}",
+        f"- State check (state/next/cycles length and format): {report['summary']['state_check']}",
+        f"- Docs policy: {report['summary']['docs_check']}",
         f"- Build: {report['summary']['build']}",
     ]
     if report["context_warnings"]:

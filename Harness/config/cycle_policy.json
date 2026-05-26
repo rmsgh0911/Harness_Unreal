@@ -46,9 +46,9 @@
     ],
     "new_worker_reads_first": [
       "HARNESS.md",
-      "Harness/state.md",
-      "Harness/next.md",
-      "Harness/cycles/YYYY-MM-DD.md",
+      "Harness/work/state.md",
+      "Harness/work/next.md",
+      "Harness/work/cycles/YYYY-MM-DD.md",
       "git status --short",
       "git diff"
     ],

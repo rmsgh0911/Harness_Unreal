@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import find_project_root, harness_dir, load_json, read_text, print_text_or_json, rel
+from harness_common import cycles_dir, find_project_root, harness_dir, load_json, next_path, read_text, print_text_or_json, rel, state_path
 
 
 def check(condition: bool, message: str, severity: str = "error") -> dict:
@@ -31,8 +31,11 @@ def run_doctor(root: Path) -> dict:
         root / "HARNESS.md",
         root / "AGENTS.md",
         harness / "README.md",
-        harness / "state.md",
-        harness / "next.md",
+        harness / "work" / "README.md",
+        state_path(root),
+        next_path(root),
+        harness / "index" / "README.md",
+        harness / "index" / "project_index.md",
         harness / "config" / "project.json",
         harness / "config" / "agents.json",
         harness / "config" / "cycle_policy.json",
@@ -153,13 +156,13 @@ def run_doctor(root: Path) -> dict:
         )
     )
 
-    cycles_dir = harness / "cycles"
+    cycle_dir = cycles_dir(root)
     tools_dir = harness / "scripts" / "tools"
     unreal_dir = harness / "scripts" / "unreal"
     build_dir = harness / "scripts" / "build"
     results.extend(
         [
-            check(cycles_dir.is_dir(), "cycles directory exists"),
+            check(cycle_dir.is_dir(), "work cycles directory exists"),
             check(unreal_dir.is_dir(), "unreal scripts directory exists"),
             check(build_dir.is_dir(), "build scripts directory exists"),
             check(tools_dir.is_dir(), "tools directory exists"),

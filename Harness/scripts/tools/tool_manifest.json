@@ -33,8 +33,8 @@
       "purpose": "Prints a short task-start briefing from Harness state, next work, today's cycle log, cycle request detection, docs policy, and tool metadata.",
       "inputs": [
         "HARNESS.md",
-        "Harness/state.md",
-        "Harness/next.md",
+        "Harness/work/state.md",
+        "Harness/work/next.md",
         "Harness/config/project.json",
         "Harness/config/docs.json",
         "Harness/config/cycle_policy.json",
@@ -138,8 +138,8 @@
       "inputs": [
         "harness_context",
         "harness_diff_guard",
-        "Harness/next.md",
-        "Harness/cycles/YYYY-MM-DD.md",
+        "Harness/work/next.md",
+        "Harness/work/cycles/YYYY-MM-DD.md",
         "--request"
       ],
       "outputs": [
@@ -152,7 +152,7 @@
     {
       "name": "harness_verify_all",
       "path": "Harness/scripts/tools/harness_verify_all.py",
-      "purpose": "Runs standard end-of-task checks: doctor, JSON parsing, Python compile, scan, diff guard, state check, docs policy, and build readiness.",
+      "purpose": "Runs standard end-of-task checks: doctor, JSON parsing, Python compile, scan, diff guard, index check, progress dashboard check, state check, docs policy, and build readiness.",
       "inputs": [
         "harness_doctor",
         "harness_context",
@@ -170,14 +170,32 @@
       "verify": "python Harness/scripts/tools/harness_verify_all.py --json"
     },
     {
+      "name": "harness_release_check",
+      "path": "Harness/scripts/tools/harness_release_check.py",
+      "purpose": "Checks template-release hygiene such as generated caches, old work-layout paths, BOM markers, and duplicated work paths.",
+      "inputs": [
+        "Harness/",
+        "root text files",
+        "Harness/work/cycles/",
+        "--strict"
+      ],
+      "outputs": [
+        "release_hygiene_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_release_check.py --json"
+    },
+    {
       "name": "harness_migration_audit",
       "path": "Harness/scripts/tools/harness_migration_audit.py",
       "purpose": "Audits an older Harness project before migration and reports preserve, update, and cleanup items in read-only mode.",
       "inputs": [
         "--target",
-        "target/Harness/state.md",
-        "target/Harness/next.md",
-        "target/Harness/cycles/",
+        "target/Harness/work/state.md",
+        "target/Harness/work/next.md",
+        "target/Harness/work/cycles/",
         "target/Harness/config/project.json",
         "target/Harness/config/docs.json",
         "target/Harness/docs/",
@@ -199,10 +217,10 @@
       "purpose": "Checks whether state.md, next.md, and cycles are too large, mixed with history, or contain legacy script paths.",
       "inputs": [
         "--target",
-        "Harness/state.md",
-        "Harness/next.md",
+        "Harness/work/state.md",
+        "Harness/work/next.md",
         "Harness/README.md",
-        "Harness/cycles/"
+        "Harness/work/cycles/"
       ],
       "outputs": [
         "state_health_report",
@@ -211,6 +229,23 @@
       "writes_files": false,
       "safe_by_default": true,
       "verify": "python Harness/scripts/tools/harness_state_check.py --target . --json"
+    },
+    {
+      "name": "harness_progress_check",
+      "path": "Harness/scripts/tools/harness_progress_check.py",
+      "purpose": "Checks whether Harness/docs/Progress.md remains a compact human-facing dashboard instead of an append-only work log.",
+      "inputs": [
+        "Harness/docs/Progress.md",
+        "--root"
+      ],
+      "outputs": [
+        "progress_dashboard_health_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "context_check": true,
+      "verify": "python Harness/scripts/tools/harness_progress_check.py --json"
     },
     {
       "name": "harness_python_check",
@@ -270,6 +305,26 @@
       "verify": "python Harness/scripts/tools/harness_docs_index.py --json"
     },
     {
+      "name": "harness_index_check",
+      "path": "Harness/scripts/tools/harness_index_check.py",
+      "purpose": "Checks Harness/index required files, compactness, and basic generated-map freshness signals.",
+      "inputs": [
+        "Harness/index/README.md",
+        "Harness/index/project_index.md",
+        "Harness/index/api_surface.md",
+        "Harness/index/verification_map.md",
+        "Harness/index/source_map.json optional"
+      ],
+      "outputs": [
+        "index_health_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "context_check": true,
+      "verify": "python Harness/scripts/tools/harness_index_check.py --json"
+    },
+    {
       "name": "harness_project_fill",
       "path": "Harness/scripts/tools/harness_project_fill.py",
       "purpose": "Scans Unreal project structure, proposes candidates for blank Harness/config/project.json fields, and writes only with --write.",
@@ -295,7 +350,7 @@
       "path": "Harness/scripts/tools/harness_cycle_summary.py",
       "purpose": "Summarizes changed, verified, and remaining items from recent cycle logs to avoid rereading long history.",
       "inputs": [
-        "Harness/cycles/*.md",
+        "Harness/work/cycles/*.md",
         "--limit"
       ],
       "outputs": [

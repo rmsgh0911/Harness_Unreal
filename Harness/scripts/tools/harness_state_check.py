@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import dump_json, find_project_root, harness_dir, load_json, read_text, rel
+from harness_common import cycles_dir, dump_json, find_project_root, harness_dir, load_json, next_path, read_text, rel, state_path
 
 
 HISTORY_HINTS = [
@@ -78,8 +78,8 @@ def check_file(root: Path, relative: str, soft_limit: int, hard_limit: int, allo
 
 
 def state_specific(root: Path) -> dict:
-    relative = "Harness/state.md"
-    text = read_text(root / relative)
+    relative = "Harness/work/state.md"
+    text = read_text(state_path(root))
     history_hits = count_hits(text, HISTORY_HINTS) + len(_DATE_PATTERN.findall(text))
     return {
         "path": relative,
@@ -89,7 +89,7 @@ def state_specific(root: Path) -> dict:
 
 
 def cycle_summary(root: Path) -> dict:
-    cycles = harness_dir(root) / "cycles"
+    cycles = cycles_dir(root)
     files = sorted(path for path in cycles.glob("*.md") if path.name != ".gitkeep") if cycles.exists() else []
     large_files: list[dict] = []
     total_lines = 0
@@ -109,8 +109,8 @@ def cycle_summary(root: Path) -> dict:
 def build_report(root: Path) -> dict:
     template_unconfigured = is_template_unconfigured(root)
     docs = [
-        check_file(root, "Harness/state.md", soft_limit=140, hard_limit=220, allow_placeholders=template_unconfigured),
-        check_file(root, "Harness/next.md", soft_limit=100, hard_limit=160, allow_placeholders=template_unconfigured),
+        check_file(root, "Harness/work/state.md", soft_limit=140, hard_limit=220, allow_placeholders=template_unconfigured),
+        check_file(root, "Harness/work/next.md", soft_limit=100, hard_limit=160, allow_placeholders=template_unconfigured),
         check_file(root, "Harness/README.md", soft_limit=160, hard_limit=260),
     ]
     state = state_specific(root)
@@ -124,7 +124,11 @@ def build_report(root: Path) -> dict:
     if state["looks_like_work_log"]:
         findings.append({"level": "warning", "path": state["path"], "message": "state.md appears to contain work-log or migration history"})
     if cycles["large_files"]:
-        findings.append({"level": "info", "path": "Harness/cycles/", "message": f"large cycle files: {len(cycles['large_files'])}"})
+        findings.append({"level": "info", "path": "Harness/work/cycles/", "message": f"large cycle files: {len(cycles['large_files'])}"})
+    if cycles["file_count"] > 45:
+        findings.append({"level": "info", "path": "Harness/work/cycles/", "message": f"many cycle files: {cycles['file_count']}"})
+    if cycles["total_lines"] > 1200:
+        findings.append({"level": "info", "path": "Harness/work/cycles/", "message": f"large cycle history: {cycles['total_lines']} lines"})
     return {
         "root": str(root),
         "ok": not any(item["level"] == "error" for item in findings),
@@ -141,8 +145,8 @@ def format_text(report: dict) -> str:
         "Harness State Check",
         f"- Root: {report['root']}",
         f"- Status: {'ok' if report['ok'] else 'needs attention'}",
-        f"- Cycle files: {report['cycles']['file_count']}",
-        f"- Cycle total lines: {report['cycles']['total_lines']}",
+        f"- Work cycle files: {report['cycles']['file_count']}",
+        f"- Work cycle total lines: {report['cycles']['total_lines']}",
     ]
     lines.append("")
     lines.append("Docs:")

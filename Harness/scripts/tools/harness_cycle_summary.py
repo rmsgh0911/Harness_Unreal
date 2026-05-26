@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import find_project_root, harness_dir, read_text, rel, print_text_or_json
+from harness_common import cycles_dir, find_project_root, read_text, rel, print_text_or_json
 
 
 def parse_cycle_file(path: Path) -> dict:
@@ -37,7 +37,7 @@ def parse_cycle_file(path: Path) -> dict:
 
 
 def build_summary(root: Path, limit: int = 5) -> dict:
-    cycles = harness_dir(root) / "cycles"
+    cycles = cycles_dir(root)
     files = sorted((path for path in cycles.glob("*.md") if path.name != ".gitkeep"), reverse=True) if cycles.exists() else []
     selected = files[:limit]
     parsed = [parse_cycle_file(path) for path in selected]

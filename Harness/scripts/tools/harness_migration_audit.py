@@ -11,7 +11,15 @@ sys.dont_write_bytecode = True
 from harness_common import dump_json, load_json, read_text, rel
 
 
-ACTIVE_DOCS = ["HARNESS.md", "AGENTS.md", "CLAUDE.md", "README.md", "Harness/README.md", "Harness/state.md", "Harness/next.md"]
+ACTIVE_DOCS = [
+    "HARNESS.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "README.md",
+    "Harness/README.md",
+    "Harness/work/state.md",
+    "Harness/work/next.md",
+]
 OLD_PATH_PATTERNS = [
     "Harness/scripts/verify_project.py",
     "Harness/scripts/create_level.py",
@@ -134,13 +142,17 @@ def audit(root: Path) -> dict:
     template_root = this_installation_root()
     harness = root / "Harness"
     scripts = harness / "scripts"
-    cycles = harness / "cycles"
+    work = harness / "work"
+    cycles = work / "cycles"
+    legacy_cycles = harness / "cycles"
+    index = harness / "index"
     harness_docs = harness / "docs"
     legacy_doc = harness / "doc"
     project_docs = root / "ProjectDocs"
     reviews = harness / "reviews"
 
     cycle_files = [name for name in list_names(cycles, "*.md") if name != ".gitkeep"]
+    legacy_cycle_files = [name for name in list_names(legacy_cycles, "*.md") if name != ".gitkeep"]
     findings: list[dict] = []
     preserve: list[str] = []
     update: list[str] = []
@@ -148,12 +160,23 @@ def audit(root: Path) -> dict:
 
     if not harness.exists():
         findings.append({"level": "error", "message": "Harness directory is missing"})
-    if existing(harness / "state.md"):
+    if existing(work / "state.md"):
+        preserve.append("Harness/work/state.md")
+    elif existing(harness / "state.md"):
+        update.append("move Harness/state.md to Harness/work/state.md")
         preserve.append("Harness/state.md")
-    if existing(harness / "next.md"):
+    if existing(work / "next.md"):
+        preserve.append("Harness/work/next.md")
+    elif existing(harness / "next.md"):
+        update.append("move Harness/next.md to Harness/work/next.md")
         preserve.append("Harness/next.md")
     if cycle_files:
+        preserve.append("Harness/work/cycles/")
+    elif legacy_cycle_files or existing(legacy_cycles):
+        update.append("move Harness/cycles/ to Harness/work/cycles/")
         preserve.append("Harness/cycles/")
+    if index.exists():
+        preserve.append("Harness/index/")
     if harness_docs.exists():
         preserve.append("Harness/docs/")
     if project_docs.exists():
@@ -173,7 +196,7 @@ def audit(root: Path) -> dict:
         cleanup.append("Harness_Unreal/")
         findings.append({"level": "warning", "message": "template source folder Harness_Unreal is present"})
     if existing(harness / "backlog.md"):
-        cleanup.append("Harness/backlog.md after moving unresolved items into Harness/next.md")
+        cleanup.append("Harness/backlog.md after moving unresolved items into Harness/work/next.md")
         findings.append({"level": "warning", "message": "legacy Harness/backlog.md is present"})
     if reviews.exists():
         cleanup.append("Harness/reviews/ if no explicit external review workflow is required")
@@ -214,9 +237,11 @@ def audit(root: Path) -> dict:
         "ok": not any(item["level"] == "error" for item in findings),
         "summary": {
             "cycle_files": len(cycle_files),
+            "legacy_cycle_files": len(legacy_cycle_files),
             "harness_docs_files": len([path for path in harness_docs.glob("**/*") if path.is_file() and path.name != ".gitkeep"]) if harness_docs.exists() else 0,
             "project_doc_files": len([path for path in project_docs.glob("**/*") if path.is_file()]) if project_docs.exists() else 0,
             "legacy_harness_doc_files": len([path for path in legacy_doc.glob("**/*") if path.is_file() and path.name != ".gitkeep"]) if legacy_doc.exists() else 0,
+            "index_files": len([path for path in index.glob("**/*") if path.is_file() and path.name != ".gitkeep"]) if index.exists() else 0,
             "custom_scripts": len(custom_scripts),
             "modified_standard_scripts": len(modified_standard),
             "old_path_refs": len(old_refs),
@@ -235,6 +260,7 @@ def audit(root: Path) -> dict:
             "has_tools_manifest": existing(scripts / "tools" / "tool_manifest.json"),
             "has_project_docs": project_docs.exists(),
             "has_harness_docs": harness_docs.exists(),
+            "has_harness_index": index.exists(),
             "has_legacy_harness_doc": legacy_doc.exists(),
         },
         "old_path_refs": old_refs,
@@ -252,6 +278,7 @@ def format_text(report: dict) -> str:
         f"- Root: {report['root']}",
         f"- Status: {'ok' if report['ok'] else 'needs attention'}",
         f"- Cycle files: {report['summary']['cycle_files']}",
+        f"- Legacy cycle files: {report['summary']['legacy_cycle_files']}",
         f"- Custom scripts: {report['summary']['custom_scripts']}",
         f"- Modified standard scripts: {report['summary']['modified_standard_scripts']}",
         f"- Old path refs: {report['summary']['old_path_refs']}",
