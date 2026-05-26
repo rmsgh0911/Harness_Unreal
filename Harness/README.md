@@ -10,16 +10,18 @@ The root `HARNESS.md` is the source of truth for operating rules. This file expl
 4. Today's `Harness/work/cycles/YYYY-MM-DD.md` if it exists
 5. `Harness/config/cycle_policy.json` when the user asks for cycles, iteration, "up to N times", or "up to N cycles"
 6. `Harness/config/docs.json` and relevant docs only when project docs are needed
-7. Files directly required by the current request under `Source/`, `Config/`, `Content/`, `Plugins/`, or `Harness/scripts/`
+7. `Harness/index/project_index.md` as a routing hint before scanning project files
+8. `Harness/index/api_surface.md`, `Harness/index/verification_map.md`, or generated maps only when relevant to the request
+9. Files directly required by the current request under `Source/`, `Config/`, `Content/`, `Plugins/`, or `Harness/scripts/`
 
-When Python is available, steps 2–4 can be replaced with a single command:
+When Python is available, the state, next-work, cycle-log, docs-policy, and index-routing parts of startup can be summarized with a single command:
 
 ```powershell
 python Harness/scripts/tools/harness_context.py
 python Harness/scripts/tools/harness_context.py --request "<task description>"
 ```
 
-This prints a combined briefing of state, next work, today's cycle log, doc policy, and available tools.
+This prints a combined briefing of state, next work, today's cycle log, doc policy, index routing hints, and available tools.
 
 ## Folder Roles
 

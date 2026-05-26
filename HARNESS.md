@@ -21,7 +21,7 @@ This file defines the default operating rules for agents working with this Unrea
 6. If `Harness/index/project_index.md` exists, use it as a routing hint before scanning project files.
 7. Inspect only the `Source/`, `Config/`, `Plugins/`, `Content/`, or `Harness/scripts/` files needed for the current request.
 
-When Python is available, `python Harness/scripts/tools/harness_context.py` covers steps 2–3 in one command and also reports available tools, today's cycle log summary, and doc policy status. Pass `--request "<task>"` to get doc-read guidance for the current task.
+When Python is available, `python Harness/scripts/tools/harness_context.py --request "<task>"` covers the state, next-work, cycle-log, docs-policy, and index-routing parts of startup. Read `Harness/README.md` separately when folder roles or standard commands are unclear.
 
 ## User Request Interpretation
 

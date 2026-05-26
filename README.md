@@ -8,6 +8,9 @@
 
 ## 빠른 시작
 
+처음 실제 Unreal 프로젝트에 복사하는 경우에는 먼저 `INSTALL.md`를 기준으로 복사/제외/설정 순서를 확인한다.
+아래 명령은 템플릿을 실제 Unreal 프로젝트 루트에 복사한 뒤 실행하는 흐름이다. 템플릿 저장소 자체에서는 `project.json`이 비어 있는 것이 정상이다.
+
 ```powershell
 # 1. 프로젝트 구조를 스캔하고 project.json 후보를 확인한다.
 python Harness/scripts/tools/harness_scan.py --json
