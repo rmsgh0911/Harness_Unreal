@@ -16,6 +16,7 @@ def build_plan(root: Path) -> dict:
     project = load_json(harness / "config" / "project.json", {}) or {}
     docs = load_json(harness / "config" / "docs.json", {}) or {}
     uprojects = sorted(root.glob("*.uproject"))
+    template_mode = bool(project.get("template_mode", False)) if isinstance(project, dict) else False
     project_configured = bool(project.get("project_name") and project.get("uproject_file")) if isinstance(project, dict) else False
     missing: list[str] = []
     preserve: list[str] = []
@@ -76,7 +77,13 @@ def build_plan(root: Path) -> dict:
 
     return {
         "root": str(root),
-        "mode_hint": mode_hint(has_harness=harness.exists(), has_uproject=bool(uprojects), project_configured=project_configured),
+        "mode_hint": mode_hint(
+            has_harness=harness.exists(),
+            has_uproject=bool(uprojects),
+            project_configured=project_configured,
+            template_mode=template_mode,
+        ),
+        "template_mode": template_mode,
         "uprojects": [rel(path, root) for path in uprojects],
         "status": {
             "HARNESS.md": path_exists_text(root / "HARNESS.md"),
@@ -91,7 +98,11 @@ def build_plan(root: Path) -> dict:
     }
 
 
-def mode_hint(has_harness: bool, has_uproject: bool, project_configured: bool) -> str:
+def mode_hint(has_harness: bool, has_uproject: bool, project_configured: bool, template_mode: bool = False) -> str:
+    if has_harness and template_mode and not has_uproject:
+        return "template_ready"
+    if has_harness and template_mode and has_uproject:
+        return "turn_off_template_mode_and_fill_project"
     if has_harness and not has_uproject and not project_configured:
         return "template_ready"
     if not has_harness:

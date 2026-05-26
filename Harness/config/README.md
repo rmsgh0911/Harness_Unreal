@@ -2,7 +2,7 @@
 
 This folder stores reusable Harness configuration for the project and supported workers.
 
-- `project.json`: project-specific Unreal verification settings
+- `project.json`: project-specific Unreal verification settings. In the standalone template, `template_mode` is `true`; set it to `false` after copying into a real project.
 - `agents.json`: supported workers and their root instruction files
 - `cycle_policy.json`: structured helper for the single-worker cycle flow, cycle count interpretation, worker switching, tool additions, and stop conditions
 - `docs.json`: project document locations and on-demand reading policy

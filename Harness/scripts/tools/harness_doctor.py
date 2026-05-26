@@ -30,6 +30,7 @@ def run_doctor(root: Path) -> dict:
     required_files = [
         root / "HARNESS.md",
         root / "AGENTS.md",
+        root / "INSTALL.md",
         harness / "README.md",
         harness / "work" / "README.md",
         state_path(root),
@@ -125,12 +126,13 @@ def run_doctor(root: Path) -> dict:
 
     project = load_json(harness / "config" / "project.json", {}) or {}
     if isinstance(project, dict):
+        template_mode = bool(project.get("template_mode", False))
         project_fields = ["project_name", "uproject_file", "engine_version"]
         blank_project_fields = [field for field in project_fields if is_blank(project.get(field))]
         build = project.get("build", {}) if isinstance(project.get("build", {}), dict) else {}
         blank_build_fields = [field for field in ["engine_root", "editor_target_name"] if is_blank(build.get(field))]
         has_real_uproject = bool(list(root.glob("*.uproject")))
-        if has_real_uproject:
+        if has_real_uproject and not template_mode:
             for field in blank_project_fields:
                 results.append(check(False, f"project.json field is configured: {field}", "warning"))
             for field in blank_build_fields:

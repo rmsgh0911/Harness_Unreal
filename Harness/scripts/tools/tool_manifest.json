@@ -188,6 +188,29 @@
       "verify": "python Harness/scripts/tools/harness_release_check.py --json"
     },
     {
+      "name": "harness_release_pack",
+      "path": "Harness/scripts/tools/harness_release_pack.py",
+      "purpose": "Previews or writes a clean Harness template zip package while excluding local repo files, machine settings, caches, generated handoff files, and real cycle logs.",
+      "inputs": [
+        "README.md",
+        "INSTALL.md",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "HARNESS.md",
+        "Harness/",
+        "--write",
+        "--output"
+      ],
+      "outputs": [
+        "release_file_list",
+        "zip_file only with --write",
+        "json"
+      ],
+      "writes_files": "only_with_--write",
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_release_pack.py --json"
+    },
+    {
       "name": "harness_migration_audit",
       "path": "Harness/scripts/tools/harness_migration_audit.py",
       "purpose": "Audits an older Harness project before migration and reports preserve, update, and cleanup items in read-only mode.",

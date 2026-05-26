@@ -50,6 +50,7 @@ Keep tools small. Split them by purpose when they grow.
 - `harness_handoff.py`: creates a minimal handoff brief for another worker or session.
 - `harness_verify_all.py`: runs lightweight standard checks before finishing work.
 - `harness_release_check.py`: checks template packaging hygiene before copying or zipping.
+- `harness_release_pack.py`: previews or writes a clean template zip package.
 - `harness_migration_audit.py`: audits an older Harness project before migration.
 - `harness_state_check.py`: checks whether state/next/cycles are too large, stale, or mixed with history.
 - `harness_progress_check.py`: checks whether Progress.md stays a compact dashboard instead of an append-only work log.
@@ -76,6 +77,8 @@ python Harness/scripts/tools/harness_handoff.py --request "Continue lock-on work
 python Harness/scripts/tools/harness_verify_all.py
 python Harness/scripts/tools/harness_release_check.py --json
 python Harness/scripts/tools/harness_release_check.py --strict
+python Harness/scripts/tools/harness_release_pack.py --json
+python Harness/scripts/tools/harness_release_pack.py --write
 python Harness/scripts/tools/harness_migration_audit.py --target C:\Path\To\OldProject
 python Harness/scripts/tools/harness_state_check.py --target C:\Path\To\Project
 python Harness/scripts/tools/harness_progress_check.py --json
@@ -99,3 +102,5 @@ If `python` resolves to the Microsoft Store alias on Windows, use the real Pytho
 - each tool `verify` command references the real tool path
 - core `project.json` fields are filled after migration into a real Unreal project
 - no generated `__pycache__` or `*.pyc` files remain under `Harness/scripts/`
+
+Use `harness_release_pack.py --write` only after `harness_release_check.py --strict` passes. The package excludes `.git/`, `.claude/`, generated caches, generated handoff files, and real cycle logs.

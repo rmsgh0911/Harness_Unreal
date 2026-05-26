@@ -61,6 +61,13 @@ def check_json_files(root: Path) -> dict:
 
 def check_build_readiness(root: Path) -> dict:
     project = load_json(harness_dir(root) / "config" / "project.json", {}) or {}
+    if isinstance(project, dict) and project.get("template_mode"):
+        return {
+            "ok": True,
+            "command": "Harness/scripts/build/build_verify.cmd -Mode Editor",
+            "missing": [],
+            "status": "template_mode",
+        }
     build = project.get("build", {}) if isinstance(project, dict) else {}
     missing: list[str] = []
     for key in ["engine_root", "editor_target_name"]:

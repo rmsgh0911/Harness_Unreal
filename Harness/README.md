@@ -102,6 +102,7 @@ Standard tools:
 - `harness_handoff.py`: creates a minimal handoff brief; writes only with `--write`
 - `harness_verify_all.py`: runs the standard lightweight end-of-task checks
 - `harness_release_check.py`: checks template packaging hygiene before copying or zipping
+- `harness_release_pack.py`: previews or writes a clean template zip package
 - `harness_migration_audit.py`: audits an older Harness project before migration
 - `harness_state_check.py`: checks that state/next/cycles stay compact and current
 - `harness_progress_check.py`: checks that Progress.md stays a compact dashboard, not an append-only work log
@@ -128,6 +129,8 @@ python Harness/scripts/tools/harness_handoff.py --request "Continue lock-on work
 python Harness/scripts/tools/harness_verify_all.py
 python Harness/scripts/tools/harness_release_check.py --json
 python Harness/scripts/tools/harness_release_check.py --strict
+python Harness/scripts/tools/harness_release_pack.py --json
+python Harness/scripts/tools/harness_release_pack.py --write
 python Harness/scripts/tools/harness_migration_audit.py --target C:\Path\To\OldProject
 python Harness/scripts/tools/harness_state_check.py --target C:\Path\To\Project
 python Harness/scripts/tools/harness_progress_check.py --json
@@ -153,3 +156,5 @@ If `python` resolves to the Microsoft Store alias on Windows, use the real Pytho
 - no generated `__pycache__` or `*.pyc` files remain under `Harness/scripts/`
 
 Use `harness_release_check.py --strict` before packaging or copying the template. Strict mode treats warnings as blockers, including active `Harness/work/cycles/*.md` files. Keep cycle logs while work is active; remove or omit them only for a clean template release.
+
+Use `harness_release_pack.py --write` to create a clean zip that excludes `.git/`, `.claude/`, Python caches, generated handoff files, and real cycle logs. Run it without `--write` first to preview included files.

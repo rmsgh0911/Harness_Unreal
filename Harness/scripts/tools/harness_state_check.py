@@ -45,6 +45,8 @@ def count_hits(text: str, hints: list[str]) -> int:
 
 def is_template_unconfigured(root: Path) -> bool:
     project = load_json(harness_dir(root) / "config" / "project.json", {}) or {}
+    if isinstance(project, dict) and project.get("template_mode"):
+        return True
     project_configured = bool(project.get("project_name") and project.get("uproject_file")) if isinstance(project, dict) else False
     return not project_configured and not list(root.glob("*.uproject"))
 

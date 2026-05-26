@@ -149,6 +149,7 @@ def build_context(root: Path, request: str = "") -> dict:
     next_text = read_text(next_path(root))
     cycle_path = today_cycle_path(root)
     index_reads = index_first_reads(root, request)
+    template_mode = bool(project.get("template_mode", False))
     project_configured = bool(project.get("project_name") and project.get("uproject_file"))
     recommended_first_reads = [
         "HARNESS.md",
@@ -183,6 +184,7 @@ def build_context(root: Path, request: str = "") -> dict:
             "uproject_file": project.get("uproject_file") or (uproject_files[0] if len(uproject_files) == 1 else ""),
             "engine_version": project.get("engine_version", ""),
             "configured": project_configured,
+            "template_mode": template_mode,
         },
         "files": files,
         "state_heading": first_heading(state_text),
@@ -217,8 +219,9 @@ def build_context(root: Path, request: str = "") -> dict:
 
 def build_warnings(root: Path, project: dict, cycle_path: Path) -> list[str]:
     warnings: list[str] = []
+    template_mode = bool(project.get("template_mode", False))
     project_configured = bool(project.get("project_name") and project.get("uproject_file"))
-    if not project_configured:
+    if not project_configured and not template_mode:
         warnings.append("project.json is not fully configured")
     if project_configured and not cycle_path.exists():
         warnings.append(f"today cycle log is missing: {rel(cycle_path, root)}")
@@ -233,6 +236,7 @@ def format_text(context: dict) -> str:
         f"- Root: {context['root']}",
         f"- Project: {context['project']['name'] or 'not configured'}",
         f"- UProject: {context['project']['uproject_file'] or 'not configured'}",
+        f"- Template mode: {context['project'].get('template_mode')}",
         f"- Default max cycles: {context['cycle_policy']['default_max_cycles']}",
         f"- Tool directory: {context['cycle_policy']['tool_directory']}",
         f"- Registered tools: {context['tools']['registered_count']}",
