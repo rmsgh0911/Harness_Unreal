@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "doc_roots": [
+    "Harness/Common/docs"
+  ],
+  "entry_points": [
+    "Harness/Common/docs/README.md"
+  ],
+  "optional_external_roots": [
+    "ProjectDocs",
+    "Docs",
+    "DesignDocs"
+  ],
+  "read_policy": {
+    "default": "on_demand",
+    "read_when": [
+      "the user asks to reference design docs, GDD, specs, implementation standards, checklists, scenarios, or validation criteria",
+      "the task involves game rules, simulation requirements, input, UX flow, level intent, character design, or system design",
+      "Source, Config, and assets are not enough to infer implementation intent or success criteria",
+      "existing implementation may conflict with project docs"
+    ],
+    "do_not_read_when": [
+      "simple compile error fix",
+      "clear build configuration fix",
+      "formatting, small rename, or file move",
+      "the user already gave concrete implementation criteria"
+    ]
+  },
+  "request_hints": {
+    "read": [
+      "\uae30\ud68d",
+      "\uba85\uc138",
+      "\uad6c\ud604\uae30\uc900",
+      "\uccb4\ud06c\ub9ac\uc2a4\ud2b8",
+      "\uc2dc\ub098\ub9ac\uc624",
+      "\uac80\uc99d \uae30\uc900",
+      "\uc694\uad6c\uc0ac\ud56d",
+      "\uaddc\uce59",
+      "\ubc38\ub7f0\uc2a4",
+      "\ub808\ubca8",
+      "\uce90\ub9ad\ud130",
+      "\uc2dc\ubbac\ub808\uc774\uc158",
+      "\uc124\uacc4",
+      "GDD",
+      "design",
+      "spec",
+      "scenario",
+      "validation",
+      "requirements",
+      "rules",
+      "balance",
+      "UX",
+      "UI",
+      "level",
+      "character",
+      "simulation"
+    ],
+    "skip": [
+      "\ucef4\ud30c\uc77c \uc624\ub958",
+      "\ube4c\ub4dc \uc624\ub958",
+      "\ud3ec\ub9f7",
+      "\ub9ac\ub124\uc784",
+      "\ud30c\uc77c \uc774\ub3d9",
+      "compile error",
+      "build error",
+      "format",
+      "rename",
+      "file move"
+    ]
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "note": "This file is a structured helper for the cycle, recording, and tool rules in HARNESS.md. If rules change, update HARNESS.md first and keep this file aligned.",
+  "mode": "primary_single_worker",
+  "default_max_cycles": 1,
+  "cycle_flow": [
+    "worker_reads_state_next_and_cycle_log",
+    "worker_implements_or_improves",
+    "worker_runs_smallest_reasonable_verification",
+    "worker_checks_unreal_risks",
+    "worker_records_short_cycle_result",
+    "worker_decides_continue_or_stop",
+    "worker_updates_state_snapshot_if_confirmed",
+    "worker_updates_next_items_if_unresolved"
+  ],
+  "cycle_count_rules": {
+    "phrases": [
+      "\uc0ac\uc774\ud074",
+      "\ubc18\ubcf5",
+      "\ucd5c\ub300 N\ud68c",
+      "\ucd5c\ub300 N\uc0ac\uc774\ud074",
+      "cycle",
+      "iterate",
+      "up to N times",
+      "up to N cycles"
+    ],
+    "one_cycle_means": [
+      "implement_or_improve",
+      "smallest_reasonable_verification",
+      "self_review",
+      "short_record",
+      "continue_or_stop_decision"
+    ],
+    "max_cycles_is_upper_bound": true,
+    "stop_before_max_when_success_criteria_met": true,
+    "do_not_repeat_same_attempt_without_new_evidence": true
+  },
+  "worker_switching": {
+    "allowed": true,
+    "requires_human_assignment": true,
+    "record_in_cycle_log": true,
+    "recommended_when": [
+      "model_quota_exhausted",
+      "context_too_large",
+      "human_requested_switch"
+    ],
+    "new_worker_reads_first": [
+      "HARNESS.md",
+      "Harness/Codex/work/state.md",
+      "Harness/Codex/work/next.md",
+      "Harness/Codex/work/cycles/YYYY-MM-DD.md",
+      "git status --short",
+      "git diff"
+    ],
+    "avoid_when": [
+      "public_api_change",
+      "blueprint_exposed_name_change",
+      "build_cs_change",
+      "save_data_change",
+      "binary_asset_change",
+      "multi_module_refactor"
+    ]
+  },
+  "recording_rules": {
+    "cycle_log_is_short": true,
+    "cycle_log_contains": [
+      "changed",
+      "verified",
+      "remaining"
+    ],
+    "state_is_not_a_work_log": true,
+    "state_keeps_only_latest_confirmed_facts": true,
+    "next_keeps_only_unresolved_work": true,
+    "avoid_duplicate_state_next_cycles": true
+  },
+  "tool_policy": {
+    "agent_may_add_tools": true,
+    "default_tool_directory": "Harness/Codex/scripts/tools",
+    "manifest": "Harness/Codex/scripts/tools/tool_manifest.json",
+    "create_when": [
+      "same_exploration_or_verification_will_repeat",
+      "output_can_be_short_text_or_json",
+      "project_specific_values_can_be_configured",
+      "tool_has_single_small_purpose"
+    ],
+    "avoid_when": [
+      "one_off_temporary_conversion",
+      "judgment_heavy_refactor",
+      "unreal_editor_state_is_required_for_reliable_result",
+      "existing_script_option_is_enough"
+    ],
+    "safety_rules": [
+      "default_execution_should_be_read_only",
+      "file_writes_require_explicit_option",
+      "project_specific_values_should_not_be_hardcoded",
+      "new_or_changed_tools_must_be_recorded_in_manifest",
+      "new_or_changed_tools_need_smallest_reasonable_verification"
+    ]
+  },
+  "language_policy": {
+    "default_human_language": "ko",
+    "agent_facing_harness_language": "en",
+    "state_language": "en",
+    "cycle_log_language": "en",
+    "next_language": "en",
+    "progress_language": "ko",
+    "progress_path": "Harness/Codex/Progress.md",
+    "preserve_original_for": [
+      "code",
+      "identifiers",
+      "file_paths",
+      "commands",
+      "error_messages",
+      "logs",
+      "quoted_output"
+    ]
+  },
+  "stop_conditions": [
+    "same_issue_repeated_twice",
+    "build_failed_twice",
+    "unexpected_large_diff",
+    "unsafe_public_api_or_blueprint_change",
+    "human_stop_requested"
+  ]
+}
