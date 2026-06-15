@@ -1,0 +1,432 @@
+{
+  "version": 1,
+  "purpose": "agent_created_tool_registry",
+  "policy": {
+    "default_directory": "Harness/scripts/tools",
+    "safe_by_default": true,
+    "prefer_read_only_default": true,
+    "write_options_must_be_explicit": true,
+    "project_specific_values_source": "Harness/config/project.json"
+  },
+  "tools": [
+    {
+      "name": "harness_docs_check",
+      "path": "Harness/scripts/tools/harness_docs_check.py",
+      "purpose": "Checks Harness/docs, Harness/config/docs.json, on-demand reading policy, and whether a request should read project docs.",
+      "inputs": [
+        "Harness/config/docs.json",
+        "Harness/docs/README.md",
+        "--request"
+      ],
+      "outputs": [
+        "docs_policy_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "context_check": true,
+      "verify": "python Harness/scripts/tools/harness_docs_check.py --json"
+    },
+    {
+      "name": "harness_context",
+      "path": "Harness/scripts/tools/harness_context.py",
+      "purpose": "Prints a short task-start briefing from Harness state, next work, optional task-scoped records, cycle request detection, docs policy, and tool metadata.",
+      "inputs": [
+        "HARNESS.md",
+        "Harness/work/state.md",
+        "Harness/work/next.md",
+        "Harness/work/tasks/<task-id>.md",
+        "Harness/work/cycles/<task-id>.md",
+        "Harness/config/project.json",
+        "Harness/config/docs.json",
+        "Harness/config/cycle_policy.json",
+        "Harness/scripts/tools/tool_manifest.json",
+        "--request"
+      ],
+      "outputs": [
+        "short_text",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_context.py --json"
+    },
+    {
+      "name": "harness_doctor",
+      "path": "Harness/scripts/tools/harness_doctor.py",
+      "purpose": "Checks whether Harness documents, config files, and the tool manifest are consistent.",
+      "inputs": [
+        "HARNESS.md",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "Harness/config/*.json",
+        "Harness/scripts/tools/tool_manifest.json"
+      ],
+      "outputs": [
+        "check_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "context_check": true,
+      "verify": "python Harness/scripts/tools/harness_doctor.py --json"
+    },
+    {
+      "name": "harness_scan",
+      "path": "Harness/scripts/tools/harness_scan.py",
+      "purpose": "Scans Unreal project structure and summarizes project.json candidates plus key Source, Config, and Plugin information.",
+      "inputs": [
+        "*.uproject",
+        "Source/**/*.Build.cs",
+        "Source/**/*Target.cs",
+        "Config/*.ini",
+        "Plugins/**/*.uplugin",
+        "Content/**/*.umap with --include-assets"
+      ],
+      "outputs": [
+        "scan_summary",
+        "project_json_candidate",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "context_check": true,
+      "verify": "python Harness/scripts/tools/harness_scan.py --json"
+    },
+    {
+      "name": "harness_cycle",
+      "path": "Harness/scripts/tools/harness_cycle.py",
+      "purpose": "Creates a short cycle log entry as a dry run and appends it only with explicit --write. Use --task and --worker for conflict-resistant parallel records.",
+      "inputs": [
+        "title",
+        "--changed",
+        "--verified",
+        "--remaining",
+        "--date",
+        "--task",
+        "--worker"
+      ],
+      "outputs": [
+        "cycle_log_entry"
+      ],
+      "writes_files": "only_with_--write",
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_cycle.py tool_check --task tool-check --worker Codex --changed dry_run --verified json --json"
+    },
+    {
+      "name": "harness_diff_guard",
+      "path": "Harness/scripts/tools/harness_diff_guard.py",
+      "purpose": "Summarizes risky Unreal change scope from git status and generated-directory detection, and warns when meaningful project changes lack a Progress.md update.",
+      "inputs": [
+        "git status --short when available",
+        "Binaries/",
+        "Intermediate/",
+        "Saved/",
+        "DerivedDataCache/",
+        "changed Source headers and Build.cs files",
+        "Harness/Progress.md"
+      ],
+      "outputs": [
+        "risk_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "context_check": true,
+      "verify": "python Harness/scripts/tools/harness_diff_guard.py --json"
+    },
+    {
+      "name": "harness_handoff",
+      "path": "Harness/scripts/tools/harness_handoff.py",
+      "purpose": "Creates a minimal task-aware handoff brief for another worker or new session as a dry run, and writes only with explicit --write.",
+      "inputs": [
+        "harness_context",
+        "harness_diff_guard",
+        "Harness/work/next.md",
+        "Harness/work/tasks/<task-id>.md",
+        "Harness/work/cycles/<task-id>.md",
+        "--request"
+      ],
+      "outputs": [
+        "handoff_markdown"
+      ],
+      "writes_files": "only_with_--write",
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_handoff.py --request \"verification\""
+    },
+    {
+      "name": "harness_verify_all",
+      "path": "Harness/scripts/tools/harness_verify_all.py",
+      "purpose": "Runs standard end-of-task checks: doctor, JSON parsing, Python compile, scan, diff guard, index check, progress dashboard check, state check, docs policy, and build readiness.",
+      "inputs": [
+        "harness_doctor",
+        "harness_context",
+        "harness_scan",
+        "harness_diff_guard",
+        "Harness/config/*.json",
+        "Harness/scripts/**/*.py"
+      ],
+      "outputs": [
+        "verification_bundle_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_verify_all.py --json"
+    },
+    {
+      "name": "harness_release_check",
+      "path": "Harness/scripts/tools/harness_release_check.py",
+      "purpose": "Checks template-release hygiene such as generated caches, old work-layout paths, BOM markers, and duplicated work paths.",
+      "inputs": [
+        "Harness/",
+        "root text files",
+        "Harness/work/cycles/",
+        "--strict"
+      ],
+      "outputs": [
+        "release_hygiene_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_release_check.py --json"
+    },
+    {
+      "name": "harness_release_pack",
+      "path": "Harness/scripts/tools/harness_release_pack.py",
+      "purpose": "Previews or writes a clean Harness template zip package while excluding local repo files, machine settings, caches, generated handoff files, and real cycle logs.",
+      "inputs": [
+        "README.md",
+        "INSTALL.md",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "HARNESS.md",
+        "Harness/",
+        "--write",
+        "--output"
+      ],
+      "outputs": [
+        "release_file_list",
+        "zip_file only with --write",
+        "json"
+      ],
+      "writes_files": "only_with_--write",
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_release_pack.py --json"
+    },
+    {
+      "name": "harness_migration_audit",
+      "path": "Harness/scripts/tools/harness_migration_audit.py",
+      "purpose": "Audits an older Harness project before migration and reports preserve, update, and cleanup items in read-only mode.",
+      "inputs": [
+        "--target",
+        "target/Harness/work/state.md",
+        "target/Harness/work/next.md",
+        "target/Harness/work/cycles/",
+        "target/Harness/config/project.json",
+        "target/Harness/config/docs.json",
+        "target/Harness/docs/",
+        "target/ProjectDocs/ optional external documents",
+        "target/Harness/doc/ legacy project documents",
+        "target active docs"
+      ],
+      "outputs": [
+        "migration_audit_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_migration_audit.py --target . --json"
+    },
+    {
+      "name": "harness_state_check",
+      "path": "Harness/scripts/tools/harness_state_check.py",
+      "purpose": "Checks whether state.md, next.md, tasks, and cycles are too large, mixed with history, or contain legacy script paths.",
+      "inputs": [
+        "--target",
+        "Harness/work/state.md",
+        "Harness/work/next.md",
+        "Harness/README.md",
+        "Harness/work/tasks/",
+        "Harness/work/cycles/"
+      ],
+      "outputs": [
+        "state_health_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_state_check.py --target . --json"
+    },
+    {
+      "name": "harness_progress_check",
+      "path": "Harness/scripts/tools/harness_progress_check.py",
+      "purpose": "Checks whether Harness/Progress.md remains a compact human-facing dashboard instead of an append-only work log.",
+      "inputs": [
+        "Harness/Progress.md",
+        "--root"
+      ],
+      "outputs": [
+        "progress_dashboard_health_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "context_check": true,
+      "verify": "python Harness/scripts/tools/harness_progress_check.py --json"
+    },
+    {
+      "name": "harness_python_check",
+      "path": "Harness/scripts/tools/harness_python_check.py",
+      "purpose": "Checks Python 3 availability and Unreal Python candidates, and provides manual installation guidance when missing.",
+      "inputs": [
+        "python --version",
+        "py -3 --version",
+        "python3 --version",
+        "Harness/config/project.json"
+      ],
+      "outputs": [
+        "python_runtime_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "context_check": true,
+      "verify": "python Harness/scripts/tools/harness_python_check.py --json"
+    },
+    {
+      "name": "harness_init_plan",
+      "path": "Harness/scripts/tools/harness_init_plan.py",
+      "purpose": "Summarizes preservation, fields to fill, and verification commands for new project initialization or template migration.",
+      "inputs": [
+        "HARNESS.md",
+        "Harness/",
+        "*.uproject",
+        "Harness/config/project.json",
+        "Harness/config/docs.json"
+      ],
+      "outputs": [
+        "init_or_migration_plan",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_init_plan.py --json"
+    },
+    {
+      "name": "harness_docs_index",
+      "path": "Harness/scripts/tools/harness_docs_index.py",
+      "purpose": "Indexes titles and headings in Harness/docs to reduce full-document reading scope.",
+      "inputs": [
+        "Harness/config/docs.json",
+        "Harness/docs/**/*.md",
+        "--max-files",
+        "--max-headings"
+      ],
+      "outputs": [
+        "docs_heading_index",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "context_check": true,
+      "verify": "python Harness/scripts/tools/harness_docs_index.py --json"
+    },
+    {
+      "name": "harness_index_check",
+      "path": "Harness/scripts/tools/harness_index_check.py",
+      "purpose": "Checks Harness/index required files, compactness, and basic generated-map freshness signals.",
+      "inputs": [
+        "Harness/index/README.md",
+        "Harness/index/project_index.md",
+        "Harness/index/api_surface.md",
+        "Harness/index/verification_map.md",
+        "Harness/index/source_map.json optional"
+      ],
+      "outputs": [
+        "index_health_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "context_check": true,
+      "verify": "python Harness/scripts/tools/harness_index_check.py --json"
+    },
+    {
+      "name": "harness_project_fill",
+      "path": "Harness/scripts/tools/harness_project_fill.py",
+      "purpose": "Scans Unreal project structure, proposes candidates for blank Harness/config/project.json fields, and writes only with --write.",
+      "inputs": [
+        "*.uproject",
+        "Source/**/*.Build.cs",
+        "Source/**/*Target.cs",
+        "Harness/config/project.json",
+        "--write",
+        "--overwrite"
+      ],
+      "outputs": [
+        "project_json_candidate",
+        "merged_project_json",
+        "json"
+      ],
+      "writes_files": "only_with_--write",
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_project_fill.py --json"
+    },
+    {
+      "name": "harness_cycle_summary",
+      "path": "Harness/scripts/tools/harness_cycle_summary.py",
+      "purpose": "Summarizes changed, verified, and remaining items from recent cycle logs to avoid rereading long history.",
+      "inputs": [
+        "Harness/work/cycles/*.md",
+        "--limit"
+      ],
+      "outputs": [
+        "cycle_summary",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_cycle_summary.py --json"
+    },
+    {
+      "name": "harness_unreal_risk",
+      "path": "Harness/scripts/tools/harness_unreal_risk.py",
+      "purpose": "Extracts Unreal risk signals from changed files, including Build.cs, Public headers, UPROPERTY/UFUNCTION, Config, and asset changes.",
+      "inputs": [
+        "git status --short",
+        "changed Source/ files",
+        "changed Config/ files",
+        "changed Content/ assets"
+      ],
+      "outputs": [
+        "unreal_risk_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "context_check": true,
+      "verify": "python Harness/scripts/tools/harness_unreal_risk.py --json"
+    },
+    {
+      "name": "harness_unreal_script",
+      "path": "Harness/scripts/tools/harness_unreal_script.py",
+      "purpose": "Checks readiness and command for running Harness/scripts/unreal/*.py through UnrealEditor-Cmd, and runs only with explicit --run.",
+      "inputs": [
+        "Harness/config/project.json",
+        "--script",
+        "--arg",
+        "--run"
+      ],
+      "outputs": [
+        "unreal_script_readiness",
+        "command",
+        "json"
+      ],
+      "writes_files": "only_when_target_unreal_script_writes",
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_unreal_script.py --json"
+    }
+  ]
+}

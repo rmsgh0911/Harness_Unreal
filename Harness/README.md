@@ -1,50 +1,26 @@
 # Harness Folder
 
-The root `HARNESS.md` defines shared operating rules. This folder separates shared material from worker-specific operating environments.
+All supported agents use this single Harness layout. Parallel work is isolated by Git worktrees and branches, not by agent-specific Harness directories.
 
 ## Layout
 
-- `Common/`: stable shared policies and confirmed project documents
-- `Codex/`: Codex config, scripts, index, Progress dashboard, and work records
-- `Claude/`: Claude Code config, scripts, index, Progress dashboard, and work records
-
-Each worker owns its area. Do not automatically synchronize worker files or let one worker write into the other worker's area.
-
-## Entry Routing
-
-- `AGENTS.md` routes Codex to `Harness/Codex/`.
-- `CLAUDE.md` routes Claude Code to `Harness/Claude/`.
-- Both workers read the shared root `HARNESS.md` and may read `Harness/Common/docs/` on demand.
-
-## Worker Read Order
-
-For the active worker:
-
-1. Root `HARNESS.md`
-2. `Harness/<Worker>/work/state.md`
-3. `Harness/<Worker>/work/next.md`
-4. Today's `Harness/<Worker>/work/cycles/YYYY-MM-DD.md` when present
-5. Relevant worker config and index files
-6. Shared project docs only when requested or needed
+- `config/`: project, docs, cycle, and agent configuration
+- `docs/`: confirmed project documents
+- `index/`: compact project routing maps
+- `scripts/`: build, Unreal, and Harness tools
+- `work/state.md`: latest confirmed project facts
+- `work/next.md`: unresolved project-level work and decisions
+- `work/tasks/`: one conflict-resistant record per active task or branch
+- `work/cycles/`: short task-scoped work loop records
+- `Progress.md`: short Korean human-facing dashboard
 
 ## Standard Commands
 
-Codex:
-
 ```powershell
-python Harness/Codex/scripts/tools/harness_context.py --request "<task description>"
-python Harness/Codex/scripts/tools/harness_verify_all.py
+python Harness/scripts/tools/harness_context.py --request "<task description>"
+python Harness/scripts/tools/harness_context.py --request "<task description>" --task <task-id>
+python Harness/scripts/tools/harness_verify_all.py
+python Harness/scripts/tools/harness_cycle.py "Task Name" --task <task-id> --worker <agent>
 ```
 
-Claude Code:
-
-```powershell
-python Harness/Claude/scripts/tools/harness_context.py --request "<task description>"
-python Harness/Claude/scripts/tools/harness_verify_all.py
-```
-
-Each worker maintains its own tool manifest, project config, indexes, work records, and Korean `Progress.md`.
-
-## Shared Material
-
-`Harness/Common/` should stay small. Promote material there only when it is stable, worker-independent, and approved for shared use.
+For parallel work, create a separate worktree and branch, then create `Harness/work/tasks/<task-id>.md`. Keep agent names and timestamps there rather than repeatedly editing shared `state.md` or `next.md`.

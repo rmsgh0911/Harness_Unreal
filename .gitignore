@@ -99,6 +99,3 @@ Harness/scripts/**/*.pyc
 .ruff_cache/
 .mypy_cache/
 dist/
-
-# Local reference projects used while evolving the template
-Harness_ArcSaber_2/

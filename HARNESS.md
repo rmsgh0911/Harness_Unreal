@@ -2,188 +2,120 @@
 
 This file defines the default operating rules for agents working with this Unreal Engine Harness template.
 
-## Worker Areas
+## Single Harness, Separate Worktrees
 
-- Shared policies and project documents live under `Harness/Common/`.
-- Codex reads and writes only its operational area under `Harness/Codex/`.
-- Claude Code reads and writes only its operational area under `Harness/Claude/`.
-- In this file, `Harness/<Worker>/` means the active worker area selected by the root entry file.
-- `AGENTS.md` selects `Harness/Codex/`; `CLAUDE.md` selects `Harness/Claude/`.
-- Do not synchronize worker state, indexes, configs, scripts, or Progress files automatically. Promote shared material to `Harness/Common/` only after human review.
-- Worker-area isolation does not make simultaneous edits in one Git checkout safe. Parallel project work still requires separate checkout and branch environments.
+- All agents use the same `Harness/` layout and rules.
+- Parallel work must use separate Git worktrees and branches.
+- A worktree contains its own copy of `Harness/work/`, so agents do not need separate `Harness/Codex/` or `Harness/Claude/` directories.
+- Use one primary agent per task and worktree.
+- Never use `state.md` or `next.md` as an append-only agent activity log.
 
-## Core Principles
+## Core Loop
 
-- Each task and checkout uses one fast primary worker. Independent checkout and branch environments may run in parallel.
-- Default flow is `implement -> minimal verification -> self-review -> record`.
-- Do not run external review, external agent checks, or summary agents in the default loop.
-- Read and edit only the files that are directly relevant to the current request.
-- Prefer evidence from code, config, logs, and command output over assumptions.
-- Never revert user changes or unrelated generated files unless the user explicitly asks.
+Default flow: `implement -> minimal verification -> self-review -> record`.
 
-## Startup Read Order
+1. Read the root `README.md` when present.
+2. Read `Harness/README.md`, `Harness/work/state.md`, and `Harness/work/next.md`.
+3. Run `python Harness/scripts/tools/harness_context.py --request "<task>"` when Python is available.
+4. Use `Harness/index/project_index.md` as a routing hint, then verify assumptions against actual code, config, assets, logs, or build output.
+5. Read project docs only when requested or when success criteria are unclear.
+6. Implement the smallest useful change and run the smallest useful verification.
+7. Self-review changed files and record only durable information.
 
-1. Check the project root `README.md` if it exists.
-2. Read `Harness/README.md`, `Harness/<Worker>/work/state.md`, and `Harness/<Worker>/work/next.md`.
-3. If today's `Harness/<Worker>/work/cycles/YYYY-MM-DD.md` exists, skim the latest entries.
-4. If the user asks for cycles, iteration, "up to N times", or "up to N cycles", check `Harness/<Worker>/config/cycle_policy.json`.
-5. If the user asks to reference design docs, specs, scenarios, validation criteria, or if the implementation intent is unclear, check `Harness/<Worker>/config/docs.json` and read only the relevant project docs.
-6. If `Harness/<Worker>/index/project_index.md` exists, use it as a routing hint before scanning project files.
-7. Inspect only the `Source/`, `Config/`, `Plugins/`, `Content/`, or `Harness/<Worker>/scripts/` files needed for the current request.
+Do not broadly scan the repository, run external reviewers, or use multi-agent mode unless the user asks.
 
-When Python is available, `python Harness/<Worker>/scripts/tools/harness_context.py --request "<task>"` covers the state, next-work, cycle-log, docs-policy, and index-routing parts of startup. Read `Harness/README.md` separately when folder roles or standard commands are unclear.
+## Parallel Work Records
 
-## User Request Interpretation
+- Create one task file per parallel branch under `Harness/work/tasks/<task-id>.md`.
+- Task files should record `Owner`, `Branch`, `Worktree`, `Started`, `Updated`, `Status`, scope, success criteria, and remaining work.
+- Prefer task-scoped cycle files under `Harness/work/cycles/<task-id>.md`.
+- Run `harness_cycle.py --task <task-id> --worker <agent>` when recording parallel work.
+- `Harness/work/state.md` contains only the latest confirmed project facts.
+- `Harness/work/next.md` contains only unresolved project-level work and decisions.
+- Update `state.md`, `next.md`, and `Progress.md` at integration, handoff, or merge-ready points instead of after every small edit.
+- During parallel branch work, the integrator owns consolidation into `state.md` and `next.md`; other branches keep branch-specific details in task and cycle files.
+- A short `Last consolidated` and `Consolidated by` header is allowed in `state.md` and `next.md`; per-edit timestamps belong in task or cycle files.
+- Do not duplicate the same detail across task files, cycles, state, next, and Progress.
 
-- If the user gives a clear feature name, bug, success criterion, or maximum cycle count, prioritize implementation and verification.
-- If the user asks to initialize, install, migrate, or update Harness itself, read `INSTALL.md` first and preserve project-specific Harness material before replacing template-controlled files.
-- For Harness updates, run both worker migration audits before editing, merge rather than blindly overwrite, and run both workers' `harness_verify_all.py` afterward.
-- If success criteria are unclear, infer the smallest reasonable criterion from the current context and continue.
-- If the user says "cycle", "iterate", "up to N times", or "up to N cycles", treat the task as Harness cycle work.
-- A maximum cycle count is an upper bound, not a required count.
-- If no maximum is given, run one cycle by default.
-- Stop before the maximum when the success criteria are met and there is no obvious safety improvement left.
-- One cycle means `implement or improve -> minimal verification -> self-review -> short record -> decide whether to continue`.
+## Cycles
+
+- A cycle means `implement or improve -> minimal verification -> self-review -> short record -> decide whether to continue`.
+- A maximum cycle count is an upper bound. Stop early when success criteria are met.
 - Do not repeat the same failed attempt without new evidence.
-- Stop and report when the same issue repeats twice, the build fails twice for the same reason, the diff becomes unexpectedly large, or a public API / Blueprint risk appears.
+- Stop and report when the same issue repeats twice, a build fails twice for the same reason, the diff becomes unexpectedly large, or a public API / Blueprint risk appears.
 
-Example requests:
-
-- `"Build the inventory UI. Up to 6 cycles."`
-- `"Fix the lock-on feature within 4 cycles."`
-- `"Keep iterating until the build passes."`
-
-## Feature Work Loop
-
-1. Restate the request, scope, and verification method briefly.
-2. Read only the files needed to understand the existing pattern.
-3. Check risk before editing.
-4. Implement the smallest useful change.
-5. Run the smallest reasonable verification command.
-6. Self-review the changed files for Unreal-specific risks.
-7. Apply one focused safety improvement only if it directly reduces risk.
-8. Record manual verification needs for PIE, input feel, HUD, camera, animation, or asset state when automation cannot prove them.
-
-Cycle priority:
-
-1. Make the requested behavior actually work.
-2. Fix verification or build failures.
-3. Cover empty states, failure states, and input handling.
-4. Add stability checks such as null checks, lifecycle cleanup, and delegate cleanup.
-5. Keep records short and current.
-
-Do not spend cycle time on wording, formatting, comments, or naming cleanup unless it blocks verification or debugging.
-
-## Project Index
-
-- `Harness/<Worker>/index/` is the Project Understanding Layer. It contains compact maps that reduce repeated exploration.
-- Index files are routing hints, not the source of truth.
-- If index content conflicts with code, config, assets, logs, or build output, trust the actual project files and report the stale index.
-- Do not read every index file by default. Start with `Harness/<Worker>/index/project_index.md` and read `api_surface.md`, `verification_map.md`, or generated maps only when relevant to the request.
-- Do not let `Harness/<Worker>/work/state.md` grow into a project encyclopedia. Put project structure and routing notes in `Harness/<Worker>/index/`.
-
-## Project Docs
-
-- Project design docs, implementation specs, simulation scenarios, validation criteria, and retrospectives live under `Harness/Common/docs/` by default.
-- `Harness/<Worker>/Progress.md` is the only Harness document that should be written in Korean by default. It is a human-facing dashboard, not a work log. Refresh existing bullets in place instead of appending history. Update it briefly only after major feature completion, before commits, when direction changes, or when human confirmation is needed.
-- Keep the template migration unit small: by default, move only `HARNESS.md` and `Harness/`.
-- If docs are too large or the team already has an external docs folder, register root-level `ProjectDocs/`, `Docs/`, or `DesignDocs/` in `Harness/<Worker>/config/docs.json`.
-- `Harness/<Worker>/config/docs.json` stores doc locations and reading policy only. Do not store full design documents under `Harness/<Worker>/config/`.
-- Agents do not read project docs by default. Read them only when requested, when game rules or success criteria are unclear, or when code/config/assets are not enough.
-- When reading docs, start from `entry_points` and relevant sections. Do not bulk-read every document.
-- If unsure whether docs are needed, run `python Harness/<Worker>/scripts/tools/harness_context.py --request "<request>"` or `python Harness/<Worker>/scripts/tools/harness_docs_check.py --request "<request>"`.
-- If project docs conflict with code, config, assets, or build output, report the difference instead of forcing the docs assumption.
-
-## Recording Rules
-
-- `work/cycles/YYYY-MM-DD.md` contains only short attempts, results, and next actions.
-- `Harness/<Worker>/work/state.md` is not a work log. Keep only the latest confirmed facts in present tense.
-- `Harness/<Worker>/work/next.md` contains only unresolved work, deferred risks, and human decisions needed.
-- `Harness/<Worker>/Progress.md` contains a short Korean human summary only. Do not duplicate long content from `state.md`, `next.md`, or `cycles/`, and do not use it as an append-only log.
-- Do not duplicate the same details across `state.md`, `next.md`, and `cycles/`.
-- When editing the template repository itself, do not create real project cycle logs unless the user explicitly asks.
-- Before finishing any user-requested feature work, bug fix, camera/asset/content change, or verification-driven iteration, explicitly check whether `Harness/<Worker>/Progress.md` needs a brief Korean update, even if the user did not ask for a commit.
-- If the work changed user-visible behavior, assets, captures, maps, build/config behavior, or human confirmation needs, update `Harness/<Worker>/Progress.md` before the final response and before staging any commit.
-
-Finish checklist before final response or user-requested commits:
-
-1. Verify the requested behavior with the smallest useful command or manual check.
-2. Inspect `git diff --stat` and confirm the changed files match the request.
-3. Refresh `Harness/<Worker>/Progress.md` as a current dashboard when the diff includes meaningful project work or a new human decision point.
-4. Run `python Harness/<Worker>/scripts/tools/harness_verify_all.py` and address any Progress/diff warning before committing.
-
-Recommended cycle log format:
+Recommended task file:
 
 ```markdown
-## HH:MM Task Name
+# Task: <task-id>
+
+- Owner: Codex
+- Branch: codex/example
+- Worktree: C:/path/to/worktree
+- Started: 2026-06-15 10:00 +09:00
+- Updated: 2026-06-15 10:00 +09:00
+- Status: active
+
+## Scope
+- ...
+
+## Success Criteria
+- ...
+
+## Remaining
+- ...
+```
+
+Recommended cycle entry:
+
+```markdown
+## 10:30 Task Name
+- Recorded: 2026-06-15T10:30+09:00
+- Worker: Codex
 - Changed:
 - Verified:
 - Remaining:
 ```
 
-## Config Files
+## Project Docs And Index
 
-- `Harness/<Worker>/config/cycle_policy.json` is a structured reference for cycle rules. If it conflicts with this file, `HARNESS.md` wins and the config should be updated.
-- `Harness/<Worker>/config/agents.json` identifies the owning worker, root instruction file, and handoff paths for that worker area.
-- `Harness/<Worker>/config/docs.json` stores project document locations and on-demand reading policy.
+- Project docs live under `Harness/docs/` by default. Register external doc folders in `Harness/config/docs.json`.
+- `Harness/index/` is a compact Project Understanding Layer, not the source of truth.
+- Keep `state.md` compact; put project structure and routing notes in `Harness/index/`.
+- `Harness/Progress.md` is a short Korean human-facing dashboard, not a work log.
 
-## Worker Switching
+## Harness Updates
 
-- Use one primary worker per task and checkout: Codex or Claude Code. Independent checkout and branch environments may run in parallel.
-- Switch workers only when the human explicitly assigns it, Codex token budget is exhausted, or context is too large.
-- Worker switching is never automatic.
-- Before switching, record the reason and the first files the next worker should read in today's `work/cycles/YYYY-MM-DD.md`.
-- The new worker should first read `HARNESS.md`, `Harness/<Worker>/work/state.md`, `Harness/<Worker>/work/next.md`, today's cycle log, and the current `git status/diff`.
-
-## Unreal Cautions
-
-- Edit `Source/` and `Plugins/` only when directly relevant.
-- Edit `Config/` only when input, maps, modules, or build settings require it.
-- Edit `Content/`, `Build/`, and generated files only when necessary.
-- Treat `UFUNCTION`, `UPROPERTY`, public function names, and public variable names as Blueprint compatibility risks.
-- Change public API only when required.
-- Edit `*.Build.cs` only when required, and check module dependency impact.
-- Check include paths, module boundaries, and Public/Private folder placement.
-- For UObject, Actor, ActorComponent, and Delegate usage, check null handling and lifecycle.
-- When binding delegates, check unbind timing and duplicate binding risk.
-
-## Verification
-
-- Run the smallest useful build or verification command.
-- Passing `Harness/<Worker>/scripts/unreal/verify_project.py` alone does not prove feature success.
-- When doc policy may matter, run `python Harness/<Worker>/scripts/tools/harness_docs_check.py --json`.
-- For C++ or module changes, prefer a real build when practical.
-- For build verification, prefer `Harness/<Worker>/scripts/build/build_verify.cmd` or `Harness/<Worker>/scripts/build/build_verify.ps1`.
-- If C++ verification fails because the editor is running, DLLs are locked, or hot reload interferes, close the editor and retry a `-NoHotReload` style build.
-- Gameplay, input feel, assets, HUD, camera, animation, and level feel may require manual PIE verification. Record that need when automation cannot prove it.
-- If a test or verification could not be run, record why.
+- Read `INSTALL.md` before installing, migrating, or updating Harness.
+- Treat updates as reviewed migrations, not blind replacement.
+- Preserve project-specific config, docs, index, work records, Progress, and custom scripts.
+- When migrating from split `Harness/Codex/` and `Harness/Claude/` layouts, merge durable records into the single Harness and preserve conflicting task history as separate task files.
 
 ## Tool Additions
 
-- Agents may add small CLI tools for repeated exploration, verification, summarization, or recording work.
-- Put such tools under `Harness/<Worker>/scripts/tools/` by default.
-- Tools should have one small purpose and be read-only by default.
-- File writes must require explicit options such as `--write`, `--apply`, or `--update`.
-- Do not hardcode project-specific values in tool code. Use `Harness/<Worker>/config/project.json` or command-line arguments.
-- When adding or changing a tool, update `Harness/<Worker>/scripts/tools/tool_manifest.json` with purpose, inputs, outputs, write behavior, and verification command.
-- Verify new or changed tools with `--help`, dry run, JSON output, or the smallest reasonable command.
-- Do not create tools for one-off transformations, judgment-heavy refactors, or unstable Unreal Editor internal state.
+- Put repeatable small CLI tools under `Harness/scripts/tools/`.
+- Tools should be read-only by default; writes require explicit options such as `--write`, `--apply`, or `--update`.
+- Put project-specific values in `Harness/config/project.json` or command-line arguments.
+- Update `Harness/scripts/tools/tool_manifest.json` and run the smallest useful verification for changed tools.
 
-## Git
+## Unreal Cautions
 
-- If this is a Git repository, start by checking `git status --short`.
-- Do not revert user changes or unrelated changes.
-- Generated folders such as `Binaries/`, `Intermediate/`, `Saved/`, and `DerivedDataCache/` are usually not commit targets.
-- If `Content/**/*.uasset` or `Content/**/*.umap` changes, record which asset changed and why.
-- Do not clean redirectors, move assets, or rename assets unless requested.
-- Commit only when the user asks.
-- Create branches, rebase, force-push, or rewrite history only when the user explicitly asks.
-- Before finishing, inspect `git diff --stat` or the relevant diff and confirm the change scope matches the request.
+- Edit `Source/`, `Plugins/`, `Config/`, `Content/`, and generated files only when directly relevant.
+- Treat `UFUNCTION`, `UPROPERTY`, public names, `*.Build.cs`, delegates, lifecycle, and binary assets as compatibility risks.
+- Prefer a real build for C++ or module changes when practical.
+- Gameplay, input feel, assets, HUD, camera, animation, and levels may require manual PIE verification.
 
-## Language
+## Finish Checklist
 
-- Reply to the user in the user's language.
-- Write agent-facing Harness files in English by default for migration stability.
-- The default exception is `Harness/<Worker>/Progress.md`, which should be written in Korean because it is a human-facing project dashboard.
-- Keep code identifiers, file names, class names, function names, commands, logs, and error messages in their original language.
-- When editing non-ASCII files from Windows PowerShell, use explicit UTF-8 handling.
+1. Verify the requested behavior with the smallest useful command or manual check.
+2. Inspect `git diff --stat` and confirm the scope matches the request.
+3. Refresh `Harness/Progress.md` when meaningful project behavior or a human decision changed.
+4. Update the active task file and consolidate durable facts into `state.md` or `next.md` only when appropriate.
+5. Run `python Harness/scripts/tools/harness_verify_all.py`.
+
+## Git And Language
+
+- Never revert user changes or unrelated generated files unless explicitly asked.
+- Commit, branch, rebase, force-push, or rewrite history only when explicitly asked.
+- Reply in the user's language.
+- Write agent-facing Harness files in English by default. `Harness/Progress.md` is Korean by default.

@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "purpose": "shared_harness_agent_routing",
+  "shared_rules": "HARNESS.md",
+  "supported_workers": {
+    "codex": {
+      "display_name": "Codex",
+      "instruction_file": "AGENTS.md"
+    },
+    "claude": {
+      "display_name": "Claude Code",
+      "instruction_file": "CLAUDE.md"
+    }
+  },
+  "parallel_work": {
+    "requires_separate_worktrees_and_branches": true,
+    "task_record_pattern": "Harness/work/tasks/<task-id>.md",
+    "cycle_record_pattern": "Harness/work/cycles/<task-id>.md"
+  },
+  "record_paths": {
+    "state": "Harness/work/state.md",
+    "next": "Harness/work/next.md",
+    "tasks": "Harness/work/tasks/",
+    "cycles": "Harness/work/cycles/"
+  }
+}
