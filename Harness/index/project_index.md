@@ -16,5 +16,6 @@ Compact project map for agent routing. Keep this file short and update it only w
 
 ## Routing Notes
 
+- Prefer structured `Path:` and `Verify:` bullets for concrete feature entry points.
 - Use this index as a hint before reading actual files.
 - If this index conflicts with code, config, assets, logs, or build output, trust the actual project files.

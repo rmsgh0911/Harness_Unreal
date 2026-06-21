@@ -12,3 +12,5 @@ Index files are routing hints, not the source of truth. If an index file conflic
 - `source_map.json`: optional generated source/module map.
 
 Read only the index files relevant to the current request. Do not load the full index by default.
+
+To declare a concrete repository path for automatic existence checking, use `- Path: \`Source/Project/Feature.cpp\``. Add a repeatable entry command as `- Verify: \`python Harness/scripts/...\``. Context output can return both fields for a matching section. Placeholder paths containing `<...>` and ordinary examples are not treated as existence assertions.

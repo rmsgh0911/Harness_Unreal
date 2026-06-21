@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -29,6 +30,7 @@ HARD_LIMITS = {
     "verification_map.md": 240,
     "README.md": 140,
 }
+PATH_FIELD_PATTERN = re.compile(r"^-\s*Path:\s*`([^`]+)`\s*$", re.MULTILINE | re.IGNORECASE)
 
 
 def _line_count(text: str) -> int:
@@ -40,6 +42,7 @@ def build_report(root: Path) -> dict:
     warnings: list[dict] = []
     errors: list[dict] = []
     files: list[dict] = []
+    declared_paths: dict[str, list[str]] = {}
 
     if not index.exists():
         errors.append({"path": "Harness/index", "message": "missing"})
@@ -58,6 +61,18 @@ def build_report(root: Path) -> dict:
             warnings.append({"path": item["path"], "message": f"longer_than_soft_limit:{SOFT_LIMITS[name]}"})
         if lines > HARD_LIMITS[name]:
             errors.append({"path": item["path"], "message": f"longer_than_hard_limit:{HARD_LIMITS[name]}"})
+        for declared in PATH_FIELD_PATTERN.findall(text):
+            normalized = declared.replace("\\", "/").strip()
+            declared_paths.setdefault(normalized.casefold(), []).append(item["path"])
+            if any(marker in normalized for marker in ["<", ">", "*", "?"]):
+                continue
+            if not (root / normalized).exists():
+                line_number = next((number for number, line in enumerate(text.splitlines(), start=1) if declared in line), 0)
+                warnings.append({"path": item["path"], "line": line_number, "message": f"declared_path_missing:{normalized}; update or remove the Path declaration"})
+
+    for normalized, owners in declared_paths.items():
+        if len(owners) > 1:
+            warnings.append({"path": owners[0], "message": f"duplicate_declared_path:{normalized}"})
 
     source_map = index / "source_map.json"
     if source_map.exists():
@@ -85,7 +100,7 @@ def format_text(report: dict) -> str:
     lines.extend(f"- {item['path']}: {item['lines']} lines" for item in report["files"]) if report["files"] else lines.append("- none")
     if report["warnings"]:
         lines.extend(["", "Warnings:"])
-        lines.extend(f"- {item['path']}: {item['message']}" for item in report["warnings"])
+        lines.extend(f"- {item['path']}{':' + str(item['line']) if item.get('line') else ''}: {item['message']}" for item in report["warnings"])
     if report["errors"]:
         lines.extend(["", "Errors:"])
         lines.extend(f"- {item['path']}: {item['message']}" for item in report["errors"])

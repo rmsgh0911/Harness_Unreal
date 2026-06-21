@@ -14,10 +14,10 @@ This file defines the default operating rules for agents working with this Unrea
 
 Default flow: `implement -> minimal verification -> self-review -> record`.
 
-1. Read the root `README.md` when present.
-2. Read `Harness/README.md`, `Harness/work/state.md`, and `Harness/work/next.md`.
-3. Run `python Harness/scripts/tools/harness_context.py --request "<task>"` when Python is available.
-4. Use `Harness/index/project_index.md` as a routing hint, then verify assumptions against actual code, config, assets, logs, or build output.
+1. Read the root `README.md` when present and the short operating rules in `Harness/README.md`.
+2. Run `python Harness/scripts/tools/harness_context.py --request "<task>"` when Python is available.
+3. Read only the state, next, task, cycle, or index sections recommended by the context briefing. If the command cannot run, read `Harness/work/state.md`, `Harness/work/next.md`, and `Harness/index/project_index.md` manually.
+4. Use `Harness/index/` only as a routing hint, then verify assumptions against actual code, config, assets, logs, or build output.
 5. Read project docs only when requested or when success criteria are unclear.
 6. Implement the smallest useful change and run the smallest useful verification.
 7. Self-review changed files and record only durable information.
@@ -32,8 +32,11 @@ Do not broadly scan the repository, run external reviewers, or use multi-agent m
 - Run `harness_cycle.py --task <task-id> --worker <agent>` when recording parallel work.
 - `Harness/work/state.md` contains only the latest confirmed project facts.
 - `Harness/work/next.md` contains only unresolved project-level work and decisions.
+- Keep `state.md` near 80 lines or fewer and limited to Project, Current State, Latest Verification, and Risks.
+- Keep `next.md` to the 3-5 highest-priority active project items. Remove completed work immediately; move optional ideas to a project backlog document when needed.
 - Update `state.md`, `next.md`, and `Progress.md` at integration, handoff, or merge-ready points instead of after every small edit.
 - During parallel branch work, the integrator owns consolidation into `state.md` and `next.md`; other branches keep branch-specific details in task and cycle files.
+- Archive completed task/cycle pairs with `harness_archive.py --task <task-id> --archive` when history becomes noisy. The command previews by default and preserves task-ID lookup in `Harness/work/archive/index.md`.
 - A short `Last consolidated` and `Consolidated by` header is allowed in `state.md` and `next.md`; per-edit timestamps belong in task or cycle files.
 - Do not duplicate the same detail across task files, cycles, state, next, and Progress.
 
@@ -82,7 +85,7 @@ Recommended cycle entry:
 - Project docs live under `Harness/docs/` by default. Register external doc folders in `Harness/config/docs.json`.
 - `Harness/index/` is a compact Project Understanding Layer, not the source of truth.
 - Keep `state.md` compact; put project structure and routing notes in `Harness/index/`.
-- `Harness/Progress.md` is a short Korean human-facing dashboard, not a work log.
+- `Harness/Progress.md` is a short Korean human-facing dashboard, not a work log. Keep only Current Status, Recent Completion, Needs Confirmation, and Next Work, with at most three core bullets per section and about 40 lines total.
 
 ## Harness Updates
 

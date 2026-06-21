@@ -41,10 +41,11 @@ Keep tools small. Split them by purpose when they grow.
 
 ## Standard Tools
 
-- `harness_context.py`: prints a short Harness briefing for task startup.
+- `harness_context.py`: prints a short Harness briefing with only request-related next items and index sections; use `--all-next` for the full list.
 - `harness_doctor.py`: checks Harness document, config, and manifest consistency.
 - `harness_docs_check.py`: checks `Harness/docs` and `docs.json` discovery / reading policy.
 - `harness_scan.py`: summarizes Unreal project structure and `project.json` candidates.
+- `harness_archive.py`: previews or archives completed task/cycle records by task ID; writes only with `--archive`.
 - `harness_cycle.py`: creates cycle log entries; writes only with `--write`. Use `--task` and `--worker` for parallel work.
 - `harness_diff_guard.py`: checks changed files and Unreal risk signals.
 - `harness_handoff.py`: creates a minimal handoff brief for another worker or session.
@@ -52,8 +53,8 @@ Keep tools small. Split them by purpose when they grow.
 - `harness_release_check.py`: checks template packaging hygiene before copying or zipping.
 - `harness_release_pack.py`: previews or writes a clean template zip package.
 - `harness_migration_audit.py`: audits an older Harness project before migration.
-- `harness_state_check.py`: checks whether state/next/tasks/cycles are too large, stale, or mixed with history.
-- `harness_progress_check.py`: checks whether Progress.md stays a compact dashboard instead of an append-only work log.
+- `harness_state_check.py`: checks whether state/next/tasks/cycles are compact, stale, or mixed with completed history.
+- `harness_progress_check.py`: enforces the four-section, 40-line Progress dashboard contract.
 - `harness_python_check.py`: checks Python 3 availability and Unreal Python candidates.
 - `harness_init_plan.py`: summarizes preservation, fill, and verification work for initialization or migration.
 - `harness_docs_index.py`: indexes project doc headings to reduce reading scope.
@@ -68,9 +69,12 @@ Examples:
 ```powershell
 python Harness/scripts/tools/harness_context.py
 python Harness/scripts/tools/harness_context.py --request "Improve lock-on input flow"
+python Harness/scripts/tools/harness_context.py --request "Improve lock-on input flow" --all-next
 python Harness/scripts/tools/harness_doctor.py --json
 python Harness/scripts/tools/harness_docs_check.py --json
 python Harness/scripts/tools/harness_scan.py --json
+python Harness/scripts/tools/harness_archive.py --task completed-task
+python Harness/scripts/tools/harness_archive.py --task completed-task --archive
 python Harness/scripts/tools/harness_cycle.py "Input fix" --changed "..." --verified "..." --remaining "..."
 python Harness/scripts/tools/harness_cycle.py "Parallel input fix" --task input-fix --worker Codex --changed "..." --verified "..."
 python Harness/scripts/tools/harness_diff_guard.py

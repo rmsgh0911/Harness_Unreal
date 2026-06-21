@@ -8,10 +8,10 @@ Before starting any task:
 
 1. Read the root `HARNESS.md`.
 2. Read `Harness/README.md` for the single Harness and worktree layout.
-3. Read `Harness/work/state.md` and `Harness/work/next.md` before project work.
-4. Before editing any project file, run this command unless Python is unavailable:
+3. Before editing any project file, run this command unless Python is unavailable:
    `python Harness/scripts/tools/harness_context.py --request "<user request>"`
    Add `--task <task-id>` when working from a parallel task record.
+4. Read only the state, next, task, cycle, or index sections recommended by the context briefing.
 5. Follow the default Harness loop:
    `implement -> minimal verification -> self-review -> record`.
 

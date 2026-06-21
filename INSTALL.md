@@ -18,7 +18,7 @@ Do not copy `.git/`, `.claude/`, Python caches, generated handoffs, or real proj
 1. Edit `Harness/config/project.json` and set `template_mode` to `false`.
 2. Fill the project name, `.uproject`, engine version, engine root, and editor target.
 3. Register project docs in `Harness/config/docs.json`.
-4. Fill `Harness/work/state.md` with confirmed facts and `Harness/work/next.md` with unresolved project-level work.
+4. Fill `Harness/work/state.md` with the compact current snapshot and keep only the 3-5 highest-priority unresolved project items in `Harness/work/next.md`.
 5. Fill `Harness/index/project_index.md` as a compact routing map.
 6. Keep `Harness/Progress.md` as the short Korean dashboard.
 7. For parallel work, use separate worktrees and branches. Create one `Harness/work/tasks/<task-id>.md` per task.
@@ -42,7 +42,9 @@ python C:\Path\To\NewHarnessTemplate\Harness\scripts\tools\harness_migration_aud
 
 An update is a reviewed migration, not a blind replacement. Preserve project-specific config, docs, indexes, work records, Progress, and custom scripts.
 
-Treat `project.json`, `docs.json`, project docs, indexes, work records, Progress, and custom script behavior as project-owned. Review and merge root instructions, shared policy config, standard tools, and templates from the new Harness version.
+Treat `project.json`, `docs.json`, project docs, indexes, work records, Progress, and custom script behavior as project-owned. Review and merge root instructions, shared policy config, standard tools, and templates from the new Harness version. When adopting the compact-document rules, preserve removed history in existing task/cycle records or an archive before replacing current state, next, or Progress content.
+
+Completed task/cycle records can be preserved with `python Harness/scripts/tools/harness_archive.py --task <task-id> --archive`. Preview the command without `--archive` first.
 
 When migrating from the split worker layout:
 

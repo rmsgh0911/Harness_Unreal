@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import py_compile
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -24,7 +25,7 @@ from harness_scan import scan
 def compile_python_files(root: Path) -> dict:
     harness = harness_dir(root)
     files = [
-        *sorted((harness / "scripts" / "tools").glob("*.py")),
+        *sorted((harness / "scripts" / "tools").rglob("*.py")),
         *sorted((harness / "scripts" / "unreal").glob("*.py")),
     ]
     failures: list[dict] = []
@@ -41,6 +42,23 @@ def compile_python_files(root: Path) -> dict:
         "checked": [rel(path, root) for path in files],
         "failures": failures,
     }
+
+
+def run_tool_tests(root: Path) -> dict:
+    tests = harness_dir(root) / "scripts" / "tools" / "tests"
+    if not tests.exists():
+        return {"ok": True, "status": "not_present", "output": ""}
+    completed = subprocess.run(
+        [sys.executable, "-B", "-m", "unittest", "discover", "-s", str(tests), "-p", "test_*.py"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    output = "\n".join(part.strip() for part in [completed.stdout, completed.stderr] if part.strip())
+    return {"ok": completed.returncode == 0, "status": "ok" if completed.returncode == 0 else "failed", "output": output}
 
 
 def check_json_files(root: Path) -> dict:
@@ -96,6 +114,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
     docs_check = build_docs_report(root)
     json_check = check_json_files(root)
     compile_check = compile_python_files(root) if compile_python else {"ok": True, "checked": [], "failures": [], "skipped": True}
+    tool_tests = run_tool_tests(root)
     build_readiness = check_build_readiness(root)
 
     hard_ok = (
@@ -103,6 +122,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
         and docs_check["ok"]
         and json_check["ok"]
         and compile_check["ok"]
+        and tool_tests["ok"]
         and index_check["ok"]
         and progress_check["ok"]
         and state_check["ok"]
@@ -129,6 +149,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
             "doctor_warnings": doctor["summary"].get("warnings", 0),
             "json": "ok" if json_check["ok"] else "failed",
             "python_compile": "ok" if compile_check["ok"] else "failed",
+            "tool_tests": tool_tests["status"],
             "scan": "ok",
             "diff_guard": "ok" if diff["ok"] else "needs_attention",
             "index_check": "ok" if index_check["ok"] else "failed",
@@ -141,6 +162,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
         "doctor": doctor["summary"],
         "json_check": json_check,
         "python_compile": compile_check,
+        "tool_tests": tool_tests,
         "scan": {
             "uproject_count": len(scan_report["uprojects"]),
             "module_count": len(scan_report["source"]["modules"]),
@@ -179,6 +201,7 @@ def format_text(report: dict) -> str:
         f"- Doctor warnings: {report['summary']['doctor_warnings']}",
         f"- JSON: {report['summary']['json']}",
         f"- Python compile: {report['summary']['python_compile']}",
+        f"- Tool regression tests: {report['summary']['tool_tests']}",
         f"- Scan: {report['summary']['scan']}",
         f"- Diff guard: {report['summary']['diff_guard']} ({report['diff_guard']['mode']})",
         f"- Index check: {report['summary']['index_check']}",

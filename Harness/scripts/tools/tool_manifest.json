@@ -30,7 +30,7 @@
     {
       "name": "harness_context",
       "path": "Harness/scripts/tools/harness_context.py",
-      "purpose": "Prints a short task-start briefing from Harness state, next work, optional task-scoped records, cycle request detection, docs policy, and tool metadata.",
+      "purpose": "Prints a short task-start briefing with request-related next items and index sections; --all-next exposes the full active list.",
       "inputs": [
         "HARNESS.md",
         "Harness/work/state.md",
@@ -41,7 +41,8 @@
         "Harness/config/docs.json",
         "Harness/config/cycle_policy.json",
         "Harness/scripts/tools/tool_manifest.json",
-        "--request"
+        "--request",
+        "--all-next"
       ],
       "outputs": [
         "short_text",
@@ -92,6 +93,25 @@
       "safe_by_default": true,
       "context_check": true,
       "verify": "python Harness/scripts/tools/harness_scan.py --json"
+    },
+    {
+      "name": "harness_archive",
+      "path": "Harness/scripts/tools/harness_archive.py",
+      "purpose": "Previews or archives a completed task and its cycle record into a monthly folder while retaining a task-ID index.",
+      "inputs": [
+        "--task",
+        "--month",
+        "--archive",
+        "Harness/work/tasks/<task-id>.md",
+        "Harness/work/cycles/<task-id>.md"
+      ],
+      "outputs": [
+        "archive_plan",
+        "monthly archive and index only with --archive"
+      ],
+      "writes_files": "only_with_--archive",
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_archive.py --help"
     },
     {
       "name": "harness_cycle",
@@ -157,7 +177,7 @@
     {
       "name": "harness_verify_all",
       "path": "Harness/scripts/tools/harness_verify_all.py",
-      "purpose": "Runs standard end-of-task checks: doctor, JSON parsing, Python compile, scan, diff guard, index check, progress dashboard check, state check, docs policy, and build readiness.",
+      "purpose": "Runs standard end-of-task checks: doctor, JSON parsing, Python compile, tool regression fixtures, scan, diff guard, index check, progress dashboard check, state check, docs policy, and build readiness.",
       "inputs": [
         "harness_doctor",
         "harness_context",
@@ -242,7 +262,7 @@
     {
       "name": "harness_state_check",
       "path": "Harness/scripts/tools/harness_state_check.py",
-      "purpose": "Checks whether state.md, next.md, tasks, and cycles are too large, mixed with history, or contain legacy script paths.",
+      "purpose": "Checks whether state.md, next.md, tasks, and cycles are compact, current, and free of completed or misplaced history.",
       "inputs": [
         "--target",
         "Harness/work/state.md",
@@ -262,7 +282,7 @@
     {
       "name": "harness_progress_check",
       "path": "Harness/scripts/tools/harness_progress_check.py",
-      "purpose": "Checks whether Harness/Progress.md remains a compact human-facing dashboard instead of an append-only work log.",
+      "purpose": "Enforces the four-section, 40-line human-facing Progress dashboard contract.",
       "inputs": [
         "Harness/Progress.md",
         "--root"

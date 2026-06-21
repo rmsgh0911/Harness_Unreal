@@ -13,24 +13,12 @@ Do not use this as a work log or agent activity journal. Per-agent timestamps an
 - Editor startup map: TODO
 - Harness test map: TODO
 
-## Current Confirmed State
+## Current State
 
 - TODO: Record systems, maps, inputs, characters, controllers, UI, plugins, and assets that actually exist.
 - TODO: Prefer Source, Config, editor output, and build logs over design intent.
 
-## Project Docs
-
-- TODO: Record whether docs live in `Harness/docs/` or a registered external docs folder.
-- `Harness/Progress.md` is a Korean human-facing dashboard, not a technical state source.
-
-## Key Files
-
-- TODO: `Source/<Module>/...`
-- TODO: `Config/...`
-- TODO: `Content/...`
-- TODO: `Plugins/...`
-
-## Verification State
+## Latest Verification
 
 - Last C++ build: TODO
 - Last Harness verification: TODO
