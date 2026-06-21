@@ -45,16 +45,16 @@ Keep tools small. Split them by purpose when they grow.
 - `harness_doctor.py`: checks Harness document, config, and manifest consistency.
 - `harness_docs_check.py`: checks `Harness/docs` and `docs.json` discovery / reading policy.
 - `harness_scan.py`: summarizes Unreal project structure and `project.json` candidates.
-- `harness_archive.py`: previews or archives completed task/cycle records by task ID; writes only with `--archive`.
+- `harness_archive.py`: previews or transactionally archives completed task/cycle records by task ID; validates the month and rolls back failed moves.
 - `harness_iteration_status.py`: reports cycle progress, budget, verification gaps, and repeated unresolved work without writing files.
-- `harness_update_plan.py`: compares a new template with an older project, preserves project-owned material, adds only missing files with an explicit option, and stages changed template files for review.
+- `harness_update_plan.py`: compares a new template with an older project, preserves exact project-owned paths, rejects escaping plan paths, adds only missing files with an explicit option, and stages changed template files for review.
 - `harness_knowledge.py`: searches retained docs, indexes, tasks, cycles, archives, state, and next files as bounded routing evidence.
 - `harness_cycle.py`: creates cycle log entries; writes only with `--write`. Use `--task` and `--worker` for parallel work.
 - `harness_diff_guard.py`: checks changed files and Unreal risk signals.
 - `harness_handoff.py`: creates a minimal handoff brief for another worker or session.
-- `harness_verify_all.py`: runs lightweight standard checks before finishing work.
-- `harness_release_check.py`: checks template packaging hygiene before copying or zipping.
-- `harness_release_pack.py`: previews or writes a clean template zip package; write mode enforces strict release hygiene unless `--force` is explicit.
+- `harness_verify_all.py`: runs lightweight standard checks before finishing work; real project mode requires complete build configuration.
+- `harness_release_check.py`: checks template packaging hygiene, including generated files and symlinks, before copying or zipping.
+- `harness_release_pack.py`: previews or atomically writes a clean template ZIP; protected output paths and strict hygiene failures block writes.
 - `harness_migration_audit.py`: audits an older Harness project before migration.
 - `harness_state_check.py`: checks whether state/next/tasks/cycles are compact, stale, or mixed with completed history.
 - `harness_progress_check.py`: enforces the four-section, 40-line Progress dashboard contract.
@@ -117,4 +117,4 @@ If `python` resolves to the Microsoft Store alias on Windows, use the real Pytho
 - core `project.json` fields are filled after migration into a real Unreal project
 - no generated `__pycache__` or `*.pyc` files remain under `Harness/scripts/`
 
-`harness_release_pack.py --write` runs the strict release check itself and refuses to write on failure. `--force` is reserved for exceptional diagnostics. The package excludes `.git/`, `.claude/`, generated caches, generated handoff files, and real task, cycle, and archive records.
+`harness_release_pack.py --write` runs the strict release check itself and refuses to write on failure. It also rejects non-ZIP outputs, source-file overwrites, outputs under `Harness/`, and symlinks. ZIP creation uses a temporary sibling file so a failed write does not corrupt an existing package. `--force` bypasses hygiene failures only and is reserved for exceptional diagnostics. The package excludes `.git/`, `.claude/`, generated caches, generated handoff files, and real task, cycle, and archive records.

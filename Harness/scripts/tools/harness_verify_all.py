@@ -23,6 +23,11 @@ from harness_scan import scan
 from harness_release_check import build_report as build_release_report
 
 
+def required_checks_ok(*checks: dict) -> bool:
+    """Return true only when every required verification gate passes."""
+    return all(check.get("ok") is True for check in checks)
+
+
 def compile_python_files(root: Path) -> dict:
     harness = harness_dir(root)
     files = [
@@ -127,17 +132,18 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
         "status": "not_applicable",
     }
 
-    hard_ok = (
-        doctor["ok"]
-        and docs_check["ok"]
-        and json_check["ok"]
-        and compile_check["ok"]
-        and tool_tests["ok"]
-        and index_check["ok"]
-        and progress_check["ok"]
-        and state_check["ok"]
-        and diff["ok"]
-        and release_hygiene["ok"]
+    hard_ok = required_checks_ok(
+        doctor,
+        docs_check,
+        json_check,
+        compile_check,
+        tool_tests,
+        index_check,
+        progress_check,
+        state_check,
+        diff,
+        build_readiness,
+        release_hygiene,
     )
     state_check_summary = {
         "finding_count": len(state_check["findings"]),

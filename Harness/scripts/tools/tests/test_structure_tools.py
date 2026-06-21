@@ -13,7 +13,7 @@ if str(TOOLS_DIR) not in sys.path:
 
 from harness_context import build_context  # noqa: E402
 from harness_context import evaluate_cycle_request  # noqa: E402
-from harness_archive import apply_archive, build_plan as build_archive_plan  # noqa: E402
+from harness_archive import apply_archive, build_plan as build_archive_plan, validate_archive_month  # noqa: E402
 from harness_cycle import build_entry, validate_iteration_entry  # noqa: E402
 from harness_cycle_summary import analyze_iteration, build_summary as build_cycle_summary, parse_cycle_file  # noqa: E402
 from harness_diff_guard import PROGRESS_TRIGGER_PREFIXES  # noqa: E402
@@ -24,9 +24,10 @@ from harness_handoff import build_handoff  # noqa: E402
 from harness_knowledge import build_knowledge  # noqa: E402
 from harness_progress_check import build_report as build_progress_report  # noqa: E402
 from harness_release_check import build_report as build_release_report  # noqa: E402
-from harness_release_pack import build_package, collect_files as collect_release_files  # noqa: E402
+from harness_release_pack import build_package, collect_files as collect_release_files, should_include as should_include_release_file  # noqa: E402
 from harness_state_check import build_report as build_state_report  # noqa: E402
 from harness_update_plan import apply_missing_files, build_update_plan, stage_review_files  # noqa: E402
+from harness_verify_all import check_build_readiness, required_checks_ok  # noqa: E402
 
 
 VALID_PROGRESS = """# Progress
@@ -234,6 +235,39 @@ class HarnessStructureTests(unittest.TestCase):
         index = (self.root / "Harness/work/archive/index.md").read_text(encoding="utf-8")
         self.assertIn("`done-task`", index)
 
+    def test_archive_rejects_invalid_month_in_library_calls(self) -> None:
+        with self.assertRaises(ValueError):
+            validate_archive_month("../../outside")
+        with self.assertRaises(ValueError):
+            build_archive_plan(self.root, "safe-task", "../../outside")
+
+    def test_archive_rolls_back_when_second_move_fails(self) -> None:
+        tasks = self.root / "Harness/work/tasks"
+        cycles = self.root / "Harness/work/cycles"
+        tasks.mkdir()
+        cycles.mkdir()
+        task = tasks / "rollback-task.md"
+        cycle = cycles / "rollback-task.md"
+        task.write_text("# Task\n\n- Status: completed\n", encoding="utf-8")
+        cycle.write_text("# Cycle\n", encoding="utf-8")
+        plan = build_archive_plan(self.root, "rollback-task", "2026-06")
+        from harness_archive import shutil as archive_shutil
+        real_move = archive_shutil.move
+
+        def fail_cycle_move(source: Path, target: Path):
+            if Path(source) == cycle:
+                raise OSError("simulated second move failure")
+            return real_move(source, target)
+
+        with patch("harness_archive.shutil.move", side_effect=fail_cycle_move):
+            with self.assertRaises(OSError):
+                apply_archive(self.root, plan)
+        self.assertTrue(task.exists())
+        self.assertTrue(cycle.exists())
+        self.assertFalse((self.root / "Harness/work/archive/2026-06/tasks/rollback-task.md").exists())
+        self.assertFalse((self.root / "Harness/work/archive/index.md").exists())
+        self.assertFalse((self.root / "Harness/work/archive").exists())
+
     def test_cycle_entry_records_budget_decision_and_success_criteria(self) -> None:
         entry = build_entry(
             "Iteration",
@@ -389,10 +423,12 @@ class HarnessStructureTests(unittest.TestCase):
         (template / "Harness/config/project.json").write_text('{"template_mode": true}\n', encoding="utf-8")
         (template / "Harness/config/docs.json").write_text('{"doc_roots": []}\n', encoding="utf-8")
         (template / "Harness/docs/Guide.md").write_text("new guide\n", encoding="utf-8")
+        (template / "Harness/Progress.md.bak").write_text("template backup\n", encoding="utf-8")
         (template / "Harness/scripts/tools/standard.py").write_text("NEW = 1\n", encoding="utf-8")
         (target / "HARNESS.md").write_text("project rules\n", encoding="utf-8")
         (target / "Harness/config/project.json").write_text('{"project_name": "KeepMe"}\n', encoding="utf-8")
         (target / "Harness/docs/Guide.md").write_text("project knowledge\n", encoding="utf-8")
+        (target / "Harness/Progress.md.bak").write_text("old backup\n", encoding="utf-8")
         (target / "Harness/scripts/tools/standard.py").write_text("OLD = 1\n", encoding="utf-8")
         (target / "Harness/scripts/tools/custom.py").write_text("CUSTOM = 1\n", encoding="utf-8")
         plan = build_update_plan(template, target)
@@ -401,6 +437,7 @@ class HarnessStructureTests(unittest.TestCase):
         self.assertEqual("preserve", actions["Harness/docs/Guide.md"])
         self.assertEqual("merge_review", actions["HARNESS.md"])
         self.assertEqual("replace_review", actions["Harness/scripts/tools/standard.py"])
+        self.assertEqual("replace_review", actions["Harness/Progress.md.bak"])
         self.assertIn("Harness/scripts/tools/custom.py", plan["custom_tools"])
         copied = apply_missing_files(template, target, plan)
         self.assertIn("CLAUDE.md", copied)
@@ -465,6 +502,22 @@ class HarnessStructureTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             stage_review_files(template, stage, plan, target=target)
         self.assertFalse((stage / "one.txt").exists())
+
+    def test_update_actions_reject_paths_that_escape_roots(self) -> None:
+        template = self.root / "template"
+        target = self.root / "target"
+        stage = self.root / "review"
+        template.mkdir()
+        (target / "Harness").mkdir(parents=True)
+        escaped = self.root / "escaped.txt"
+        escaped.write_text("outside\n", encoding="utf-8")
+        add_plan = {"actions": [{"path": "../escaped.txt", "action": "add"}]}
+        review_plan = {"actions": [{"path": "../escaped.txt", "action": "replace_review"}]}
+        with self.assertRaises(ValueError):
+            apply_missing_files(template, target, add_plan)
+        with self.assertRaises(ValueError):
+            stage_review_files(template, stage, review_plan, target=target)
+        self.assertEqual("outside\n", escaped.read_text(encoding="utf-8"))
 
     def test_update_review_stage_rolls_back_overwrite_failure(self) -> None:
         template = self.root / "template"
@@ -552,6 +605,58 @@ class HarnessStructureTests(unittest.TestCase):
         forced = build_package(self.root, output, write=True, force=True)
         self.assertTrue(forced["ok"])
         self.assertTrue(output.exists())
+
+    def test_release_pack_refuses_to_overwrite_template_source(self) -> None:
+        harness_file = self.root / "HARNESS.md"
+        original = harness_file.read_bytes()
+        report = build_package(self.root, harness_file, write=True)
+        self.assertFalse(report["ok"])
+        self.assertIn("output_must_use_zip_extension", report["output_errors"])
+        self.assertIn("output_would_overwrite_packaged_source", report["output_errors"])
+        self.assertEqual(original, harness_file.read_bytes())
+        harness_output = build_package(self.root, self.root / "Harness/release.zip", write=True)
+        self.assertFalse(harness_output["ok"])
+        self.assertIn("output_must_be_outside_harness_tree", harness_output["output_errors"])
+
+    def test_release_pack_excludes_symlink_candidates(self) -> None:
+        candidate = self.root / "Harness/linked.md"
+        with patch.object(Path, "is_symlink", return_value=True):
+            self.assertFalse(should_include_release_file(candidate, self.root))
+
+    def test_release_rejects_and_excludes_symlinks(self) -> None:
+        external = self.root.parent / f"{self.root.name}-external.txt"
+        link = self.root / "Harness/docs-link.md"
+        external.write_text("external content\n", encoding="utf-8")
+        try:
+            try:
+                link.symlink_to(external)
+            except OSError as exc:
+                self.skipTest(f"symlinks unavailable: {exc}")
+            report = build_release_report(self.root, strict=True)
+            self.assertTrue(any(item["message"] == "template_symlink_not_allowed" for item in report["errors"]))
+            self.assertNotIn(link, collect_release_files(self.root))
+        finally:
+            if link.exists() or link.is_symlink():
+                link.unlink()
+            if external.exists():
+                external.unlink()
+
+    def test_release_pack_preserves_existing_zip_when_write_fails(self) -> None:
+        output = self.root / "existing.zip"
+        output.write_bytes(b"existing package")
+        with patch("harness_release_pack.zipfile.ZipFile.write", side_effect=OSError("simulated zip failure")):
+            with self.assertRaises(OSError):
+                build_package(self.root, output, write=True)
+        self.assertEqual(b"existing package", output.read_bytes())
+
+    def test_project_build_readiness_is_a_required_verification_gate(self) -> None:
+        (self.root / "Harness/config/project.json").write_text(
+            '{"template_mode": false, "uproject_file": "", "build": {}}\n',
+            encoding="utf-8",
+        )
+        readiness = check_build_readiness(self.root)
+        self.assertFalse(readiness["ok"])
+        self.assertFalse(required_checks_ok({"ok": True}, readiness))
 
     def test_release_rejects_activity_filled_progress_in_template_mode(self) -> None:
         (self.root / "Harness/config/project.json").write_text('{"template_mode": true}\n', encoding="utf-8")

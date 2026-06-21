@@ -84,4 +84,4 @@ python Harness/scripts/tools/harness_release_check.py --strict
 python Harness/scripts/tools/harness_release_pack.py --write
 ```
 
-Package write mode repeats the strict check and blocks the ZIP when it fails. Use `--force` only for exceptional diagnostics, never for a distributable template.
+Package write mode repeats the strict check and blocks the ZIP when it fails. It writes through a temporary sibling file, rejects outputs under `Harness/` or over source files, and never follows template symlinks. Use `--force` only for exceptional hygiene diagnostics; it does not bypass output-path safety.

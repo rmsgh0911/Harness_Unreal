@@ -51,6 +51,9 @@ def build_report(root: Path, strict: bool = False) -> dict:
     for path in sorted(root.rglob("*")):
         if any(part in {".git", ".claude", "Binaries", "Intermediate", "Saved", "DerivedDataCache"} for part in path.parts):
             continue
+        if path.is_symlink():
+            errors.append({"path": rel(path, root), "message": "template_symlink_not_allowed"})
+            continue
         if _has_utf8_bom(path):
             warnings.append({"path": rel(path, root), "message": "utf8_bom"})
         if path.is_file() and path.suffix.lower() in TEXT_SUFFIXES:

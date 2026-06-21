@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -43,6 +45,8 @@ def should_include(path: Path, root: Path) -> bool:
     rel_path = path.relative_to(root)
     relative = rel_path.as_posix()
     parts = set(rel_path.parts)
+    if path.is_symlink():
+        return False
     if parts & EXCLUDED_PARTS:
         return False
     if path.name in EXCLUDED_NAMES:
@@ -79,16 +83,27 @@ def collect_files(root: Path) -> list[Path]:
 
 def build_package(root: Path, output: Path, write: bool = False, force: bool = False) -> dict:
     files = collect_files(root)
-    output_path = output if output.is_absolute() else root / output
+    output_path = (output if output.is_absolute() else root / output).resolve()
     release_check = build_release_report(root, strict=True)
+    output_errors: list[str] = []
+    if output_path.suffix.casefold() != ".zip":
+        output_errors.append("output_must_use_zip_extension")
+    if output_path in {path.resolve() for path in files}:
+        output_errors.append("output_would_overwrite_packaged_source")
+    try:
+        output_path.relative_to((root / "Harness").resolve())
+        output_errors.append("output_must_be_outside_harness_tree")
+    except ValueError:
+        pass
     report = {
         "root": str(root),
         "output": str(output_path),
         "write": write,
         "file_count": len(files),
         "files": [rel(path, root) for path in files],
-        "ok": bool(files) and (release_check["ok"] or force),
+        "ok": bool(files) and not output_errors and (release_check["ok"] or force),
         "forced": force,
+        "output_errors": output_errors,
         "release_check": {
             "ok": release_check["ok"],
             "errors": release_check["errors"],
@@ -100,9 +115,17 @@ def build_package(root: Path, output: Path, write: bool = False, force: bool = F
         return report
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        for path in files:
-            archive.write(path, rel(path, root))
+    temporary_fd, temporary_name = tempfile.mkstemp(prefix=f".{output_path.stem}-", suffix=".tmp", dir=output_path.parent)
+    os.close(temporary_fd)
+    temporary_path = Path(temporary_name)
+    try:
+        with zipfile.ZipFile(temporary_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for path in files:
+                archive.write(path, rel(path, root))
+        os.replace(temporary_path, output_path)
+    finally:
+        if temporary_path.exists():
+            temporary_path.unlink()
     report["bytes"] = output_path.stat().st_size
     return report
 
@@ -119,6 +142,8 @@ def format_text(report: dict) -> str:
     ]
     if report.get("bytes") is not None:
         lines.append(f"- Bytes: {report['bytes']}")
+    if report["output_errors"]:
+        lines.extend(f"- Output error: {error}" for error in report["output_errors"])
     lines.extend(["", "Included files:"])
     lines.extend(f"- {path}" for path in report["files"])
     return "\n".join(lines)

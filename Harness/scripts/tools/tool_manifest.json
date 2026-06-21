@@ -97,7 +97,7 @@
     {
       "name": "harness_archive",
       "path": "Harness/scripts/tools/harness_archive.py",
-      "purpose": "Previews or archives a completed task and its cycle record into a monthly folder while retaining a task-ID index.",
+      "purpose": "Previews or transactionally archives a completed task and its cycle record into a validated monthly folder while retaining a task-ID index and rolling back failed moves.",
       "inputs": [
         "--task",
         "--month",
@@ -199,7 +199,7 @@
     {
       "name": "harness_verify_all",
       "path": "Harness/scripts/tools/harness_verify_all.py",
-      "purpose": "Runs standard end-of-task checks: doctor, JSON parsing, Python compile, tool regression fixtures, scan, diff guard, index check, progress dashboard check, state check, docs policy, build readiness, and strict release hygiene in template mode.",
+      "purpose": "Runs standard end-of-task checks: doctor, JSON parsing, Python compile, tool regression fixtures, scan, diff guard, index check, progress dashboard check, state check, docs policy, required project build readiness, and strict release hygiene in template mode.",
       "inputs": [
         "harness_doctor",
         "harness_context",
@@ -219,7 +219,7 @@
     {
       "name": "harness_release_check",
       "path": "Harness/scripts/tools/harness_release_check.py",
-      "purpose": "Checks template-release hygiene such as generated caches, old work-layout paths, BOM markers, and duplicated work paths.",
+      "purpose": "Checks template-release hygiene such as generated caches, symlinks, old work-layout paths, BOM markers, duplicated work paths, leaked project paths, and real work records.",
       "inputs": [
         "Harness/",
         "root text files",
@@ -237,7 +237,7 @@
     {
       "name": "harness_release_pack",
       "path": "Harness/scripts/tools/harness_release_pack.py",
-      "purpose": "Previews or writes a clean Harness template zip package while excluding local repo files, machine settings, caches, generated handoff files, and real work records; --write is blocked by strict release hygiene unless --force is explicit.",
+      "purpose": "Previews or atomically writes a clean Harness template ZIP while excluding local files, symlinks, caches, generated handoffs, and real work records; protected output paths and strict hygiene failures block writes unless only the hygiene failure is explicitly forced.",
       "inputs": [
         "README.md",
         "INSTALL.md",
@@ -261,7 +261,7 @@
     {
       "name": "harness_update_plan",
       "path": "Harness/scripts/tools/harness_update_plan.py",
-      "purpose": "Compares a new Harness template with an older target, preserves project-owned material, copies only missing files explicitly, and transactionally stages changed template files outside both trees with rollback on failure.",
+      "purpose": "Compares a new Harness template with an older target, preserves exact project-owned paths, rejects escaping plan paths, copies only missing files explicitly, and transactionally stages changed files outside both trees with rollback on failure.",
       "inputs": [
         "--template",
         "--target",

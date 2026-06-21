@@ -15,13 +15,15 @@ from harness_migration_audit import audit
 from harness_release_pack import collect_files
 
 
-PROJECT_OWNED_PREFIXES = (
+PROJECT_OWNED_FILES = {
     "Harness/config/project.json",
     "Harness/config/docs.json",
+    "Harness/Progress.md",
+}
+PROJECT_OWNED_PREFIXES = (
     "Harness/docs/",
     "Harness/index/",
     "Harness/work/",
-    "Harness/Progress.md",
 )
 MERGE_REVIEW_PATHS = {
     "AGENTS.md",
@@ -37,7 +39,7 @@ MERGE_REVIEW_PATHS = {
 
 
 def _is_project_owned(relative: str) -> bool:
-    return any(relative == prefix.rstrip("/") or relative.startswith(prefix) for prefix in PROJECT_OWNED_PREFIXES)
+    return relative in PROJECT_OWNED_FILES or any(relative == prefix.rstrip("/") or relative.startswith(prefix) for prefix in PROJECT_OWNED_PREFIXES)
 
 
 def _same_bytes(left: Path, right: Path) -> bool:
@@ -50,6 +52,18 @@ def _is_within(path: Path, parent: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+def _planned_paths(base: Path, relative: str) -> tuple[Path, Path]:
+    """Validate a plan path and return its lexical and resolved forms."""
+    candidate = Path(relative)
+    if not relative or candidate.is_absolute() or candidate == Path(".") or ".." in candidate.parts:
+        raise ValueError(f"unsafe planned path: {relative!r}")
+    lexical = base / candidate
+    resolved = lexical.resolve()
+    if not _is_within(resolved, base):
+        raise ValueError(f"planned path escapes its root: {relative!r}")
+    return lexical, resolved
 
 
 def validate_template_root(template: Path) -> list[Path]:
@@ -124,11 +138,11 @@ def apply_missing_files(template: Path, target: Path, plan: dict) -> list[str]:
     for item in plan["actions"]:
         if item["action"] not in {"add", "initialize_missing"}:
             continue
-        source = template / item["path"]
-        destination = target / item["path"]
+        source, resolved_source = _planned_paths(template, item["path"])
+        destination, _ = _planned_paths(target, item["path"])
         if destination.exists():
             continue
-        if not source.is_file():
+        if not source.is_file() or not _is_within(resolved_source, template):
             raise FileNotFoundError(f"planned template source is missing: {source}")
         operations.append((item["path"], source, destination))
 
@@ -171,14 +185,15 @@ def stage_review_files(template: Path, stage: Path, plan: dict, overwrite: bool 
     if _is_within(stage, template) or (target is not None and _is_within(stage, target)):
         raise ValueError("review staging directory must be outside both the template and target trees")
     candidates = [item for item in plan["actions"] if item["action"] in {"merge_review", "replace_review"}]
-    existing = [str((stage / item["path"]).resolve()) for item in candidates if (stage / item["path"]).exists()]
+    destinations = {item["path"]: _planned_paths(stage, item["path"])[0] for item in candidates}
+    existing = [str(destinations[item["path"]].resolve()) for item in candidates if destinations[item["path"]].exists()]
     if existing and not overwrite:
         raise FileExistsError("review staging files already exist; choose an empty directory or pass --overwrite-stage: " + ", ".join(existing[:5]))
     operations: list[tuple[str, Path, Path]] = []
     for item in candidates:
-        source = template / item["path"]
-        destination = stage / item["path"]
-        if not source.is_file():
+        source, resolved_source = _planned_paths(template, item["path"])
+        destination = destinations[item["path"]]
+        if not source.is_file() or not _is_within(resolved_source, template):
             raise FileNotFoundError(f"planned review source is missing: {source}")
         operations.append((item["path"], source, destination))
 
