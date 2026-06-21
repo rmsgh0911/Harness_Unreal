@@ -53,9 +53,15 @@ def build_handoff(root: Path, request: str = "", task: str = "") -> str:
     lines.extend(["", "## Next Work"])
     lines.extend(f"- {item}" for item in next_items or ["No related next items"])
     lines.extend(["", "## Changed Files"])
-    lines.extend(f"- {changed_path_from_status(item)}" for item in diff["changed"][:40]) if diff["changed"] else lines.append("- none detected")
+    if diff["changed"]:
+        lines.extend(f"- {changed_path_from_status(item)}" for item in diff["changed"][:40])
+    else:
+        lines.append("- none detected")
     lines.extend(["", "## Risk Signals"])
-    lines.extend(f"- [{item['level']}] {item['path']}: {item['reason']}" for item in diff["risks"]) if diff["risks"] else lines.append("- none")
+    if diff["risks"]:
+        lines.extend(f"- [{item['level']}] {item['path']}: {item['reason']}" for item in diff["risks"])
+    else:
+        lines.append("- none")
     lines.extend(["", f"## Cycle Tail: {rel(cycle_path, root)}"])
     lines.extend(tail_lines(cycle_text) or ["- no active cycle log"])
     return "\n".join(lines) + "\n"

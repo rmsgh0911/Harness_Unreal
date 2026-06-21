@@ -56,7 +56,7 @@ def apply_archive(root: Path, plan: dict) -> list[str]:
     moved: list[str] = []
     for source, target in moves:
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(source), str(target))
+        shutil.move(source, target)
         moved.append(rel(target, root))
     index = root / "Harness" / "work" / "archive" / "index.md"
     existing = read_text(index, "# Work Archive\n\nCompleted task and cycle records remain searchable by task ID.\n")

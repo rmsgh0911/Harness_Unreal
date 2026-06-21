@@ -59,7 +59,8 @@ def _candidate_files(root: Path) -> list[tuple[str, Path]]:
             candidates.append(("snapshot", path))
     for path in sorted((harness / "index").glob("*.md")):
         candidates.append(("index", path))
-    for doc_root in config.get("doc_roots", []) if isinstance(config.get("doc_roots", []), list) else []:
+    doc_roots_value = config.get("doc_roots", [])
+    for doc_root in doc_roots_value if isinstance(doc_roots_value, list) else []:
         base = root / doc_root
         if base.exists() and base.is_dir():
             candidates.extend(("doc", path) for path in sorted(base.rglob("*.md")) if path.name not in EXCLUDED_NAMES)
@@ -108,7 +109,10 @@ def format_text(report: dict) -> str:
         "",
         "Relevant Existing Material:",
     ]
-    lines.extend(f"- [{item['kind']}] {item['path']}:{item['line']} > {item['section']}" for item in report["matches"]) if report["matches"] else lines.append("- none")
+    if report["matches"]:
+        lines.extend(f"- [{item['kind']}] {item['path']}:{item['line']} > {item['section']}" for item in report["matches"])
+    else:
+        lines.append("- none")
     return "\n".join(lines)
 
 

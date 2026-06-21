@@ -321,7 +321,10 @@ def format_text(context: dict) -> str:
             for item in context["existing_knowledge"]["matches"]
         )
     lines.extend(["", "All next items:" if context["all_next"] else "Related next:"])
-    lines.extend(f"- {item}" for item in context["next_items"]) if context["next_items"] else lines.append("- No related next items")
+    if context["next_items"]:
+        lines.extend(f"- {item}" for item in context["next_items"])
+    else:
+        lines.append("- No related next items")
     return "\n".join(lines)
 
 

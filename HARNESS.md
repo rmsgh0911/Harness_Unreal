@@ -77,7 +77,7 @@ Recommended cycle entry:
 ```markdown
 ## 10:30 Task Name
 - Recorded: 2026-06-15T10:30+09:00
-- Worker: Codex
+- Worker: <AgentName>
 - Changed:
 - Verified:
 - Remaining:

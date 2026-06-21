@@ -113,7 +113,7 @@ def audit(root: Path) -> dict:
             "build_configured": bool(build.get("engine_root") and build.get("editor_target_name")),
         },
         "preserve": sorted(set(preserve)),
-        "update": sorted(set(update)),
+        "update": list(dict.fromkeys(update)),
         "cleanup": sorted(set(cleanup)),
         "findings": findings,
     }
@@ -128,7 +128,10 @@ def format_text(report: dict) -> str:
     ]
     for section in ("preserve", "update", "cleanup"):
         lines.extend(["", section.capitalize() + ":"])
-        lines.extend(f"- {item}" for item in report[section]) if report[section] else lines.append("- none")
+        if report[section]:
+            lines.extend(f"- {item}" for item in report[section])
+        else:
+            lines.append("- none")
     if report["findings"]:
         lines.extend(["", "Findings:"])
         lines.extend(f"- [{item['level']}] {item['message']}" for item in report["findings"])

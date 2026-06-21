@@ -254,7 +254,10 @@ def format_text(report: dict) -> str:
     ]:
         selected = [item["path"] for item in report["actions"] if item["action"] in actions]
         lines.extend(["", f"{title}:"])
-        lines.extend(f"- {item}" for item in selected[:30]) if selected else lines.append("- none")
+        if selected:
+            lines.extend(f"- {item}" for item in selected[:30])
+        else:
+            lines.append("- none")
     if report["custom_tools"]:
         lines.extend(["", "Custom Tools:", *(f"- {item}" for item in report["custom_tools"])])
     lines.extend(["", "Recommended Sequence:", *(f"- {item}" for item in report["recommended_sequence"])])
