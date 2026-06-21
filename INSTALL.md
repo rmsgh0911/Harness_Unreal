@@ -38,6 +38,7 @@ Run the migration audit from the new template checkout before replacing files:
 
 ```powershell
 python C:\Path\To\NewHarnessTemplate\Harness\scripts\tools\harness_migration_audit.py --target C:\Path\To\Project
+python C:\Path\To\NewHarnessTemplate\Harness\scripts\tools\harness_update_plan.py --target C:\Path\To\Project
 ```
 
 An update is a reviewed migration, not a blind replacement. Preserve project-specific config, docs, indexes, work records, Progress, and custom scripts.
@@ -45,6 +46,16 @@ An update is a reviewed migration, not a blind replacement. Preserve project-spe
 Treat `project.json`, `docs.json`, project docs, indexes, work records, Progress, and custom script behavior as project-owned. Review and merge root instructions, shared policy config, standard tools, and templates from the new Harness version. When adopting the compact-document rules, preserve removed history in existing task/cycle records or an archive before replacing current state, next, or Progress content.
 
 Completed task/cycle records can be preserved with `python Harness/scripts/tools/harness_archive.py --task <task-id> --archive`. Preview the command without `--archive` first.
+
+Recommended reviewed update flow:
+
+1. Commit or back up the target project and run `harness_update_plan.py` from the new template.
+2. Add only absent template files with `--apply-missing`. This option never overwrites an existing target file.
+3. Copy changed shared/standard template files into a separate comparison folder with `--stage-review C:\Path\To\HarnessReview`.
+4. Merge `AGENTS.md`, `CLAUDE.md`, `HARNESS.md`, shared config, and repository rules from the staged copy. Review standard tool replacements; keep project-specific behavior and unregistered custom tools.
+5. Do not replace `project.json`, `docs.json`, `Harness/docs/`, `Harness/index/`, `Harness/work/`, or `Harness/Progress.md`. Migrate their structure only when needed.
+6. Search the retained material with `python Harness/scripts/tools/harness_knowledge.py --query "<current feature or issue>"` and refresh compact state/index files only from confirmed evidence.
+7. Run `harness_verify_all.py`, inspect `git diff --stat`, and remove legacy split directories only after verification passes.
 
 When migrating from the split worker layout:
 

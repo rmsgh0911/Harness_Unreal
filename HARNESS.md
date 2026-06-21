@@ -43,6 +43,9 @@ Do not broadly scan the repository, run external reviewers, or use multi-agent m
 ## Cycles
 
 - A cycle means `implement or improve -> minimal verification -> self-review -> short record -> decide whether to continue`.
+- Before the first cycle, state the success criteria and requested cycle budget. Treat the budget as a maximum unless the user explicitly requires an exact count.
+- Every cycle must add a meaningful change or new evidence and end with one decision: `continue`, `stop_success`, or `stop_blocked`.
+- For task-scoped or three-plus-cycle work, run `harness_iteration_status.py --request "<request>" --task <task-id>` before the next cycle. Do not continue past a stop recommendation without new evidence or a corrected record.
 - A maximum cycle count is an upper bound. Stop early when success criteria are met.
 - Do not repeat the same failed attempt without new evidence.
 - Stop and report when the same issue repeats twice, a build fails twice for the same reason, the diff becomes unexpectedly large, or a public API / Blueprint risk appears.
@@ -92,6 +95,8 @@ Recommended cycle entry:
 - Read `INSTALL.md` before installing, migrating, or updating Harness.
 - Treat updates as reviewed migrations, not blind replacement.
 - Preserve project-specific config, docs, index, work records, Progress, and custom scripts.
+- Run the new template's `harness_update_plan.py --target <project>` before copying. `--apply-missing` may add absent files but never overwrites; `--stage-review <dir>` places changed template files outside the target paths for review.
+- After migration, run `harness_knowledge.py --query "<current request>"` so retained docs, task/cycle history, archives, and indexes remain discoverable without broad scans.
 - When migrating from split `Harness/Codex/` and `Harness/Claude/` layouts, merge durable records into the single Harness and preserve conflicting task history as separate task files.
 
 ## Tool Additions

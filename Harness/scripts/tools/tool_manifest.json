@@ -114,14 +114,36 @@
       "verify": "python Harness/scripts/tools/harness_archive.py --help"
     },
     {
+      "name": "harness_iteration_status",
+      "path": "Harness/scripts/tools/harness_iteration_status.py",
+      "purpose": "Reports cycle progress, remaining budget, missing verification, repeated unresolved work, and stop recommendations without changing files.",
+      "inputs": [
+        "--request",
+        "--task",
+        "Harness/config/cycle_policy.json",
+        "Harness/work/cycles/<task-id>.md"
+      ],
+      "outputs": [
+        "iteration_status",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_iteration_status.py --request \"up to 3 cycles\" --json"
+    },
+    {
       "name": "harness_cycle",
       "path": "Harness/scripts/tools/harness_cycle.py",
-      "purpose": "Creates a short cycle log entry as a dry run and appends it only with explicit --write. Use --task and --worker for conflict-resistant parallel records.",
+      "purpose": "Creates and validates a structured cycle entry as a dry run and appends it only with explicit --write. Use --task and --worker for conflict-resistant parallel records.",
       "inputs": [
         "title",
         "--changed",
         "--verified",
         "--remaining",
+        "--cycle-number",
+        "--max-cycles",
+        "--decision",
+        "--success-criterion",
         "--date",
         "--task",
         "--worker"
@@ -158,7 +180,7 @@
     {
       "name": "harness_handoff",
       "path": "Harness/scripts/tools/harness_handoff.py",
-      "purpose": "Creates a minimal task-aware handoff brief for another worker or new session as a dry run, and writes only with explicit --write.",
+      "purpose": "Creates a minimal task-aware handoff with filtered next work and iteration progress as a dry run, and writes only with explicit --write.",
       "inputs": [
         "harness_context",
         "harness_diff_guard",
@@ -234,6 +256,47 @@
       "writes_files": "only_with_--write",
       "safe_by_default": true,
       "verify": "python Harness/scripts/tools/harness_release_pack.py --json"
+    },
+    {
+      "name": "harness_update_plan",
+      "path": "Harness/scripts/tools/harness_update_plan.py",
+      "purpose": "Compares a new Harness template with an older target, preserves project-owned material, copies only missing files explicitly, and stages changed template files for review.",
+      "inputs": [
+        "--template",
+        "--target",
+        "--apply-missing",
+        "--stage-review"
+      ],
+      "outputs": [
+        "classified_update_plan",
+        "missing files only with --apply-missing",
+        "review copy only with --stage-review"
+      ],
+      "writes_files": "only_with_--apply-missing_or_--stage-review",
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_update_plan.py --target . --json"
+    },
+    {
+      "name": "harness_knowledge",
+      "path": "Harness/scripts/tools/harness_knowledge.py",
+      "purpose": "Searches retained Harness docs, indexes, snapshots, tasks, cycles, and archives as bounded request-related routing evidence.",
+      "inputs": [
+        "--query",
+        "--limit",
+        "--max-files",
+        "Harness/config/docs.json",
+        "Harness/docs/",
+        "Harness/index/",
+        "Harness/work/"
+      ],
+      "outputs": [
+        "knowledge_inventory",
+        "ranked_existing_material",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_knowledge.py --query \"Harness update\" --json"
     },
     {
       "name": "harness_migration_audit",

@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import dump_json, find_project_root, markdown_list_items, next_path, read_text, rel, task_cycle_path, today_cycle_path, validate_task_id, write_text
+from harness_common import dump_json, find_project_root, read_text, rel, task_cycle_path, today_cycle_path, validate_task_id, write_text
 from harness_context import build_context
 from harness_diff_guard import build_report, changed_path_from_status
 
@@ -23,7 +23,8 @@ def build_handoff(root: Path, request: str = "", task: str = "") -> str:
     diff = build_report(root)
     cycle_path = task_cycle_path(root, task) if task else today_cycle_path(root)
     cycle_text = read_text(cycle_path)
-    next_items = markdown_list_items(read_text(next_path(root)), limit=8)
+    next_items = context["next_items"]
+    iteration = context["cycle_policy"].get("iteration_status")
     lines = [
         "# Harness Handoff",
         "",
@@ -40,8 +41,17 @@ def build_handoff(root: Path, request: str = "", task: str = "") -> str:
         "## Read First",
     ]
     lines.extend(f"- {item}" for item in context["recommended_first_reads"])
+    if iteration:
+        lines.extend([
+            "",
+            "## Iteration",
+            f"- Progress: {iteration['completed_cycles']}/{iteration['budget']}",
+            f"- Remaining budget: {iteration['remaining_cycles']}",
+            f"- Latest decision: {iteration['latest_decision'] or 'not recorded'}",
+            f"- Continue recommended: {iteration['continue_recommended']}",
+        ])
     lines.extend(["", "## Next Work"])
-    lines.extend(f"- {item}" for item in next_items or ["none"])
+    lines.extend(f"- {item}" for item in next_items or ["No related next items"])
     lines.extend(["", "## Changed Files"])
     lines.extend(f"- {changed_path_from_status(item)}" for item in diff["changed"][:40]) if diff["changed"] else lines.append("- none detected")
     lines.extend(["", "## Risk Signals"])

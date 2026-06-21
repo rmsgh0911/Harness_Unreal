@@ -29,6 +29,9 @@ python Harness/scripts/tools/harness_context.py --request "<task description>" -
 python Harness/scripts/tools/harness_context.py --request "<task description>" --all-next
 python Harness/scripts/tools/harness_verify_all.py
 python Harness/scripts/tools/harness_cycle.py "Task Name" --task <task-id> --worker <agent>
+python Harness/scripts/tools/harness_iteration_status.py --request "<repeated task>" --task <task-id>
+python Harness/scripts/tools/harness_update_plan.py --target C:\Path\To\OlderProject
+python Harness/scripts/tools/harness_knowledge.py --query "<feature or issue>"
 ```
 
 Use the context briefing first, then open only the recommended sections or files. Read the full state, next, and index files only when Python is unavailable, the briefing reports a conflict, or the request needs broader project context.

@@ -23,6 +23,19 @@ def is_blank(value: object) -> bool:
     return value in (None, "", [], {})
 
 
+def markdown_section(text: str, heading: str) -> str:
+    lines: list[str] = []
+    capture = False
+    for line in text.splitlines():
+        if line.startswith("## "):
+            if capture:
+                break
+            capture = line.strip() == heading
+        if capture:
+            lines.append(line)
+    return "\n".join(lines).strip()
+
+
 def run_doctor(root: Path) -> dict:
     harness = harness_dir(root)
     results: list[dict] = []
@@ -76,6 +89,7 @@ def run_doctor(root: Path) -> dict:
     if (root / "CLAUDE.md").exists():
         results.append(check(includes(cl_text, "HARNESS.md"), "CLAUDE.md routes Claude Code to HARNESS.md"))
         results.append(check(includes(cl_text, "Harness/"), "CLAUDE.md routes Claude Code to the shared Harness"))
+        results.append(check(markdown_section(ag_text, "## Mandatory Startup") == markdown_section(cl_text, "## Mandatory Startup"), "AGENTS.md and CLAUDE.md keep the same mandatory startup workflow"))
     results.append(check(includes(install_text, "## Configure"), "INSTALL.md explains configuration"))
     results.append(check(includes(install_text, "worktrees"), "INSTALL.md explains parallel worktrees"))
     results.append(check(includes(harness_text, "maximum cycle count"), "HARNESS.md explains max-cycle requests"))

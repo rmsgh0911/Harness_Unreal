@@ -19,6 +19,10 @@ If the context command cannot run, manually read `HARNESS.md`, `Harness/README.m
 
 For feature work, bug fixes, verification, cycles, iteration, "up to N times", or "up to N cycles", apply the work loop and recording rules in `HARNESS.md`.
 
+For repeated work, establish success criteria and the cycle budget before editing. Each cycle must add a change or new evidence, run the smallest useful verification, record a continue/stop decision, and avoid reopening settled scope without a new reason. For task-scoped or three-plus-cycle work, check `harness_iteration_status.py` before continuing.
+
+When updating an older Harness install, run `harness_update_plan.py` from the new template before copying files. Preserve project-owned config, docs, indexes, work records, Progress, and custom tools; use `harness_knowledge.py --query "<request>"` to route into retained material after the update.
+
 Before the final response for project changes, check the smallest useful verification result, `git diff --stat`, and whether `Harness/Progress.md` needs a brief Korean update.
 
 ## Defaults

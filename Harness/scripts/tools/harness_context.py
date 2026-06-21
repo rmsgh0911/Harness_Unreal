@@ -19,6 +19,7 @@ KOREAN_MAX = "\ucd5c\ub300"
 API_HINTS = ["api", "blueprint", "ufunction", "uproperty", "mqtt", "topic", "json", "payload", "route", "signature"]
 VERIFY_HINTS = ["verify", "verification", "build", "compile", "test", "pie", "\uac80\uc99d", "\ube4c\ub4dc", "\ucef4\ud30c\uc77c"]
 SOURCE_HINTS = ["source", "module", "class", "c++", "cpp", "header", "\uc18c\uc2a4", "\ubaa8\ub4c8", "\ud074\ub798\uc2a4"]
+UPDATE_HINTS = ["harness update", "harness upgrade", "migration", "migrate", "구버전", "업데이트", "마이그레이션"]
 TOKEN_PATTERN = re.compile(r"[a-zA-Z0-9_./+\-]{2,}|[\uac00-\ud7a3]{2,}")
 PATH_FIELD_PATTERN = re.compile(r"^-\s*Path:\s*`([^`]+)`\s*$", re.MULTILINE | re.IGNORECASE)
 VERIFY_FIELD_PATTERN = re.compile(r"^-\s*Verify:\s*(?:`([^`]+)`|(.+))$", re.MULTILINE | re.IGNORECASE)
@@ -137,7 +138,7 @@ def evaluate_cycle_request(request: str, policy: dict) -> dict:
     lowered = request_text.lower()
     phrases = policy.get("cycle_count_rules", {}).get("phrases", [])
     hits = [phrase for phrase in phrases if isinstance(phrase, str) and phrase.lower() in lowered]
-    hits.extend(word for word in ["cycle", "cycles", "iterate", KOREAN_CYCLE, KOREAN_ITERATE] if word.lower() in lowered)
+    hits.extend(word for word in ["cycle", "cycles", "iterate", "repeat", KOREAN_CYCLE, KOREAN_ITERATE] if word.lower() in lowered)
     maximum = None
     for pattern in [
         rf"{KOREAN_MAX}\s*(\d+)\s*(?:\ud68c|{KOREAN_CYCLE})",
@@ -150,13 +151,23 @@ def evaluate_cycle_request(request: str, policy: dict) -> dict:
         if match:
             maximum = int(match.group(1))
             break
-    is_cycle = bool(hits or maximum)
+    generic_cycle_hits = {"cycle", "cycles", KOREAN_CYCLE}
+    action_hints = ["iterate", "repeat", "run cycle", "run cycles", "돌려", KOREAN_ITERATE, "반복"]
+    has_cycle_action = any(hint.lower() in lowered for hint in action_hints)
+    meaningful_hits = [hit for hit in hits if hit not in generic_cycle_hits]
+    is_cycle = bool(maximum or meaningful_hits or (hits and has_cycle_action))
+    upper_bound_markers = ["up to", "max ", "maximum", KOREAN_MAX]
+    budget_mode = "default"
+    if maximum is not None:
+        budget_mode = "upper_bound" if any(marker.lower() in lowered for marker in upper_bound_markers) else "exact_count"
     return {
         "request": request_text,
         "is_cycle_work": is_cycle,
         "max_cycles": maximum if maximum is not None else default,
-        "max_cycles_is_upper_bound": True,
-        "stop_before_max_when_success_criteria_met": True,
+        "max_cycles_is_upper_bound": budget_mode != "exact_count",
+        "budget_mode": budget_mode,
+        "requested_exact_count": maximum if budget_mode == "exact_count" else None,
+        "stop_before_max_when_success_criteria_met": budget_mode != "exact_count",
         "reason": "matched cycle request hints" if is_cycle else "no cycle trigger matched",
         "hits": list(dict.fromkeys(hits)),
     }
@@ -176,6 +187,8 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
     state_matches = matched_markdown_sections(root, state_path(root), request, limit=2)
     selected_next_items = select_next_items(read_text(next_path(root)), request, all_next=all_next)
     first_reads = ["HARNESS.md", "Harness/README.md"]
+    if _request_has_any(request, UPDATE_HINTS) and (root / "INSTALL.md").exists():
+        first_reads.append("INSTALL.md")
     if state_matches:
         first_reads.append("Harness/work/state.md")
     if selected_next_items:
@@ -187,6 +200,15 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
         first_reads.append(rel(active_cycle, root))
     elif daily_cycle.exists():
         first_reads.append(rel(daily_cycle, root))
+    existing_knowledge = {"scanned_files": 0, "counts": {}, "matches": []}
+    if request.strip():
+        from harness_knowledge import build_knowledge
+
+        existing_knowledge = build_knowledge(root, query=request, limit=12)
+        existing_knowledge["matches"] = [
+            item for item in existing_knowledge["matches"] if item["kind"] not in {"snapshot", "index"}
+        ][:3]
+        first_reads.extend(item["path"] for item in existing_knowledge["matches"])
     first_reads = list(dict.fromkeys(first_reads))
 
     files = {
@@ -215,6 +237,12 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
 
     uprojects = sorted(path.name for path in root.glob("*.uproject"))
     tools = [tool for tool in manifest.get("tools", []) if isinstance(tool, dict)]
+    cycle_request_eval = evaluate_cycle_request(request, policy)
+    iteration_status = None
+    if cycle_request_eval["is_cycle_work"]:
+        from harness_iteration_status import build_status as build_iteration_status
+
+        iteration_status = build_iteration_status(root, request=request, task=task)
     return {
         "root": str(root),
         "active_task": task,
@@ -230,9 +258,15 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
         "state_sections": state_matches,
         "next_items": selected_next_items,
         "all_next": all_next,
-        "cycle_policy": {"default_max_cycles": policy.get("default_max_cycles", 1), "stop_conditions": policy.get("stop_conditions", []), "request_eval": evaluate_cycle_request(request, policy)},
+        "cycle_policy": {
+            "default_max_cycles": policy.get("default_max_cycles", 1),
+            "stop_conditions": policy.get("stop_conditions", []),
+            "request_eval": cycle_request_eval,
+            "iteration_status": iteration_status,
+        },
         "project_docs": {"doc_roots": docs.get("doc_roots", []), "entry_points": docs.get("entry_points", []), "request_eval": evaluate_request(request, docs)},
         "project_index": {"recommended_first_reads": index_reads, "matched_sections": index_matches, "read_policy": "routing_hints_only"},
+        "existing_knowledge": existing_knowledge,
         "tools": {"registered_count": len(tools), "registered": [tool.get("name", "") for tool in tools], "manifest": file_status(harness / "scripts" / "tools" / "tool_manifest.json")},
         "verification_commands": [tool["verify"] for tool in tools if tool.get("context_check") and tool.get("verify")],
         "warnings": warnings,
@@ -251,6 +285,17 @@ def format_text(context: dict) -> str:
     ]
     if context["warnings"]:
         lines.append("- Warnings: " + "; ".join(context["warnings"]))
+    cycle_request = context["cycle_policy"]["request_eval"]
+    if cycle_request["is_cycle_work"]:
+        iteration_status = context["cycle_policy"].get("iteration_status") or {}
+        lines.extend([
+            "",
+            "Iteration:",
+            f"- Budget: {cycle_request['max_cycles']} cycles ({cycle_request['budget_mode']})",
+            f"- Progress: {iteration_status.get('completed_cycles', 0)}/{iteration_status.get('budget', cycle_request['max_cycles'])}",
+            f"- Continue recommended: {iteration_status.get('continue_recommended', True)}",
+            "- Loop: change or evidence -> minimal verification -> self-review -> decision -> record",
+        ])
     lines.extend(["", "Read first:", *(f"- {path}" for path in context["recommended_first_reads"])])
     if context["project_index"]["matched_sections"]:
         lines.extend(["", "Relevant index sections:"])
@@ -260,6 +305,12 @@ def format_text(context: dict) -> str:
     if context["state_sections"]:
         lines.extend(["", "Relevant state sections:"])
         lines.extend(f"- Harness/work/state.md > {item['section']}" for item in context["state_sections"])
+    if context["existing_knowledge"]["matches"]:
+        lines.extend(["", "Existing knowledge:"])
+        lines.extend(
+            f"- [{item['kind']}] {item['path']}:{item['line']} > {item['section']}"
+            for item in context["existing_knowledge"]["matches"]
+        )
     lines.extend(["", "All next items:" if context["all_next"] else "Related next:"])
     lines.extend(f"- {item}" for item in context["next_items"]) if context["next_items"] else lines.append("- No related next items")
     return "\n".join(lines)

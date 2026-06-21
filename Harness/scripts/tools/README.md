@@ -46,6 +46,9 @@ Keep tools small. Split them by purpose when they grow.
 - `harness_docs_check.py`: checks `Harness/docs` and `docs.json` discovery / reading policy.
 - `harness_scan.py`: summarizes Unreal project structure and `project.json` candidates.
 - `harness_archive.py`: previews or archives completed task/cycle records by task ID; writes only with `--archive`.
+- `harness_iteration_status.py`: reports cycle progress, budget, verification gaps, and repeated unresolved work without writing files.
+- `harness_update_plan.py`: compares a new template with an older project, preserves project-owned material, adds only missing files with an explicit option, and stages changed template files for review.
+- `harness_knowledge.py`: searches retained docs, indexes, tasks, cycles, archives, state, and next files as bounded routing evidence.
 - `harness_cycle.py`: creates cycle log entries; writes only with `--write`. Use `--task` and `--worker` for parallel work.
 - `harness_diff_guard.py`: checks changed files and Unreal risk signals.
 - `harness_handoff.py`: creates a minimal handoff brief for another worker or session.
@@ -75,8 +78,13 @@ python Harness/scripts/tools/harness_docs_check.py --json
 python Harness/scripts/tools/harness_scan.py --json
 python Harness/scripts/tools/harness_archive.py --task completed-task
 python Harness/scripts/tools/harness_archive.py --task completed-task --archive
+python Harness/scripts/tools/harness_iteration_status.py --request "up to 5 cycles" --task input-fix
+python Harness/scripts/tools/harness_update_plan.py --target C:\Path\To\OlderProject
+python Harness/scripts/tools/harness_update_plan.py --target C:\Path\To\OlderProject --apply-missing --stage-review C:\Temp\HarnessReview
+python Harness/scripts/tools/harness_knowledge.py --query "lock-on input"
 python Harness/scripts/tools/harness_cycle.py "Input fix" --changed "..." --verified "..." --remaining "..."
 python Harness/scripts/tools/harness_cycle.py "Parallel input fix" --task input-fix --worker Codex --changed "..." --verified "..."
+python Harness/scripts/tools/harness_cycle.py "Iteration 2" --task input-fix --max-cycles 5 --decision continue --success-criterion "Lock-on remains stable"
 python Harness/scripts/tools/harness_diff_guard.py
 python Harness/scripts/tools/harness_handoff.py --request "Continue lock-on work"
 python Harness/scripts/tools/harness_verify_all.py
