@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 TOOLS_DIR = Path(__file__).resolve().parents[1]
@@ -22,6 +23,8 @@ from harness_iteration_status import build_status as build_iteration_status  # n
 from harness_handoff import build_handoff  # noqa: E402
 from harness_knowledge import build_knowledge  # noqa: E402
 from harness_progress_check import build_report as build_progress_report  # noqa: E402
+from harness_release_check import build_report as build_release_report  # noqa: E402
+from harness_release_pack import build_package, collect_files as collect_release_files  # noqa: E402
 from harness_state_check import build_report as build_state_report  # noqa: E402
 from harness_update_plan import apply_missing_files, build_update_plan, stage_review_files  # noqa: E402
 
@@ -171,6 +174,10 @@ class HarnessStructureTests(unittest.TestCase):
         context = build_context(self.root, request="API 변경")
         self.assertIn("Harness/index/api_surface.md", context["project_index"]["recommended_first_reads"])
 
+    def test_context_does_not_match_api_inside_capital(self) -> None:
+        context = build_context(self.root, request="capital budget")
+        self.assertNotIn("Harness/index/api_surface.md", context["project_index"]["recommended_first_reads"])
+
     def test_cycle_request_distinguishes_exact_and_upper_bound_budgets(self) -> None:
         exact = evaluate_cycle_request("10 cycles", {"default_max_cycles": 1, "cycle_count_rules": {"phrases": []}})
         upper = evaluate_cycle_request("up to 10 cycles", {"default_max_cycles": 1, "cycle_count_rules": {"phrases": []}})
@@ -186,6 +193,11 @@ class HarnessStructureTests(unittest.TestCase):
         policy = {"default_max_cycles": 1, "cycle_count_rules": {"phrases": ["cycle", "cycles", "반복"]}}
         self.assertFalse(evaluate_cycle_request("search existing cycle log records", policy)["is_cycle_work"])
         self.assertTrue(evaluate_cycle_request("repeat validation", policy)["is_cycle_work"])
+
+    def test_korean_loop_word_does_not_trigger_iteration_mode(self) -> None:
+        policy = {"default_max_cycles": 1, "cycle_count_rules": {"phrases": ["cycle", "cycles", "반복"]}}
+        self.assertFalse(evaluate_cycle_request("반복문 오류 수정", policy)["is_cycle_work"])
+        self.assertTrue(evaluate_cycle_request("검증을 반복해줘", policy)["is_cycle_work"])
 
     def test_harness_update_context_routes_to_install_guide(self) -> None:
         (self.root / "INSTALL.md").write_text("# Install\n", encoding="utf-8")
@@ -346,6 +358,24 @@ class HarnessStructureTests(unittest.TestCase):
         context = build_context(self.root, request="legacy lock-on retry")
         self.assertTrue(any(item["path"].endswith("LockOn.md") for item in context["existing_knowledge"]["matches"]))
 
+    def test_knowledge_does_not_match_tokens_inside_unrelated_words(self) -> None:
+        docs = self.root / "Harness/docs"
+        docs.mkdir(exist_ok=True)
+        (self.root / "Harness/config/docs.json").write_text('{"doc_roots": ["Harness/docs"]}\n', encoding="utf-8")
+        (docs / "Budget.md").write_text("# Capital Budget\n\nFinance only.\n", encoding="utf-8")
+        report = build_knowledge(self.root, query="api")
+        self.assertFalse(any(item["path"].endswith("Budget.md") for item in report["matches"]))
+
+    def test_korean_particles_do_not_hide_relevant_knowledge(self) -> None:
+        docs = self.root / "Harness/docs"
+        docs.mkdir(exist_ok=True)
+        (self.root / "Harness/config/docs.json").write_text('{"doc_roots": ["Harness/docs"]}\n', encoding="utf-8")
+        (docs / "Dashboard.md").write_text("# 대시보드 UI 경로\n\n위젯 수정 안내.\n", encoding="utf-8")
+        report = build_knowledge(self.root, query="대시보드를 수정해줘")
+        self.assertTrue(any(item["path"].endswith("Dashboard.md") for item in report["matches"]))
+        context = build_context(self.root, request="대시보드를 수정해줘")
+        self.assertTrue(any(item["path"].endswith("Dashboard.md") for item in context["existing_knowledge"]["matches"]))
+
     def test_update_plan_preserves_project_data_and_stages_review_files(self) -> None:
         template = self.root / "new-template"
         target = self.root / "old-project"
@@ -379,6 +409,191 @@ class HarnessStructureTests(unittest.TestCase):
         staged = stage_review_files(template, stage, plan)
         self.assertIn("HARNESS.md", staged)
         self.assertIn("Harness/scripts/tools/standard.py", staged)
+        staged_harness = stage / "HARNESS.md"
+        staged_harness.write_text("manual review edits\n", encoding="utf-8")
+        with self.assertRaises(FileExistsError):
+            stage_review_files(template, stage, plan)
+        stage_review_files(template, stage, plan, overwrite=True)
+        self.assertEqual("new HARNESS.md\n", staged_harness.read_text(encoding="utf-8"))
+
+    def test_update_apply_requires_existing_harness_target(self) -> None:
+        missing_target = self.root / "typo-target"
+        plan = build_update_plan(self.root, missing_target)
+        with self.assertRaises(ValueError):
+            apply_missing_files(self.root, missing_target, plan)
+        self.assertFalse(missing_target.exists())
+
+    def test_update_plan_rejects_invalid_template_root(self) -> None:
+        missing_template = self.root / "missing-template"
+        with self.assertRaises(ValueError):
+            build_update_plan(missing_template, self.root)
+
+    def test_update_apply_preflights_all_sources_without_partial_copy(self) -> None:
+        template = self.root / "atomic-template"
+        target = self.root / "atomic-target"
+        template.mkdir()
+        (target / "Harness").mkdir(parents=True)
+        (template / "one.txt").write_text("one\n", encoding="utf-8")
+        plan = {"actions": [{"path": "one.txt", "action": "add"}, {"path": "missing.txt", "action": "add"}]}
+        with self.assertRaises(FileNotFoundError):
+            apply_missing_files(template, target, plan)
+        self.assertFalse((target / "one.txt").exists())
+
+    def test_update_review_stage_rejects_template_or_target_subtrees(self) -> None:
+        template = self.root / "template"
+        target = self.root / "target"
+        (template / "Harness").mkdir(parents=True)
+        (target / "Harness").mkdir(parents=True)
+        (template / "HARNESS.md").write_text("new\n", encoding="utf-8")
+        plan = {"actions": [{"path": "HARNESS.md", "action": "merge_review"}]}
+        with self.assertRaises(ValueError):
+            stage_review_files(template, template / "review", plan, target=target)
+        with self.assertRaises(ValueError):
+            stage_review_files(template, target / "review", plan, target=target)
+
+    def test_update_review_stage_preflights_without_partial_copy(self) -> None:
+        template = self.root / "template"
+        target = self.root / "target"
+        stage = self.root / "review"
+        template.mkdir()
+        (target / "Harness").mkdir(parents=True)
+        (template / "one.txt").write_text("one\n", encoding="utf-8")
+        plan = {"actions": [
+            {"path": "one.txt", "action": "merge_review"},
+            {"path": "missing.txt", "action": "replace_review"},
+        ]}
+        with self.assertRaises(FileNotFoundError):
+            stage_review_files(template, stage, plan, target=target)
+        self.assertFalse((stage / "one.txt").exists())
+
+    def test_update_review_stage_rolls_back_overwrite_failure(self) -> None:
+        template = self.root / "template"
+        target = self.root / "target"
+        stage = self.root / "review"
+        template.mkdir()
+        (target / "Harness").mkdir(parents=True)
+        stage.mkdir()
+        for name in ["one.txt", "two.txt"]:
+            (template / name).write_text(f"new {name}\n", encoding="utf-8")
+            (stage / name).write_text(f"old {name}\n", encoding="utf-8")
+        plan = {"actions": [
+            {"path": "one.txt", "action": "merge_review"},
+            {"path": "two.txt", "action": "replace_review"},
+        ]}
+        from harness_update_plan import shutil as update_shutil
+        real_copy2 = update_shutil.copy2
+
+        def fail_second_promotion(source: Path, destination: Path):
+            if Path(destination) == stage / "two.txt":
+                raise OSError("simulated promotion failure")
+            return real_copy2(source, destination)
+
+        with patch("harness_update_plan.shutil.copy2", side_effect=fail_second_promotion):
+            with self.assertRaises(OSError):
+                stage_review_files(template, stage, plan, overwrite=True, target=target)
+        self.assertEqual("old one.txt\n", (stage / "one.txt").read_text(encoding="utf-8"))
+        self.assertEqual("old two.txt\n", (stage / "two.txt").read_text(encoding="utf-8"))
+
+    def test_release_excludes_and_flags_archived_work_records(self) -> None:
+        archived = self.root / "Harness/work/archive/2026-06/tasks/customer-task.md"
+        nested_readme = self.root / "Harness/work/archive/2026-06/tasks/README.md"
+        task_sidecar = self.root / "Harness/work/tasks/nested/evidence.json"
+        cycle_sidecar = self.root / "Harness/work/cycles/nested/log.txt"
+        archived.parent.mkdir(parents=True)
+        archived.write_text("customer history\n", encoding="utf-8")
+        nested_readme.write_text("archived task named README\n", encoding="utf-8")
+        task_sidecar.parent.mkdir(parents=True)
+        cycle_sidecar.parent.mkdir(parents=True)
+        task_sidecar.write_text("{}\n", encoding="utf-8")
+        cycle_sidecar.write_text("private cycle evidence\n", encoding="utf-8")
+        packaged = {path.relative_to(self.root).as_posix() for path in collect_release_files(self.root)}
+        for path in [archived, nested_readme, task_sidecar, cycle_sidecar]:
+            self.assertNotIn(path.relative_to(self.root).as_posix(), packaged)
+        report = build_release_report(self.root, strict=True)
+        self.assertFalse(report["ok"])
+        self.assertTrue(any(item["message"].startswith("archived_work_records_present:") for item in report["warnings"]))
+        self.assertTrue(any(item["message"].startswith("real_task_records_present:") for item in report["warnings"]))
+        self.assertTrue(any(item["message"].startswith("cycle_logs_present:") for item in report["warnings"]))
+
+    def test_release_detects_project_doc_paths_across_script_types_and_quotes(self) -> None:
+        scripts = self.root / "Harness/scripts"
+        (scripts / "tools").mkdir(parents=True, exist_ok=True)
+        (scripts / "unreal").mkdir(parents=True, exist_ok=True)
+        leaked_path = "Harness/docs/" + "SecretProject/"
+        leaked_file_path = leaked_path + "design.md"
+        (scripts / "tools/single.py").write_text(f"P = '{leaked_path}'\n", encoding="utf-8")
+        (scripts / "unreal/leak.ps1").write_text(f'$P = "{leaked_file_path}"\n', encoding="utf-8")
+        report = build_release_report(self.root, strict=True)
+        leaked_files = {item["path"] for item in report["errors"] if item["message"].startswith("hardcoded_project_doc_path_in_script:")}
+        self.assertEqual({"Harness/scripts/tools/single.py", "Harness/scripts/unreal/leak.ps1"}, leaked_files)
+
+    def test_release_detects_project_doc_folder_with_non_letter_prefix(self) -> None:
+        script = self.root / "Harness/scripts/tools/leak.py"
+        leaked_path = "Harness/docs/" + "2026프로젝트/design.md"
+        script.write_text(f'PATH = "{leaked_path}"\n', encoding="utf-8")
+        report = build_release_report(self.root, strict=True)
+        self.assertTrue(any(item["path"].endswith("leak.py") for item in report["errors"]))
+
+    def test_release_allows_generic_doc_glob_in_tool_manifest(self) -> None:
+        manifest = self.root / "Harness/scripts/tools/tool_manifest.json"
+        manifest.write_text('{"inputs": ["Harness/docs/**/*.md"]}\n', encoding="utf-8")
+        report = build_release_report(self.root, strict=True)
+        self.assertFalse(any(item["path"].endswith("tool_manifest.json") for item in report["errors"]))
+
+    def test_release_pack_blocks_write_until_strict_check_passes(self) -> None:
+        script = self.root / "Harness/scripts/tools/leak.py"
+        leaked_path = "Harness/docs/" + "_Private/design.md"
+        script.write_text(f'PATH = "{leaked_path}"\n', encoding="utf-8")
+        output = self.root / "release.zip"
+        report = build_package(self.root, output, write=True)
+        self.assertFalse(report["ok"])
+        self.assertTrue(report["blocked"])
+        self.assertFalse(output.exists())
+        forced = build_package(self.root, output, write=True, force=True)
+        self.assertTrue(forced["ok"])
+        self.assertTrue(output.exists())
+
+    def test_release_rejects_activity_filled_progress_in_template_mode(self) -> None:
+        (self.root / "Harness/config/project.json").write_text('{"template_mode": true}\n', encoding="utf-8")
+        report = build_release_report(self.root, strict=True)
+        self.assertTrue(any(item["message"] == "template_progress_contains_project_activity" for item in report["errors"]))
+
+    def test_release_progress_neutrality_cannot_be_bypassed_by_marker_count(self) -> None:
+        (self.root / "Harness/config/project.json").write_text('{"template_mode": true}\n', encoding="utf-8")
+        marker = "작성 필요"
+        (self.root / "Harness/Progress.md").write_text(
+            "# Progress\n" + " ".join([marker] * 4) + "\n## 현재 상태\n- 실제 고객 프로젝트 완료\n",
+            encoding="utf-8",
+        )
+        report = build_release_report(self.root, strict=True)
+        self.assertTrue(any(item["message"] == "template_progress_contains_project_activity" for item in report["errors"]))
+
+    def test_release_progress_rejects_extra_activity_bullet(self) -> None:
+        (self.root / "Harness/config/project.json").write_text('{"template_mode": true}\n', encoding="utf-8")
+        progress = """# Progress
+
+## 현재 상태
+- 작성 필요: 현재 상태를 기록합니다.
+- 실제 고객 프로젝트 작업 완료
+
+## 최근 완료
+- 작성 필요: 최근 완료를 기록합니다.
+
+## 확인 필요
+- 작성 필요: 확인 필요를 기록합니다.
+
+## 다음 작업
+- 작성 필요: 다음 작업을 기록합니다.
+"""
+        (self.root / "Harness/Progress.md").write_text(progress, encoding="utf-8")
+        report = build_release_report(self.root, strict=True)
+        self.assertTrue(any(item["message"] == "template_progress_contains_project_activity" for item in report["errors"]))
+
+    def test_task_template_uses_provider_neutral_branch_placeholder(self) -> None:
+        root = TOOLS_DIR.parents[2]
+        task_example = (root / "Harness/work/tasks/task.example.md").read_text(encoding="utf-8")
+        self.assertIn("- Branch: <agent>/example-task", task_example)
+        self.assertNotIn("- Branch: codex/", task_example)
 
 
     def test_diff_guard_standard_prefixes_do_not_contain_project_paths(self) -> None:
@@ -393,6 +608,13 @@ class HarnessStructureTests(unittest.TestCase):
         self.assertFalse(result["should_read_docs"])
         self.assertTrue(result["read_hits"])
         self.assertTrue(result["skip_hits"])
+
+    def test_docs_check_does_not_match_format_inside_information(self) -> None:
+        from harness_docs_check import evaluate_request
+        docs_config = {"request_hints": {"read": ["design"], "skip": ["format"]}, "entry_points": ["Harness/docs/README.md"]}
+        result = evaluate_request("information architecture design", docs_config)
+        self.assertTrue(result["should_read_docs"])
+        self.assertEqual([], result["skip_hits"])
 
     def test_docs_check_fallbacks_match_template_docs_json(self) -> None:
         import json

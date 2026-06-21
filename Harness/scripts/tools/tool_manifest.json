@@ -199,7 +199,7 @@
     {
       "name": "harness_verify_all",
       "path": "Harness/scripts/tools/harness_verify_all.py",
-      "purpose": "Runs standard end-of-task checks: doctor, JSON parsing, Python compile, tool regression fixtures, scan, diff guard, index check, progress dashboard check, state check, docs policy, and build readiness.",
+      "purpose": "Runs standard end-of-task checks: doctor, JSON parsing, Python compile, tool regression fixtures, scan, diff guard, index check, progress dashboard check, state check, docs policy, build readiness, and strict release hygiene in template mode.",
       "inputs": [
         "harness_doctor",
         "harness_context",
@@ -237,7 +237,7 @@
     {
       "name": "harness_release_pack",
       "path": "Harness/scripts/tools/harness_release_pack.py",
-      "purpose": "Previews or writes a clean Harness template zip package while excluding local repo files, machine settings, caches, generated handoff files, and real cycle logs.",
+      "purpose": "Previews or writes a clean Harness template zip package while excluding local repo files, machine settings, caches, generated handoff files, and real work records; --write is blocked by strict release hygiene unless --force is explicit.",
       "inputs": [
         "README.md",
         "INSTALL.md",
@@ -246,6 +246,7 @@
         "HARNESS.md",
         "Harness/",
         "--write",
+        "--force",
         "--output"
       ],
       "outputs": [
@@ -260,12 +261,13 @@
     {
       "name": "harness_update_plan",
       "path": "Harness/scripts/tools/harness_update_plan.py",
-      "purpose": "Compares a new Harness template with an older target, preserves project-owned material, copies only missing files explicitly, and stages changed template files for review.",
+      "purpose": "Compares a new Harness template with an older target, preserves project-owned material, copies only missing files explicitly, and transactionally stages changed template files outside both trees with rollback on failure.",
       "inputs": [
         "--template",
         "--target",
         "--apply-missing",
-        "--stage-review"
+        "--stage-review",
+        "--overwrite-stage"
       ],
       "outputs": [
         "classified_update_plan",

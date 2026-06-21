@@ -54,7 +54,7 @@ Keep tools small. Split them by purpose when they grow.
 - `harness_handoff.py`: creates a minimal handoff brief for another worker or session.
 - `harness_verify_all.py`: runs lightweight standard checks before finishing work.
 - `harness_release_check.py`: checks template packaging hygiene before copying or zipping.
-- `harness_release_pack.py`: previews or writes a clean template zip package.
+- `harness_release_pack.py`: previews or writes a clean template zip package; write mode enforces strict release hygiene unless `--force` is explicit.
 - `harness_migration_audit.py`: audits an older Harness project before migration.
 - `harness_state_check.py`: checks whether state/next/tasks/cycles are compact, stale, or mixed with completed history.
 - `harness_progress_check.py`: enforces the four-section, 40-line Progress dashboard contract.
@@ -81,6 +81,7 @@ python Harness/scripts/tools/harness_archive.py --task completed-task --archive
 python Harness/scripts/tools/harness_iteration_status.py --request "up to 5 cycles" --task input-fix
 python Harness/scripts/tools/harness_update_plan.py --target C:\Path\To\OlderProject
 python Harness/scripts/tools/harness_update_plan.py --target C:\Path\To\OlderProject --apply-missing --stage-review C:\Temp\HarnessReview
+python Harness/scripts/tools/harness_update_plan.py --target C:\Path\To\OlderProject --stage-review C:\Temp\HarnessReview --overwrite-stage
 python Harness/scripts/tools/harness_knowledge.py --query "lock-on input"
 python Harness/scripts/tools/harness_cycle.py "Input fix" --changed "..." --verified "..." --remaining "..."
 python Harness/scripts/tools/harness_cycle.py "Parallel input fix" --task input-fix --worker Codex --changed "..." --verified "..."
@@ -116,4 +117,4 @@ If `python` resolves to the Microsoft Store alias on Windows, use the real Pytho
 - core `project.json` fields are filled after migration into a real Unreal project
 - no generated `__pycache__` or `*.pyc` files remain under `Harness/scripts/`
 
-Use `harness_release_pack.py --write` only after `harness_release_check.py --strict` passes. The package excludes `.git/`, `.claude/`, generated caches, generated handoff files, and real cycle logs.
+`harness_release_pack.py --write` runs the strict release check itself and refuses to write on failure. `--force` is reserved for exceptional diagnostics. The package excludes `.git/`, `.claude/`, generated caches, generated handoff files, and real task, cycle, and archive records.

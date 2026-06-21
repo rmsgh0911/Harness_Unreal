@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import file_status, find_project_root, first_heading, harness_dir, index_dir, load_json, markdown_list_items, next_path, print_text_or_json, read_text, rel, state_path, task_cycle_path, task_path, today_cycle_path, validate_task_id
+from harness_common import file_status, find_project_root, first_heading, harness_dir, index_dir, load_json, markdown_list_items, next_path, normalize_search_token, print_text_or_json, read_text, rel, state_path, task_cycle_path, task_path, today_cycle_path, validate_task_id
 from harness_docs_check import evaluate_request
 
 KOREAN_CYCLE = "\uc0ac\uc774\ud074"
@@ -30,20 +30,31 @@ REQUEST_STOP_WORDS = {
 
 
 def _request_has_any(request: str, hints: list[str]) -> bool:
-    lowered = request.lower()
-    return any(hint.lower() in lowered for hint in hints)
+    return any(_contains_hint(request, hint) for hint in hints)
+
+
+def _contains_hint(text: str, hint: str) -> bool:
+    lowered = text.casefold()
+    normalized_hint = hint.casefold().strip()
+    if not normalized_hint:
+        return False
+    if re.search(r"[\uac00-\ud7a3]", normalized_hint):
+        if normalized_hint == KOREAN_ITERATE:
+            return re.search(r"반복(?!문)", lowered) is not None
+        return normalized_hint in lowered
+    return re.search(rf"(?<![a-z0-9_]){re.escape(normalized_hint)}(?![a-z0-9_])", lowered) is not None
 
 
 def _keywords(text: str) -> set[str]:
-    return {token.lower() for token in TOKEN_PATTERN.findall(text) if token.lower() not in REQUEST_STOP_WORDS}
+    tokens = {normalize_search_token(token) for token in TOKEN_PATTERN.findall(text)}
+    return {token for token in tokens if token not in REQUEST_STOP_WORDS}
 
 
 def _relevance_score(request: str, text: str) -> int:
     request_words = _keywords(request)
     if not request_words:
         return 0
-    lowered = text.lower()
-    return sum(2 if word in lowered else 0 for word in request_words) + len(request_words & _keywords(text))
+    return 3 * len(request_words & _keywords(text))
 
 
 def _markdown_sections(text: str) -> list[tuple[str, str]]:
@@ -133,10 +144,10 @@ def evaluate_cycle_request(request: str, policy: dict) -> dict:
     default = policy.get("default_max_cycles", 1)
     if not request_text:
         return {"request": "", "is_cycle_work": False, "max_cycles": default, "reason": "no request provided"}
-    lowered = request_text.lower()
+    lowered = request_text.casefold()
     phrases = policy.get("cycle_count_rules", {}).get("phrases", [])
-    hits = [phrase for phrase in phrases if isinstance(phrase, str) and phrase.lower() in lowered]
-    hits.extend(word for word in ["cycle", "cycles", "iterate", "repeat", KOREAN_CYCLE, KOREAN_ITERATE] if word.lower() in lowered)
+    hits = [phrase for phrase in phrases if isinstance(phrase, str) and _contains_hint(request_text, phrase)]
+    hits.extend(word for word in ["cycle", "cycles", "iterate", "repeat", KOREAN_CYCLE, KOREAN_ITERATE] if _contains_hint(request_text, word))
     maximum = None
     for pattern in [
         rf"{KOREAN_MAX}\s*(\d+)\s*(?:\ud68c|{KOREAN_CYCLE})",
@@ -151,7 +162,7 @@ def evaluate_cycle_request(request: str, policy: dict) -> dict:
             break
     generic_cycle_hits = {"cycle", "cycles", KOREAN_CYCLE}
     action_hints = ["iterate", "repeat", "run cycle", "run cycles", "돌려", KOREAN_ITERATE, "반복"]
-    has_cycle_action = any(hint.lower() in lowered for hint in action_hints)
+    has_cycle_action = any(_contains_hint(request_text, hint) for hint in action_hints)
     meaningful_hits = [hit for hit in hits if hit not in generic_cycle_hits]
     is_cycle = bool(maximum or meaningful_hits or (hits and has_cycle_action))
     upper_bound_markers = ["up to", "max ", "maximum", KOREAN_MAX]

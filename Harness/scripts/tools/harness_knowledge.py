@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import dump_json, find_project_root, harness_dir, load_json, read_text, rel
+from harness_common import dump_json, find_project_root, harness_dir, load_json, normalize_search_token, read_text, rel
 
 
 TOKEN_PATTERN = re.compile(r"[a-zA-Z0-9_./+\-]{2,}|[\uac00-\ud7a3]{2,}")
@@ -18,15 +18,16 @@ EXCLUDED_NAMES = {"README.md", "task.example.md", ".gitkeep"}
 
 
 def _tokens(text: str) -> set[str]:
-    return {token.casefold() for token in TOKEN_PATTERN.findall(text) if token.casefold() not in STOP_WORDS}
+    tokens = {normalize_search_token(token) for token in TOKEN_PATTERN.findall(text)}
+    return {token for token in tokens if token not in STOP_WORDS}
 
 
 def _score(query: str, text: str) -> int:
     query_tokens = _tokens(query)
     if not query_tokens:
         return 0
-    lowered = text.casefold()
-    return sum(2 for token in query_tokens if token in lowered) + len(query_tokens & _tokens(text))
+    text_tokens = _tokens(text)
+    return 3 * len(query_tokens & text_tokens)
 
 
 def _sections(text: str) -> list[tuple[str, int, str]]:

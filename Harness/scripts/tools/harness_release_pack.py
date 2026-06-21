@@ -10,6 +10,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 
 from harness_common import dump_json, find_project_root, rel
+from harness_release_check import build_report as build_release_report
 
 
 DEFAULT_OUTPUT = Path("dist") / "Harness_Unreal_Template.zip"
@@ -40,6 +41,7 @@ EXCLUDED_NAMES = {
 
 def should_include(path: Path, root: Path) -> bool:
     rel_path = path.relative_to(root)
+    relative = rel_path.as_posix()
     parts = set(rel_path.parts)
     if parts & EXCLUDED_PARTS:
         return False
@@ -47,20 +49,14 @@ def should_include(path: Path, root: Path) -> bool:
         return False
     if path.suffix == ".pyc":
         return False
-    if (
-        len(rel_path.parts) >= 3
-        and rel_path.parts[0] == "Harness"
-        and rel_path.parts[1:3] == ("work", "cycles")
-        and path.suffix == ".md"
-    ):
+    if len(rel_path.parts) >= 3 and rel_path.parts[:3] == ("Harness", "work", "cycles") and relative != "Harness/work/cycles/.gitkeep":
         return False
-    if (
-        len(rel_path.parts) >= 3
-        and rel_path.parts[0] == "Harness"
-        and rel_path.parts[1:3] == ("work", "tasks")
-        and path.suffix == ".md"
-        and path.name not in {"README.md", "task.example.md"}
-    ):
+    if len(rel_path.parts) >= 3 and rel_path.parts[:3] == ("Harness", "work", "tasks") and relative not in {
+        "Harness/work/tasks/README.md",
+        "Harness/work/tasks/task.example.md",
+    }:
+        return False
+    if len(rel_path.parts) >= 3 and rel_path.parts[:3] == ("Harness", "work", "archive") and relative != "Harness/work/archive/README.md":
         return False
     return True
 
@@ -81,18 +77,26 @@ def collect_files(root: Path) -> list[Path]:
     return sorted(dict.fromkeys(files))
 
 
-def build_package(root: Path, output: Path, write: bool = False) -> dict:
+def build_package(root: Path, output: Path, write: bool = False, force: bool = False) -> dict:
     files = collect_files(root)
     output_path = output if output.is_absolute() else root / output
+    release_check = build_release_report(root, strict=True)
     report = {
         "root": str(root),
         "output": str(output_path),
         "write": write,
         "file_count": len(files),
         "files": [rel(path, root) for path in files],
-        "ok": bool(files),
+        "ok": bool(files) and (release_check["ok"] or force),
+        "forced": force,
+        "release_check": {
+            "ok": release_check["ok"],
+            "errors": release_check["errors"],
+            "warnings": release_check["warnings"],
+        },
     }
-    if not write:
+    if not write or not report["ok"]:
+        report["blocked"] = bool(write and not report["ok"])
         return report
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -111,6 +115,7 @@ def format_text(report: dict) -> str:
         f"- Mode: {'write' if report['write'] else 'dry-run'}",
         f"- Files: {report['file_count']}",
         f"- Status: {'ok' if report['ok'] else 'needs attention'}",
+        f"- Strict release check: {'ok' if report['release_check']['ok'] else 'failed'}",
     ]
     if report.get("bytes") is not None:
         lines.append(f"- Bytes: {report['bytes']}")
@@ -124,11 +129,12 @@ def main() -> None:
     parser.add_argument("--root", type=Path, default=None, help="Template root. Defaults to nearest Harness root.")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="Zip path. Relative paths are resolved from root.")
     parser.add_argument("--write", action="store_true", help="Actually write the zip package.")
+    parser.add_argument("--force", action="store_true", help="Write even when strict release hygiene fails. Use only for exceptional diagnostics.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     args = parser.parse_args()
 
     root = find_project_root(args.root)
-    report = build_package(root, args.output, write=args.write)
+    report = build_package(root, args.output, write=args.write, force=args.force)
     if args.json:
         print(dump_json(report))
     else:

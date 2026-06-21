@@ -13,6 +13,20 @@ HARNESS_DIR_NAME = "Harness"
 WORK_DIR_NAME = "work"
 TASK_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 WINDOWS_RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"COM{index}" for index in range(1, 10)), *(f"LPT{index}" for index in range(1, 10))}
+KOREAN_PARTICLE_SUFFIXES = (
+    "으로부터", "에게서", "에서", "으로", "부터", "까지", "에게", "한테", "처럼", "보다",
+    "과", "와", "을", "를", "은", "는", "이", "가", "에", "로", "의", "도", "만",
+)
+
+
+def normalize_search_token(token: str) -> str:
+    """Normalize a search token without applying broad stemming."""
+    normalized = token.casefold()
+    if re.fullmatch(r"[가-힣]+", normalized):
+        for suffix in KOREAN_PARTICLE_SUFFIXES:
+            if normalized.endswith(suffix) and len(normalized) - len(suffix) >= 2:
+                return normalized[:-len(suffix)]
+    return normalized
 
 
 def find_project_root(start: Path | None = None) -> Path:

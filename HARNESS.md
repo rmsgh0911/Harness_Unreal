@@ -95,7 +95,7 @@ Recommended cycle entry:
 - Read `INSTALL.md` before installing, migrating, or updating Harness.
 - Treat updates as reviewed migrations, not blind replacement.
 - Preserve project-specific config, docs, index, work records, Progress, and custom scripts.
-- Run the new template's `harness_update_plan.py --target <project>` before copying. `--apply-missing` may add absent files but never overwrites; `--stage-review <dir>` places changed template files outside the target paths for review.
+- Run the new template's `harness_update_plan.py --target <project>` before copying. `--apply-missing` may add absent files but never overwrites; `--stage-review <dir>` transactionally places changed template files outside both the template and target trees for review.
 - After migration, run `harness_knowledge.py --query "<current request>"` so retained docs, task/cycle history, archives, and indexes remain discoverable without broad scans.
 - When migrating from split `Harness/Codex/` and `Harness/Claude/` layouts, merge durable records into the single Harness and preserve conflicting task history as separate task files.
 

@@ -9,14 +9,17 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import dump_json, find_project_root, harness_dir, rel
+from harness_common import dump_json, find_project_root, harness_dir, load_json, read_text, rel
 
 
 TEXT_SUFFIXES = {".md", ".json", ".py", ".ps1", ".cmd", ".toml", ".sh"}
 DUPLICATED_WORK_PATHS = ("Harness/work/work/",)
 # Matches string literals like "Harness/docs/ProjectName/" that indicate a
 # project-specific path was hardcoded into a template tool file.
-_PROJECT_DOC_PATH_PATTERN = re.compile(r'"Harness/docs/[A-Za-z][^/"]*/"')
+_PROJECT_DOC_PATH_PATTERN = re.compile(
+    r"(?P<quote>[\"'])Harness[\\/]docs[\\/](?P<folder>[^/\\\"']+)[\\/][^\"']*(?P=quote)"
+)
+GENERIC_TEMPLATE_DOC_FOLDERS = {"examples"}
 
 
 def _has_utf8_bom(path: Path) -> bool:
@@ -60,26 +63,64 @@ def build_report(root: Path, strict: bool = False) -> dict:
             if any(duplicated in text for duplicated in DUPLICATED_WORK_PATHS):
                 errors.append({"path": rel(path, root), "message": "duplicated_work_path"})
 
-    for py_path in sorted((harness / "scripts" / "tools").glob("*.py")):
-        if py_path.name == "harness_release_check.py":
+    for script_path in sorted((harness / "scripts").rglob("*")):
+        if not script_path.is_file() or script_path.suffix.lower() not in TEXT_SUFFIXES:
+            continue
+        if script_path.name == "harness_release_check.py":
             continue
         try:
-            py_text = py_path.read_text(encoding="utf-8-sig")
+            script_text = script_path.read_text(encoding="utf-8-sig")
         except UnicodeDecodeError:
             continue
-        if _PROJECT_DOC_PATH_PATTERN.search(py_text):
-            errors.append({"path": rel(py_path, root), "message": "hardcoded_project_doc_path_in_tool"})
+        leaked_folders = sorted({
+            match.group("folder")
+            for match in _PROJECT_DOC_PATH_PATTERN.finditer(script_text)
+            if match.group("folder").casefold() not in GENERIC_TEMPLATE_DOC_FOLDERS
+            and not any(marker in match.group("folder") for marker in "*?<[{")
+        })
+        if leaked_folders:
+            errors.append({
+                "path": rel(script_path, root),
+                "message": "hardcoded_project_doc_path_in_script:" + ",".join(leaked_folders),
+            })
 
-    cycle_files = sorted(path for path in (harness / "work" / "cycles").glob("*.md") if path.name != ".gitkeep")
+    cycle_root = harness / "work" / "cycles"
+    cycle_files = sorted(
+        path for path in cycle_root.rglob("*")
+        if path.is_file() and rel(path, root) != "Harness/work/cycles/.gitkeep"
+    )
     if cycle_files:
         warnings.append({"path": "Harness/work/cycles/", "message": f"cycle_logs_present:{len(cycle_files)}"})
-    task_files = sorted(
-        path
-        for path in (harness / "work" / "tasks").glob("*.md")
-        if path.name not in {"README.md", "task.example.md"}
-    )
+    task_root = harness / "work" / "tasks"
+    allowed_task_files = {"Harness/work/tasks/README.md", "Harness/work/tasks/task.example.md"}
+    task_files = sorted(path for path in task_root.rglob("*") if path.is_file() and rel(path, root) not in allowed_task_files)
     if task_files:
         warnings.append({"path": "Harness/work/tasks/", "message": f"real_task_records_present:{len(task_files)}"})
+    archive_root = harness / "work" / "archive"
+    archive_files = sorted(
+        path for path in archive_root.rglob("*")
+        if path.is_file() and rel(path, root) != "Harness/work/archive/README.md"
+    )
+    if archive_files:
+        warnings.append({"path": "Harness/work/archive/", "message": f"archived_work_records_present:{len(archive_files)}"})
+
+    project = load_json(harness / "config" / "project.json", {}) or {}
+    if isinstance(project, dict) and project.get("template_mode"):
+        progress_text = read_text(harness / "Progress.md")
+        required_sections = {"현재 상태", "최근 완료", "확인 필요", "다음 작업"}
+        section_bullets: dict[str, list[str]] = {section: [] for section in required_sections}
+        current_section = ""
+        for line in progress_text.splitlines():
+            if line.startswith("## "):
+                current_section = line[3:].strip()
+            elif current_section in required_sections and line.strip().startswith("- "):
+                section_bullets[current_section].append(line.strip()[2:].strip())
+        neutral = all(
+            len(section_bullets[section]) == 1 and section_bullets[section][0].startswith("작성 필요:")
+            for section in required_sections
+        )
+        if not neutral:
+            errors.append({"path": "Harness/Progress.md", "message": "template_progress_contains_project_activity"})
 
     return {
         "root": str(root),

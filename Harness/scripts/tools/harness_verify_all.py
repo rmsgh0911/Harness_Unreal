@@ -20,6 +20,7 @@ from harness_progress_check import build_report as build_progress_report
 from harness_state_check import build_report as build_state_report
 from harness_docs_check import build_report as build_docs_report
 from harness_scan import scan
+from harness_release_check import build_report as build_release_report
 
 
 def compile_python_files(root: Path) -> dict:
@@ -116,6 +117,15 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
     compile_check = compile_python_files(root) if compile_python else {"ok": True, "checked": [], "failures": [], "skipped": True}
     tool_tests = run_tool_tests(root)
     build_readiness = check_build_readiness(root)
+    project = load_json(harness_dir(root) / "config" / "project.json", {}) or {}
+    template_mode = bool(project.get("template_mode")) if isinstance(project, dict) else False
+    release_hygiene = build_release_report(root, strict=True) if template_mode else {
+        "ok": True,
+        "strict": False,
+        "errors": [],
+        "warnings": [],
+        "status": "not_applicable",
+    }
 
     hard_ok = (
         doctor["ok"]
@@ -127,6 +137,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
         and progress_check["ok"]
         and state_check["ok"]
         and diff["ok"]
+        and release_hygiene["ok"]
     )
     state_check_summary = {
         "finding_count": len(state_check["findings"]),
@@ -157,6 +168,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
             "state_check": "ok" if state_check["ok"] else "failed",
             "docs_check": "ok" if docs_check["ok"] else "failed",
             "build": build_readiness["status"],
+            "release_hygiene": "ok" if release_hygiene["ok"] else "failed",
         },
         "context_warnings": context.get("warnings", []),
         "doctor": doctor["summary"],
@@ -189,6 +201,11 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
         "state_check": state_check_summary,
         "docs_check": docs_check_summary,
         "build_readiness": build_readiness,
+        "release_hygiene": {
+            "applicable": template_mode,
+            "errors": release_hygiene["errors"],
+            "warnings": release_hygiene["warnings"],
+        },
     }
 
 
@@ -210,6 +227,7 @@ def format_text(report: dict) -> str:
         f"- State check (state/next/cycles length and format): {report['summary']['state_check']}",
         f"- Docs policy: {report['summary']['docs_check']}",
         f"- Build: {report['summary']['build']}",
+        f"- Template release hygiene: {report['summary']['release_hygiene']}",
     ]
     if report["context_warnings"]:
         lines.append("")

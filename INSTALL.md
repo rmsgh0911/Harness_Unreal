@@ -50,8 +50,8 @@ Completed task/cycle records can be preserved with `python Harness/scripts/tools
 Recommended reviewed update flow:
 
 1. Commit or back up the target project and run `harness_update_plan.py` from the new template.
-2. Add only absent template files with `--apply-missing`. This option never overwrites an existing target file.
-3. Copy changed shared/standard template files into a separate comparison folder with `--stage-review C:\Path\To\HarnessReview`.
+2. Add only absent template files with `--apply-missing`. This option requires an existing target `Harness/` directory and never overwrites an existing target file; use the normal initialization flow for a project without Harness.
+3. Copy changed shared/standard template files into an empty comparison folder outside both the template and target trees with `--stage-review C:\Path\To\HarnessReview`. Existing review files are protected unless `--overwrite-stage` is explicitly supplied; a failed staging operation rolls back its changes.
 4. Merge `AGENTS.md`, `CLAUDE.md`, `HARNESS.md`, shared config, and repository rules from the staged copy. Review standard tool replacements; keep project-specific behavior and unregistered custom tools.
 5. Do not replace `project.json`, `docs.json`, `Harness/docs/`, `Harness/index/`, `Harness/work/`, or `Harness/Progress.md`. Migrate their structure only when needed.
 6. Search the retained material with `python Harness/scripts/tools/harness_knowledge.py --query "<current feature or issue>"` and refresh compact state/index files only from confirmed evidence.
@@ -83,3 +83,5 @@ python Harness/scripts/tools/harness_verify_all.py
 python Harness/scripts/tools/harness_release_check.py --strict
 python Harness/scripts/tools/harness_release_pack.py --write
 ```
+
+Package write mode repeats the strict check and blocks the ZIP when it fails. Use `--force` only for exceptional diagnostics, never for a distributable template.

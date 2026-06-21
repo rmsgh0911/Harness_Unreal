@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -101,6 +102,16 @@ def configured_hints(docs_config: dict, key: str, fallback: list[str]) -> list[s
     return value
 
 
+def hint_matches(request: str, hint: str) -> bool:
+    lowered = request.casefold()
+    normalized_hint = hint.casefold().strip()
+    if not normalized_hint:
+        return False
+    if re.search(r"[\uac00-\ud7a3]", normalized_hint):
+        return normalized_hint in lowered
+    return re.search(rf"(?<![a-z0-9_]){re.escape(normalized_hint)}(?![a-z0-9_])", lowered) is not None
+
+
 def evaluate_request(request: str, docs_config: dict) -> dict:
     request_text = request.strip()
     if not request_text:
@@ -113,8 +124,8 @@ def evaluate_request(request: str, docs_config: dict) -> dict:
 
     read_hints = configured_hints(docs_config, "read", REQUEST_READ_HINTS)
     skip_hints = configured_hints(docs_config, "skip", REQUEST_SKIP_HINTS)
-    read_hits = [hint for hint in read_hints if hint.lower() in request_text.lower()]
-    skip_hits = [hint for hint in skip_hints if hint.lower() in request_text.lower()]
+    read_hits = [hint for hint in read_hints if hint_matches(request_text, hint)]
+    skip_hits = [hint for hint in skip_hints if hint_matches(request_text, hint)]
     should_read = bool(read_hits) and not bool(skip_hits)
     reason = "matched document reference hints" if should_read else "no document read trigger matched"
     if skip_hits:
