@@ -28,7 +28,7 @@ def classify_path(path_text: str) -> list[dict]:
         risks.append({"level": "medium", "reason": "core Unreal config changed"})
     if suffix in {".uasset", ".umap"}:
         risks.append({"level": "medium", "reason": "binary asset changed; describe manual editor validation"})
-    if "/Public/" in path_text.replace("\\", "/"):
+    if "Public" in Path(path_text.replace("\\", "/")).parts:
         risks.append({"level": "medium", "reason": "Public header/module boundary changed"})
     return risks
 

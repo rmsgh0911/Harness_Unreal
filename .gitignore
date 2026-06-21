@@ -93,8 +93,6 @@ DerivedDataCache/*
 Harness/handoff.md
 __pycache__/
 *.pyc
-Harness/scripts/**/__pycache__/
-Harness/scripts/**/*.pyc
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/

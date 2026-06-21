@@ -45,7 +45,6 @@ def run_doctor(root: Path) -> dict:
         root / "AGENTS.md",
         root / "CLAUDE.md",
         root / "INSTALL.md",
-        root / "Harness" / "README.md",
         harness / "README.md",
         harness / "work" / "README.md",
         harness / "Progress.md",

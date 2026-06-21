@@ -23,8 +23,10 @@ PROGRESS_TRIGGER_PREFIXES = (
     "Content/",
     "Plugins/",
     "Harness/scripts/unreal/",
-    "Harness/docs/FluxityPntSample/",
 )
+# Core UE dirs where any file change counts as meaningful regardless of suffix.
+# Distinct from PROGRESS_TRIGGER_PREFIXES, which also includes watched Harness dirs.
+PROGRESS_CORE_UE_PREFIXES = ("Content/", "Source/", "Config/", "Plugins/")
 PROGRESS_TRIGGER_SUFFIXES = {
     ".uasset",
     ".umap",
@@ -152,7 +154,7 @@ def inspect_progress_recording(report: dict) -> None:
             continue
         suffix = Path(path_text).suffix.lower()
         if path_text.startswith(PROGRESS_TRIGGER_PREFIXES) or suffix in BINARY_ASSET_SUFFIXES:
-            if suffix in PROGRESS_TRIGGER_SUFFIXES or path_text.startswith(("Content/", "Source/", "Config/", "Plugins/")):
+            if suffix in PROGRESS_TRIGGER_SUFFIXES or path_text.startswith(PROGRESS_CORE_UE_PREFIXES):
                 meaningful_paths.append(path_text)
     report["progress_recording"] = {
         "progress_path": PROGRESS_PATH,

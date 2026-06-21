@@ -62,8 +62,13 @@ def parse_version(text: str) -> tuple[int, int, int] | tuple[()]:
     try:
         major = int(parts[0])
         minor = int(parts[1])
-        patch_text = "".join(ch for ch in parts[2] if ch.isdigit()) if len(parts) > 2 else "0"
-        return (major, minor, int(patch_text or "0"))
+        patch_raw = parts[2] if len(parts) > 2 else "0"
+        patch_digits = ""
+        for ch in patch_raw:
+            if not ch.isdigit():
+                break
+            patch_digits += ch
+        return (major, minor, int(patch_digits or "0"))
     except ValueError:
         return ()
 

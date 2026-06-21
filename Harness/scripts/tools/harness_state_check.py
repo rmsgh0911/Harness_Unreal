@@ -196,7 +196,7 @@ def build_report(root: Path) -> dict:
     template_unconfigured = is_template_unconfigured(root)
     docs = [
         check_file(root, "Harness/work/state.md", soft_limit=80, hard_limit=220, allow_placeholders=template_unconfigured),
-        check_file(root, "Harness/work/next.md", soft_limit=60, hard_limit=160, allow_placeholders=template_unconfigured),
+        check_file(root, "Harness/work/next.md", soft_limit=60, hard_limit=100, allow_placeholders=template_unconfigured),
         check_file(root, "Harness/README.md", soft_limit=160, hard_limit=260),
     ]
     state = state_specific(root)

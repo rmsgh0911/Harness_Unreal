@@ -15,6 +15,8 @@ from harness_context import evaluate_cycle_request  # noqa: E402
 from harness_archive import apply_archive, build_plan as build_archive_plan  # noqa: E402
 from harness_cycle import build_entry, validate_iteration_entry  # noqa: E402
 from harness_cycle_summary import analyze_iteration, build_summary as build_cycle_summary, parse_cycle_file  # noqa: E402
+from harness_diff_guard import PROGRESS_TRIGGER_PREFIXES  # noqa: E402
+from harness_docs_check import REQUEST_READ_HINTS, REQUEST_SKIP_HINTS  # noqa: E402
 from harness_index_check import build_report as build_index_report  # noqa: E402
 from harness_iteration_status import build_status as build_iteration_status  # noqa: E402
 from harness_handoff import build_handoff  # noqa: E402
@@ -377,6 +379,39 @@ class HarnessStructureTests(unittest.TestCase):
         staged = stage_review_files(template, stage, plan)
         self.assertIn("HARNESS.md", staged)
         self.assertIn("Harness/scripts/tools/standard.py", staged)
+
+
+    def test_diff_guard_standard_prefixes_do_not_contain_project_paths(self) -> None:
+        known_standard = {"Source/", "Config/", "Content/", "Plugins/", "Harness/scripts/unreal/"}
+        unexpected = [p for p in PROGRESS_TRIGGER_PREFIXES if p not in known_standard]
+        self.assertEqual([], unexpected, f"non-standard prefixes in PROGRESS_TRIGGER_PREFIXES: {unexpected}")
+
+    def test_docs_check_skip_hints_take_priority_over_read_hints(self) -> None:
+        from harness_docs_check import evaluate_request
+        docs_config = {"request_hints": {"read": ["level"], "skip": ["compile error"]}}
+        result = evaluate_request("fix level compile error", docs_config)
+        self.assertFalse(result["should_read_docs"])
+        self.assertTrue(result["read_hits"])
+        self.assertTrue(result["skip_hits"])
+
+    def test_docs_check_fallbacks_match_template_docs_json(self) -> None:
+        import json
+        docs_json = TOOLS_DIR.parents[1] / "config" / "docs.json"
+        if not docs_json.exists():
+            self.skipTest("template docs.json not found")
+        with open(docs_json, encoding="utf-8") as fh:
+            config = json.load(fh)
+        hints = config.get("request_hints", {})
+        self.assertEqual(
+            sorted(REQUEST_READ_HINTS),
+            sorted(hints.get("read", [])),
+            "REQUEST_READ_HINTS in harness_docs_check.py does not match docs.json request_hints.read",
+        )
+        self.assertEqual(
+            sorted(REQUEST_SKIP_HINTS),
+            sorted(hints.get("skip", [])),
+            "REQUEST_SKIP_HINTS in harness_docs_check.py does not match docs.json request_hints.skip",
+        )
 
 
 if __name__ == "__main__":

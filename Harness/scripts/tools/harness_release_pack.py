@@ -34,7 +34,6 @@ EXCLUDED_PARTS = {
     "dist",
 }
 EXCLUDED_NAMES = {
-    "harness_release_pack.pyc",
     "handoff.md",
 }
 

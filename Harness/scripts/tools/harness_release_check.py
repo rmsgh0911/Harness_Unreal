@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -13,6 +14,9 @@ from harness_common import dump_json, find_project_root, harness_dir, rel
 
 TEXT_SUFFIXES = {".md", ".json", ".py", ".ps1", ".cmd", ".toml", ".sh"}
 DUPLICATED_WORK_PATHS = ("Harness/work/work/",)
+# Matches string literals like "Harness/docs/ProjectName/" that indicate a
+# project-specific path was hardcoded into a template tool file.
+_PROJECT_DOC_PATH_PATTERN = re.compile(r'"Harness/docs/[A-Za-z][^/"]*/"')
 
 
 def _has_utf8_bom(path: Path) -> bool:
@@ -42,7 +46,7 @@ def build_report(root: Path, strict: bool = False) -> dict:
             errors.append({"path": rel(old_path, root), "message": "legacy_split_or_old_layout_path"})
 
     for path in sorted(root.rglob("*")):
-        if any(part in {".git", "Binaries", "Intermediate", "Saved", "DerivedDataCache"} for part in path.parts):
+        if any(part in {".git", ".claude", "Binaries", "Intermediate", "Saved", "DerivedDataCache"} for part in path.parts):
             continue
         if _has_utf8_bom(path):
             warnings.append({"path": rel(path, root), "message": "utf8_bom"})
@@ -55,6 +59,16 @@ def build_report(root: Path, strict: bool = False) -> dict:
                 continue
             if any(duplicated in text for duplicated in DUPLICATED_WORK_PATHS):
                 errors.append({"path": rel(path, root), "message": "duplicated_work_path"})
+
+    for py_path in sorted((harness / "scripts" / "tools").glob("*.py")):
+        if py_path.name == "harness_release_check.py":
+            continue
+        try:
+            py_text = py_path.read_text(encoding="utf-8-sig")
+        except UnicodeDecodeError:
+            continue
+        if _PROJECT_DOC_PATH_PATTERN.search(py_text):
+            errors.append({"path": rel(py_path, root), "message": "hardcoded_project_doc_path_in_tool"})
 
     cycle_files = sorted(path for path in (harness / "work" / "cycles").glob("*.md") if path.name != ".gitkeep")
     if cycle_files:

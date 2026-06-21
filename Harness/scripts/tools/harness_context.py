@@ -94,15 +94,13 @@ def index_section_reads(root: Path, request: str) -> list[dict]:
         forced_paths.add(index / "verification_map.md")
     if _request_has_any(request, SOURCE_HINTS):
         candidates.append(index / "source_map.json")
-        forced_paths.add(index / "source_map.json")
     candidates.append(index / "project_index.md")
     matches: list[dict] = []
     for path in dict.fromkeys(candidates):
         if not path.exists():
             continue
         if path.suffix == ".json":
-            if path != index / "project_index.md":
-                matches.append({"path": rel(path, root), "section": "", "score": 1})
+            matches.append({"path": rel(path, root), "section": "", "score": 1})
             continue
         path_matches = matched_markdown_sections(root, path, request)
         matches.extend(path_matches)

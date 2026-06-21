@@ -55,8 +55,8 @@ Recommended task file:
 ```markdown
 # Task: <task-id>
 
-- Owner: Codex
-- Branch: codex/example
+- Owner: <AgentName>
+- Branch: <agent>/example
 - Worktree: C:/path/to/worktree
 - Started: 2026-06-15 10:00 +09:00
 - Updated: 2026-06-15 10:00 +09:00
