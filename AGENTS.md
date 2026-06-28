@@ -17,6 +17,8 @@ Before starting any task:
 
 If the context command cannot run, manually read `HARNESS.md`, `Harness/README.md`, `Harness/work/state.md`, `Harness/work/next.md`, and `Harness/index/project_index.md` when present before editing.
 
+Read `Harness/docs/AgentFieldGuide.md` when starting a new project, updating/migrating Harness, debugging a repeated failure, changing Unreal UI/asset generation flows, or coordinating branch/worktree sync.
+
 For feature work, bug fixes, verification, cycles, iteration, "up to N times", or "up to N cycles", apply the work loop and recording rules in `HARNESS.md`.
 
 For repeated work, establish success criteria and the cycle budget before editing. Each cycle must add a change or new evidence, run the smallest useful verification, record a continue/stop decision, and avoid reopening settled scope without a new reason. For task-scoped or three-plus-cycle work, check `harness_iteration_status.py` before continuing.

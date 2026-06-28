@@ -18,6 +18,7 @@ from harness_cycle import build_entry, validate_iteration_entry  # noqa: E402
 from harness_cycle_summary import analyze_iteration, build_summary as build_cycle_summary, parse_cycle_file  # noqa: E402
 from harness_diff_guard import PROGRESS_TRIGGER_PREFIXES  # noqa: E402
 from harness_docs_check import REQUEST_READ_HINTS, REQUEST_SKIP_HINTS  # noqa: E402
+from harness_field_check import build_report as build_field_report  # noqa: E402
 from harness_index_check import build_report as build_index_report  # noqa: E402
 from harness_iteration_status import build_status as build_iteration_status  # noqa: E402
 from harness_handoff import build_handoff  # noqa: E402
@@ -26,6 +27,7 @@ from harness_progress_check import build_report as build_progress_report  # noqa
 from harness_release_check import build_report as build_release_report  # noqa: E402
 from harness_release_pack import build_package, collect_files as collect_release_files, should_include as should_include_release_file  # noqa: E402
 from harness_state_check import build_report as build_state_report  # noqa: E402
+from harness_unreal_risk import classify_path, idempotency_hints, pie_only_hints  # noqa: E402
 from harness_update_plan import apply_missing_files, build_update_plan, stage_review_files  # noqa: E402
 from harness_verify_all import check_build_readiness, required_checks_ok  # noqa: E402
 
@@ -86,6 +88,113 @@ class HarnessStructureTests(unittest.TestCase):
 
     def test_valid_progress_passes(self) -> None:
         self.assertTrue(build_progress_report(self.root)["ok"])
+
+    def test_field_check_requires_field_guide(self) -> None:
+        (self.root / "Harness/config/project.json").write_text('{"template_mode": true}\n', encoding="utf-8")
+        report = build_field_report(self.root)
+        self.assertFalse(report["ok"])
+        self.assertTrue(any(item["message"] == "field_guide_missing" for item in report["errors"]))
+
+    def test_field_check_reports_unreal_script_wrapper_command(self) -> None:
+        (self.root / "Harness/docs").mkdir(parents=True, exist_ok=True)
+        (self.root / "Harness/docs/AgentFieldGuide.md").write_text("# Agent Field Guide\n", encoding="utf-8")
+        (self.root / "Harness/README.md").write_text("See AgentFieldGuide.md\n", encoding="utf-8")
+        unreal_scripts = self.root / "Harness/scripts/unreal"
+        unreal_scripts.mkdir(parents=True)
+        (unreal_scripts / "verify_level.py").write_text("import unreal as ue\n", encoding="utf-8")
+        report = build_field_report(self.root)
+        self.assertTrue(report["ok"])
+        self.assertEqual(1, report["unreal_scripts"]["unreal_import_count"])
+        self.assertTrue(any("harness_unreal_script.py" in item.get("command", "") for item in report["notes"]))
+
+    def test_field_check_no_branch_mode_does_not_assume_remote_alignment(self) -> None:
+        (self.root / "Harness/docs").mkdir(parents=True, exist_ok=True)
+        (self.root / "Harness/docs/AgentFieldGuide.md").write_text("# Agent Field Guide\n", encoding="utf-8")
+        (self.root / "Harness/README.md").write_text("See AgentFieldGuide.md\n", encoding="utf-8")
+
+        def fake_git(_root: Path, args: list[str]) -> dict:
+            if args == ["status", "--short", "--branch"]:
+                return {"ok": True, "stdout": "## main...origin/main", "stderr": ""}
+            if args == ["worktree", "list", "--porcelain"]:
+                return {"ok": True, "stdout": f"worktree {self.root.as_posix()}\nHEAD abc\nbranch refs/heads/main", "stderr": ""}
+            self.fail(f"unexpected git command: {args}")
+
+        with patch("harness_field_check._run_git", side_effect=fake_git):
+            report = build_field_report(self.root)
+
+        self.assertTrue(report["ok"])
+        self.assertEqual("single_checkout", report["worktrees"]["checkout_mode"])
+        self.assertFalse(report["worktrees"]["remote_alignment"]["enabled"])
+        self.assertIsNone(report["worktrees"]["remote_alignment"]["aligned"])
+
+    def test_field_check_warns_for_nested_harness_root(self) -> None:
+        (self.root / "Harness/docs").mkdir(parents=True, exist_ok=True)
+        (self.root / "Harness/docs/AgentFieldGuide.md").write_text("# Agent Field Guide\n", encoding="utf-8")
+        (self.root / "Harness/README.md").write_text("See AgentFieldGuide.md\n", encoding="utf-8")
+        nested = self.root / "TemplateCopy"
+        (nested / "Harness").mkdir(parents=True)
+        (nested / "HARNESS.md").write_text("# Harness\n", encoding="utf-8")
+        report = build_field_report(self.root)
+        self.assertTrue(any(item["message"].startswith("nested_harness_root_detected") for item in report["warnings"]))
+
+    def test_field_check_warns_for_text_encoding_artifacts(self) -> None:
+        (self.root / "Harness/docs").mkdir(parents=True, exist_ok=True)
+        (self.root / "Harness/docs/AgentFieldGuide.md").write_text(
+            "# Agent Field Guide\n\n- Broken text abc??def\n",
+            encoding="utf-8",
+        )
+        (self.root / "Harness/README.md").write_text("See AgentFieldGuide.md\n", encoding="utf-8")
+        report = build_field_report(self.root)
+        self.assertTrue(any(item["message"] == "suspicious_text_encoding_artifact" for item in report["warnings"]))
+
+    def test_field_check_reports_requested_branch_alignment(self) -> None:
+        (self.root / "Harness/docs").mkdir(parents=True, exist_ok=True)
+        (self.root / "Harness/docs/AgentFieldGuide.md").write_text("# Agent Field Guide\n", encoding="utf-8")
+        (self.root / "Harness/README.md").write_text("See AgentFieldGuide.md\n", encoding="utf-8")
+
+        def fake_git(_root: Path, args: list[str]) -> dict:
+            if args == ["status", "--short", "--branch"]:
+                return {"ok": True, "stdout": "## main...origin/main", "stderr": ""}
+            if args == ["worktree", "list", "--porcelain"]:
+                return {"ok": True, "stdout": f"worktree {self.root.as_posix()}\nHEAD abc\nbranch refs/heads/main", "stderr": ""}
+            if args == ["ls-remote", "--heads", "origin", "main", "feature/login"]:
+                return {
+                    "ok": True,
+                    "stdout": "abc\trefs/heads/main\nabc\trefs/heads/feature/login\n",
+                    "stderr": "",
+                }
+            self.fail(f"unexpected git command: {args}")
+
+        with patch("harness_field_check._run_git", side_effect=fake_git):
+            report = build_field_report(self.root, branches=["main", "feature/login"])
+
+        self.assertTrue(report["worktrees"]["remote_alignment"]["aligned"])
+        self.assertEqual(["abc"], report["worktrees"]["remote_alignment"]["commits"])
+        self.assertTrue(any(item["message"] == "requested_remote_refs_aligned" for item in report["notes"]))
+
+    def test_field_check_warns_when_requested_branches_diverge(self) -> None:
+        (self.root / "Harness/docs").mkdir(parents=True, exist_ok=True)
+        (self.root / "Harness/docs/AgentFieldGuide.md").write_text("# Agent Field Guide\n", encoding="utf-8")
+        (self.root / "Harness/README.md").write_text("See AgentFieldGuide.md\n", encoding="utf-8")
+
+        def fake_git(_root: Path, args: list[str]) -> dict:
+            if args == ["status", "--short", "--branch"]:
+                return {"ok": True, "stdout": "## main...origin/main", "stderr": ""}
+            if args == ["worktree", "list", "--porcelain"]:
+                return {"ok": True, "stdout": f"worktree {self.root.as_posix()}\nHEAD abc\nbranch refs/heads/main", "stderr": ""}
+            if args == ["ls-remote", "--heads", "origin", "main", "release/1.2"]:
+                return {
+                    "ok": True,
+                    "stdout": "abc\trefs/heads/main\ndef\trefs/heads/release/1.2\n",
+                    "stderr": "",
+                }
+            self.fail(f"unexpected git command: {args}")
+
+        with patch("harness_field_check._run_git", side_effect=fake_git):
+            report = build_field_report(self.root, branches=["main", "release/1.2"])
+
+        self.assertFalse(report["worktrees"]["remote_alignment"]["aligned"])
+        self.assertTrue(any(item["message"] == "requested_remote_refs_diverged" for item in report["warnings"]))
 
     def test_progress_rejects_fifth_section(self) -> None:
         path = self.root / "Harness/Progress.md"
@@ -693,6 +802,34 @@ class HarnessStructureTests(unittest.TestCase):
         (self.root / "Harness/Progress.md").write_text(progress, encoding="utf-8")
         report = build_release_report(self.root, strict=True)
         self.assertTrue(any(item["message"] == "template_progress_contains_project_activity" for item in report["errors"]))
+
+    def test_unreal_risk_umap_and_uasset_carry_separate_messages(self) -> None:
+        umap_risks = classify_path("Content/Maps/Level01.umap")
+        uasset_risks = classify_path("Content/Blueprints/BP_Actor.uasset")
+        umap_messages = [r["reason"] for r in umap_risks]
+        uasset_messages = [r["reason"] for r in uasset_risks]
+        self.assertTrue(any("level file" in m for m in umap_messages))
+        self.assertTrue(any("binary asset" in m for m in uasset_messages))
+        self.assertFalse(any("level file" in m for m in uasset_messages))
+
+    def test_unreal_risk_pie_only_hints_detects_addtoviewport(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cpp = root / "Source/MyActor.cpp"
+            cpp.parent.mkdir(parents=True)
+            cpp.write_text("void AMyActor::BeginPlay() { Widget->AddToViewport(); }\n", encoding="utf-8")
+            hints = pie_only_hints(root, "Source/MyActor.cpp")
+            self.assertIn("AddToViewport", hints)
+            self.assertIn("BeginPlay", hints)
+
+    def test_unreal_risk_idempotency_hints_detects_spawn_pattern(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            py = root / "Harness/scripts/unreal/place_actors.py"
+            py.parent.mkdir(parents=True)
+            py.write_text("actor = unreal.EditorLevelLibrary.spawn_actor_from_class(cls, loc)\n", encoding="utf-8")
+            hints = idempotency_hints(root, "Harness/scripts/unreal/place_actors.py")
+            self.assertIn("spawn_actor_from_class", hints)
 
     def test_task_template_uses_provider_neutral_branch_placeholder(self) -> None:
         root = TOOLS_DIR.parents[2]

@@ -1,8 +1,8 @@
 # Unreal Harness Template
 
-Codex, Claude Code, and other AI agents use the same `Harness/` operating layer in this Unreal Engine template.
+Codex, Claude Code, and other AI agents use the same `Harness/` operating layer in this Unreal Engine template. The default shape is one checkout; parallel Git worktrees are optional and used only when a project needs isolated concurrent work.
 
-Parallel work is isolated with Git worktrees and branches. Agent names, branch names, worktree paths, and timestamps belong in task-specific records under `Harness/work/tasks/`, not as repeated edits to shared `state.md` or `next.md`.
+Parallel work, when a project needs it, is isolated with Git worktrees and branches. Projects that do not run parallel tasks can use one normal checkout. Agent names, branch names, worktree paths, and timestamps belong in task-specific records under `Harness/work/tasks/`, not as repeated edits to shared `state.md` or `next.md`.
 
 ## Quick Start
 
@@ -11,9 +11,9 @@ python Harness/scripts/tools/harness_context.py --request "<task>"
 python Harness/scripts/tools/harness_verify_all.py
 ```
 
-For parallel work:
+For optional parallel work:
 
-1. Create a worktree and branch for the task.
+1. Create a worktree and branch for the task only when parallel isolation is needed.
 2. Create `Harness/work/tasks/<task-id>.md` from `task.example.md`.
 3. Record short cycles with:
 
@@ -22,3 +22,13 @@ python Harness/scripts/tools/harness_cycle.py "Task Name" --task <task-id> --wor
 ```
 
 Read `HARNESS.md` for operating rules and `INSTALL.md` for installation or migration.
+
+## What This Template Optimizes For
+
+- Narrow startup context instead of broad repository scans.
+- Evidence-backed Unreal changes: build output, commandlet status, generated JSON, screenshots, or manual PIE notes depending on the risk.
+- Compact current-state files and detailed task/cycle records, so agents do not bury important facts in long dashboards.
+- Optional parallel branch/worktree delivery with explicit final remote-ref checks when branch sync is requested.
+- Reviewed Harness migrations that preserve project-owned docs, config, indexes, work records, Progress, and custom tools.
+
+For practical lessons learned from real project use, read `Harness/docs/AgentFieldGuide.md`.

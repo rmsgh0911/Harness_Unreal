@@ -51,6 +51,7 @@ Keep tools small. Split them by purpose when they grow.
 - `harness_knowledge.py`: searches retained docs, indexes, tasks, cycles, archives, state, and next files as bounded routing evidence.
 - `harness_cycle.py`: creates cycle log entries; writes only with `--write`. Use `--task` and `--worker` for parallel work.
 - `harness_diff_guard.py`: checks changed files and Unreal risk signals.
+- `harness_field_check.py`: checks field-proven operating risks, suspicious doc text artifacts, nested Harness review copies, Unreal Python wrapper hints, and optional branch-ref alignment.
 - `harness_handoff.py`: creates a minimal handoff brief for another worker or session.
 - `harness_verify_all.py`: runs lightweight standard checks before finishing work; real project mode requires complete build configuration.
 - `harness_release_check.py`: checks template packaging hygiene, including generated files and symlinks, before copying or zipping.
@@ -66,6 +67,14 @@ Keep tools small. Split them by purpose when they grow.
 - `harness_cycle_summary.py`: summarizes recent cycle logs.
 - `harness_unreal_risk.py`: extracts Unreal-specific risk signals from changed files.
 - `harness_unreal_script.py`: checks Unreal Python script readiness and command; runs only with `--run`.
+
+## Field-Proven Tool Choices
+
+- Use `harness_context.py` before editing so the agent reads targeted state instead of rediscovering the whole project.
+- Use `harness_unreal_script.py --script <file> --run` for scripts that import `unreal`; plain CPython is only enough for ordinary Python helpers.
+- Use `harness_iteration_status.py` before continuing long repeated work so cycle budgets, missing verification, and stop conditions stay visible.
+- Use `harness_knowledge.py --query "<request>"` after migrations or context handoffs to route into retained docs and cycle records without broad scans.
+- Use `harness_verify_all.py` as the standard finish gate, then inspect `git diff --stat` to confirm scope.
 
 Examples:
 
@@ -87,6 +96,7 @@ python Harness/scripts/tools/harness_cycle.py "Input fix" --changed "..." --veri
 python Harness/scripts/tools/harness_cycle.py "Parallel input fix" --task input-fix --worker Codex --changed "..." --verified "..."
 python Harness/scripts/tools/harness_cycle.py "Iteration 2" --task input-fix --max-cycles 5 --decision continue --success-criterion "Lock-on remains stable"
 python Harness/scripts/tools/harness_diff_guard.py
+python Harness/scripts/tools/harness_field_check.py --branches main feature/login release/1.2
 python Harness/scripts/tools/harness_handoff.py --request "Continue lock-on work"
 python Harness/scripts/tools/harness_verify_all.py
 python Harness/scripts/tools/harness_release_check.py --json

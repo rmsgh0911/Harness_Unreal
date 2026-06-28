@@ -21,16 +21,20 @@ Do not copy `.git/`, `.claude/`, Python caches, generated handoffs, or real proj
 4. Fill `Harness/work/state.md` with the compact current snapshot and keep only the 3-5 highest-priority unresolved project items in `Harness/work/next.md`.
 5. Fill `Harness/index/project_index.md` as a compact routing map.
 6. Keep `Harness/Progress.md` as the short Korean dashboard.
-7. For parallel work, use separate worktrees and branches. Create one `Harness/work/tasks/<task-id>.md` per task.
+7. For parallel work, use separate worktrees and branches only when parallel isolation is needed. Create one `Harness/work/tasks/<task-id>.md` per task.
 8. Confirm Git LFS is installed and the `.gitattributes` rules match team policy before committing binary Unreal assets.
+9. Read `Harness/docs/AgentFieldGuide.md` and remove or adapt any guidance that does not fit the project's workflow.
 
 ## Verify Setup
 
 ```powershell
 python Harness/scripts/tools/harness_context.py --request "initial setup"
 python Harness/scripts/tools/harness_init_plan.py
+python Harness/scripts/tools/harness_field_check.py
 python Harness/scripts/tools/harness_verify_all.py
 ```
+
+Use `harness_field_check.py --branches <branch-a> <branch-b>` only when the project intentionally maintains multiple branches that must be checked for remote alignment.
 
 ## Update An Existing Harness Install
 
@@ -56,6 +60,7 @@ Recommended reviewed update flow:
 5. Do not replace `project.json`, `docs.json`, `Harness/docs/`, `Harness/index/`, `Harness/work/`, or `Harness/Progress.md`. Migrate their structure only when needed.
 6. Search the retained material with `python Harness/scripts/tools/harness_knowledge.py --query "<current feature or issue>"` and refresh compact state/index files only from confirmed evidence.
 7. Run `harness_verify_all.py`, inspect `git diff --stat`, and remove legacy split directories only after verification passes.
+8. If the old project accumulated useful agent lessons, generalize them into `Harness/docs/AgentFieldGuide.md` or a project doc. Do not copy real paths, branch names, credentials, or active work logs into the reusable template.
 
 When migrating from the split worker layout:
 
@@ -73,6 +78,17 @@ python Harness/scripts/tools/harness_verify_all.py
 ```
 
 Do not report the update complete until verification passes and `git diff --stat` shows only the intended migration.
+
+## Close Out Real Project Work
+
+Before committing or pushing a project that uses this template:
+
+1. Run the smallest verification that proves the requested behavior.
+2. Run `python Harness/scripts/tools/harness_verify_all.py`.
+3. Run `python Harness/scripts/tools/harness_field_check.py` for root, field-guide, and Unreal Python wrapper hints.
+4. Inspect `git diff --stat` and make sure generated assets/docs are intentionally included.
+5. Keep `Harness/Progress.md` short; move detailed history into task/cycle records.
+6. For requested multi-branch or multi-worktree syncs, verify local checkout status first, push the intended branches, then confirm remote refs with `git ls-remote --heads origin <branches...>`.
 
 ## Build A Clean Template Package
 

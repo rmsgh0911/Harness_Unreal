@@ -91,7 +91,10 @@ def run_doctor(root: Path) -> dict:
         results.append(check(markdown_section(ag_text, "## Mandatory Startup") == markdown_section(cl_text, "## Mandatory Startup"), "AGENTS.md and CLAUDE.md keep the same mandatory startup workflow"))
     results.append(check(includes(install_text, "## Configure"), "INSTALL.md explains configuration"))
     results.append(check(includes(install_text, "worktrees"), "INSTALL.md explains parallel worktrees"))
-    results.append(check(includes(harness_text, "maximum cycle count"), "HARNESS.md explains max-cycle requests"))
+    results.append(check(
+        includes(harness_text, "exact requested count") and includes(harness_text, "upper-bound cycle budget"),
+        "HARNESS.md explains exact and upper-bound cycle requests",
+    ))
     results.append(check(includes(harness_text, "Tool Additions"), "HARNESS.md explains agent-added tools"))
     results.append(check(includes(harness_text, "Harness/docs"), "HARNESS.md explains default project document root"))
     results.append(check(includes(harness_text, "Harness/work/tasks/"), "HARNESS.md explains task records"))

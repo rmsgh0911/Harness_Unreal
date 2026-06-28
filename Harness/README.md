@@ -1,6 +1,8 @@
 # Harness Folder
 
-All supported agents use this single Harness layout. Parallel work is isolated by Git worktrees and branches, not by agent-specific Harness directories.
+This Harness layout works for both a single normal checkout and optional parallel Git worktrees.
+
+All supported agents use this single Harness layout. If a project uses parallel agents or parallel tasks, isolate that work with Git worktrees and branches instead of agent-specific Harness directories. A simple project can use one normal checkout.
 
 ## Layout
 
@@ -36,4 +38,8 @@ python Harness/scripts/tools/harness_knowledge.py --query "<feature or issue>"
 
 Use the context briefing first, then open only the recommended sections or files. Read the full state, next, and index files only when Python is unavailable, the briefing reports a conflict, or the request needs broader project context.
 
-For parallel work, create a separate worktree and branch, then create `Harness/work/tasks/<task-id>.md`. Keep agent names and timestamps there rather than repeatedly editing shared `state.md` or `next.md`.
+For parallel work, create a separate worktree and branch only when the task actually needs parallel isolation, then create `Harness/work/tasks/<task-id>.md`. Keep agent names and timestamps there rather than repeatedly editing shared `state.md` or `next.md`.
+
+## Field Guide
+
+Read `Harness/docs/AgentFieldGuide.md` when starting a new project, onboarding a new agent, debugging a repeated failure, or coordinating optional parallel worktrees. It captures the practical checks that prevent common Unreal Harness mistakes: wrong project root, unverified handoff claims, non-idempotent generated data, UI checks that miss runtime binding, and branch syncs that stop before remote refs are aligned.

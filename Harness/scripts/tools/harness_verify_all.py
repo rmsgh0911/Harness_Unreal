@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import py_compile
 import subprocess
 import sys
@@ -21,6 +22,7 @@ from harness_state_check import build_report as build_state_report
 from harness_docs_check import build_report as build_docs_report
 from harness_scan import scan
 from harness_release_check import build_report as build_release_report
+from harness_field_check import build_report as build_field_report
 
 
 def required_checks_ok(*checks: dict) -> bool:
@@ -57,6 +59,7 @@ def run_tool_tests(root: Path) -> dict:
     completed = subprocess.run(
         [sys.executable, "-B", "-m", "unittest", "discover", "-s", str(tests), "-p", "test_*.py"],
         cwd=root,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -118,6 +121,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
     progress_check = build_progress_report(root)
     state_check = build_state_report(root)
     docs_check = build_docs_report(root)
+    field_check = build_field_report(root)
     json_check = check_json_files(root)
     compile_check = compile_python_files(root) if compile_python else {"ok": True, "checked": [], "failures": [], "skipped": True}
     tool_tests = run_tool_tests(root)
@@ -135,6 +139,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
     hard_ok = required_checks_ok(
         doctor,
         docs_check,
+        field_check,
         json_check,
         compile_check,
         tool_tests,
@@ -173,6 +178,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
             "progress_check": "ok" if progress_check["ok"] else "failed",
             "state_check": "ok" if state_check["ok"] else "failed",
             "docs_check": "ok" if docs_check["ok"] else "failed",
+            "field_check": "ok" if field_check["ok"] else "failed",
             "build": build_readiness["status"],
             "release_hygiene": "ok" if release_hygiene["ok"] else "failed",
         },
@@ -206,6 +212,11 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
         },
         "state_check": state_check_summary,
         "docs_check": docs_check_summary,
+        "field_check": {
+            "errors": field_check["errors"],
+            "warnings": field_check["warnings"],
+            "notes": len(field_check["notes"]),
+        },
         "build_readiness": build_readiness,
         "release_hygiene": {
             "applicable": template_mode,
@@ -232,6 +243,7 @@ def format_text(report: dict) -> str:
         f"- Progress dashboard: {report['summary']['progress_check']}",
         f"- State check (state/next/cycles length and format): {report['summary']['state_check']}",
         f"- Docs policy: {report['summary']['docs_check']}",
+        f"- Field check: {report['summary']['field_check']}",
         f"- Build: {report['summary']['build']}",
         f"- Template release hygiene: {report['summary']['release_hygiene']}",
     ]
@@ -243,6 +255,10 @@ def format_text(report: dict) -> str:
         lines.append("")
         lines.append("Build readiness missing:")
         lines.extend(f"- {item}" for item in report["build_readiness"]["missing"])
+    if report["field_check"]["warnings"]:
+        lines.append("")
+        lines.append("Field warnings:")
+        lines.extend(f"- {item['path']}: {item['message']}" for item in report["field_check"]["warnings"])
     return "\n".join(lines)
 
 
