@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 import argparse
+import functools
 import sys
+import webbrowser
 from datetime import datetime
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import dump_json, find_project_root, rel, write_text
+from harness_common import dump_json, find_project_root, harness_dir, rel, write_text
 
 
 PROGRESS_RELATIVE = Path("Harness") / "Progress.md"
 OUTPUT_RELATIVE = Path("Harness") / "Progress_index.html"
+VIEWER_FILENAME = OUTPUT_RELATIVE.name
 
 
 def render_html(source_path: str, generated_at: str) -> str:
@@ -89,6 +93,32 @@ def render_html(source_path: str, generated_at: str) -> str:
       font-size: 14px;
     }}
     .notice.error {{ color: var(--danger); }}
+    .hint {{
+      display: none;
+      border: 1px solid var(--accent);
+      background: #eef4ff;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }}
+    .hint.show {{ display: block; }}
+    .hint h2 {{ margin: 0 0 8px; font-size: 15px; }}
+    .hint p {{ margin: 0 0 10px; }}
+    .cmd-row {{
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }}
+    .cmd-row code {{
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: var(--text);
+    }}
     .intro {{ color: var(--muted); margin: 0 0 18px; max-width: 820px; }}
     .grid {{
       display: grid;
@@ -128,6 +158,18 @@ def render_html(source_path: str, generated_at: str) -> str:
       <input id="file" type="file" accept=".md,text/markdown,text/plain">
     </div>
     <div id="notice" class="notice">Loading <code>{source_path}</code>...</div>
+    <section id="file-hint" class="hint">
+      <h2>Live view needs a local server</h2>
+      <p>Browsers block reading <code>{source_path}</code> when this page is opened directly from disk (<code>file://</code>). Start a small local server to see the live dashboard:</p>
+      <div class="cmd-row">
+        <span>Double-click <code>Progress_view.cmd</code> (next to this file), or run:</span>
+      </div>
+      <div class="cmd-row">
+        <code id="serve-cmd">python Harness/scripts/tools/harness_progress_html.py --serve</code>
+        <button type="button" id="copy-cmd">Copy</button>
+      </div>
+      <p>Or click <strong>Open Progress.md</strong> above to load it once from disk.</p>
+    </section>
     <p id="intro" class="intro"></p>
     <div id="grid" class="grid"></div>
   </main>
@@ -138,6 +180,9 @@ def render_html(source_path: str, generated_at: str) -> str:
     const grid = document.getElementById("grid");
     const reload = document.getElementById("reload");
     const file = document.getElementById("file");
+    const fileHint = document.getElementById("file-hint");
+    const copyCmd = document.getElementById("copy-cmd");
+    const serveCmd = document.getElementById("serve-cmd");
 
     function setNotice(message, isError = false) {{
       notice.textContent = message;
@@ -186,6 +231,7 @@ def render_html(source_path: str, generated_at: str) -> str:
         grid.append(card);
       }}
       setNotice(`Loaded ${{label}} at ${{new Date().toLocaleString()}}.`);
+      fileHint.classList.remove("show");
     }}
 
     async function loadSource() {{
@@ -194,8 +240,9 @@ def render_html(source_path: str, generated_at: str) -> str:
         if (!response.ok) throw new Error(`HTTP ${{response.status}}`);
         render(await response.text(), SOURCE);
       }} catch (error) {{
+        fileHint.classList.add("show");
         setNotice(
-          "Could not auto-load Progress.md. If this file was opened directly with file://, use Open Progress.md or serve the Harness folder with a local static server.",
+          "Could not auto-load Progress.md over file://. Start the local server shown below for the live view, or click Open Progress.md.",
           true
         );
       }}
@@ -206,6 +253,30 @@ def render_html(source_path: str, generated_at: str) -> str:
       if (!file.files || !file.files[0]) return;
       render(await file.files[0].text(), file.files[0].name);
     }});
+    copyCmd.addEventListener("click", async () => {{
+      const text = serveCmd.textContent;
+      try {{
+        await navigator.clipboard.writeText(text);
+        copyCmd.textContent = "Copied";
+      }} catch (error) {{
+        const range = document.createRange();
+        range.selectNodeContents(serveCmd);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        try {{
+          document.execCommand("copy");
+          copyCmd.textContent = "Copied";
+        }} catch (fallbackError) {{
+          copyCmd.textContent = "Select the text and copy";
+        }}
+      }}
+      setTimeout(() => {{ copyCmd.textContent = "Copy"; }}, 1500);
+    }});
+
+    if (location.protocol === "file:") {{
+      fileHint.classList.add("show");
+    }}
 
     loadSource();
   </script>
@@ -232,6 +303,44 @@ def build_report(root: Path, write: bool = False) -> dict:
     }
 
 
+def build_server(root: Path, port: int = 0) -> tuple[ThreadingHTTPServer, str]:
+    """Create a localhost static server rooted at the Harness directory.
+
+    Returns the running server and the URL of the Progress viewer. The caller
+    owns the lifecycle: call ``serve_forever`` then ``server_close``. Binding to
+    ``127.0.0.1`` keeps the convenience viewer off the network, and port ``0``
+    lets the OS pick a free port.
+    """
+    serve_root = harness_dir(root)
+    handler = functools.partial(SimpleHTTPRequestHandler, directory=str(serve_root))
+    httpd = ThreadingHTTPServer(("127.0.0.1", port), handler)
+    bound_port = httpd.server_address[1]
+    return httpd, f"http://127.0.0.1:{bound_port}/{VIEWER_FILENAME}"
+
+
+def serve(root: Path, port: int = 0, open_browser: bool = True) -> int:
+    """Serve Harness/ on localhost so the viewer can fetch the live Progress.md."""
+    viewer = root / OUTPUT_RELATIVE
+    if not viewer.exists():
+        print(f"Viewer missing: {rel(viewer, root)}. Run with --write first to generate it.")
+    httpd, url = build_server(root, port=port)
+    print(f"Serving live Harness Progress viewer at {url}")
+    print("Live source: Harness/Progress.md (served over HTTP so fetch works).")
+    print("Press Ctrl+C to stop.")
+    if open_browser:
+        try:
+            webbrowser.open(url)
+        except Exception:  # noqa: BLE001
+            print("Could not open a browser automatically; open the URL above manually.")
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopped.")
+    finally:
+        httpd.server_close()
+    return 0
+
+
 def format_text(report: dict) -> str:
     lines = [
         "Harness Progress HTML",
@@ -250,10 +359,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Write a thin Harness/Progress_index.html viewer for Harness/Progress.md.")
     parser.add_argument("--root", type=Path, default=None, help="Project root. Defaults to nearest Harness root.")
     parser.add_argument("--write", action="store_true", help="Write Harness/Progress_index.html.")
+    parser.add_argument("--serve", action="store_true", help="Serve Harness/ on localhost and open the live viewer so fetch works.")
+    parser.add_argument("--port", type=int, default=0, help="Port for --serve. Default 0 auto-selects a free port.")
+    parser.add_argument("--no-browser", action="store_true", help="With --serve, do not auto-open a browser.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     args = parser.parse_args()
 
     root = find_project_root(args.root)
+    if args.serve:
+        raise SystemExit(serve(root, port=args.port, open_browser=not args.no_browser))
     report = build_report(root, write=args.write)
     if args.json:
         data = dict(report)

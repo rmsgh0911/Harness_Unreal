@@ -17,6 +17,7 @@ All supported agents use this single Harness layout. If a project uses parallel 
 - `work/cycles/`: short task-scoped work loop records
 - `Progress.md`: short Korean human-facing dashboard
 - `Progress_index.html`: tracked convenience viewer that loads `Progress.md` at view time
+- `Progress_view.cmd`: double-click launcher that serves `Harness/` on localhost so the viewer can fetch the live `Progress.md`
 
 Keep the current decision surface compact:
 
@@ -38,11 +39,12 @@ python Harness/scripts/tools/harness_update_plan.py --target C:\Path\To\OlderPro
 python Harness/scripts/tools/harness_knowledge.py --query "<feature or issue>"
 python Harness/scripts/tools/harness_memory.py --query "<feature or issue>" --limit 5
 python Harness/scripts/tools/harness_progress_html.py --write
+python Harness/scripts/tools/harness_progress_html.py --serve
 ```
 
 Use the context briefing first, then open only the recommended sections or files. Read the full state, next, and index files only when Python is unavailable, the briefing reports a conflict, or the request needs broader project context.
 
-Use `harness_memory.py` only for compact routing hints that still need confirmation against source, config, assets, logs, docs, or verification output. `Progress_index.html` is a stable viewer; routine status changes should update `Progress.md` and then reload the viewer.
+Use `harness_memory.py` only for compact routing hints that still need confirmation against source, config, assets, logs, docs, or verification output. `Progress_index.html` is a stable viewer; routine status changes should update `Progress.md` and then reload the viewer. Because browsers block local `fetch()` over `file://`, open the viewer live with `Progress_view.cmd` or `python Harness/scripts/tools/harness_progress_html.py --serve`.
 
 For parallel work, create a separate worktree and branch only when the task actually needs parallel isolation, then create `Harness/work/tasks/<task-id>.md`. Keep agent names and timestamps there rather than repeatedly editing shared `state.md` or `next.md`.
 

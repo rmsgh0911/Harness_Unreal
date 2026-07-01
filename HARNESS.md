@@ -104,7 +104,7 @@ Recommended cycle entry:
 - `Harness/index/` is a compact Project Understanding Layer, not the source of truth.
 - Keep `state.md` compact; put project structure and routing notes in `Harness/index/`.
 - `Harness/Progress.md` is a short Korean human-facing dashboard, not a work log. Keep only Current Status, Recent Completion, Needs Confirmation, and Next Work, with at most three core bullets per section and about 40 lines total.
-- `Harness/Progress_index.html` is a tracked convenience viewer that loads `Harness/Progress.md` at view time. Do not rewrite it during routine progress updates.
+- `Harness/Progress_index.html` is a tracked convenience viewer that loads `Harness/Progress.md` at view time. Browsers block local `fetch()` over `file://`, so open it live by double-clicking `Harness/Progress_view.cmd` or running `python Harness/scripts/tools/harness_progress_html.py --serve`. Do not hand-edit the HTML during routine progress updates; update `Harness/Progress.md` instead.
 - Keep agent-facing Harness docs in English by default. Limit Korean text to short human-facing files such as `Harness/Progress.md` unless project requirements need otherwise.
 - If Korean text appears garbled in a Windows console, do not treat that output as file corruption. Re-read the file with an explicit UTF-8 path, for example Python `Path.read_text(encoding="utf-8")`, before drawing conclusions.
 
@@ -152,7 +152,7 @@ Recommended cycle entry:
 1. Verify the requested behavior with the smallest useful command or manual check.
 2. Inspect `git diff --stat` and confirm the scope matches the request. Do not stage `.umap` files changed only by editor navigation (camera/selection state) unless the level content genuinely changed.
 3. Refresh `Harness/Progress.md` when meaningful project behavior or a human decision changed. `Progress.md` is Korean by default; keep it to ~40 lines covering Current Status, Recent Completion, Needs Confirmation, and Next Work.
-4. Do not rewrite `Harness/Progress_index.html` for routine progress changes; update `Harness/Progress.md` and reload the viewer instead.
+4. Do not hand-edit `Harness/Progress_index.html` for routine progress changes; update `Harness/Progress.md`, then reload the viewer (double-click `Harness/Progress_view.cmd` or run `harness_progress_html.py --serve` for a live local view over HTTP).
 5. Update the active task file and consolidate durable facts into `state.md` or `next.md` only when appropriate.
 6. Run `python Harness/scripts/tools/harness_verify_all.py`.
 7. For requested branch-family or worktree syncs, confirm each involved checkout/worktree is clean enough for the operation and verify remote refs after push with `git ls-remote --heads origin <branches...>`.

@@ -60,7 +60,7 @@ Keep tools small. Split them by purpose when they grow.
 - `harness_migration_audit.py`: audits an older Harness project before migration.
 - `harness_state_check.py`: checks whether state/next/tasks/cycles are compact, stale, or mixed with completed history.
 - `harness_progress_check.py`: enforces the four-section, 40-line Progress dashboard contract.
-- `harness_progress_html.py`: writes the tracked `Harness/Progress_index.html` viewer that loads `Harness/Progress.md` at view time.
+- `harness_progress_html.py`: writes the tracked `Harness/Progress_index.html` viewer for `Harness/Progress.md`, and with `--serve` hosts `Harness/` on localhost so the viewer fetches the live file (double-click `Harness/Progress_view.cmd` for the same result).
 - `harness_python_check.py`: checks Python 3 availability and Unreal Python candidates.
 - `harness_init_plan.py`: summarizes preservation, fill, and verification work for initialization or migration.
 - `harness_docs_index.py`: indexes project doc headings to reduce reading scope.
@@ -119,6 +119,7 @@ python Harness/scripts/tools/harness_migration_audit.py --target C:\Path\To\OldP
 python Harness/scripts/tools/harness_state_check.py --target C:\Path\To\Project
 python Harness/scripts/tools/harness_progress_check.py --json
 python Harness/scripts/tools/harness_progress_html.py --write
+python Harness/scripts/tools/harness_progress_html.py --serve
 python Harness/scripts/tools/harness_python_check.py
 python Harness/scripts/tools/harness_init_plan.py
 python Harness/scripts/tools/harness_docs_index.py

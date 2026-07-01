@@ -26,7 +26,7 @@ from harness_handoff import build_handoff  # noqa: E402
 from harness_knowledge import build_knowledge  # noqa: E402
 from harness_memory import add_entry as add_memory_entry, memory_doctor, prune_memory, query_memory as query_memory_entries, rebuild_cache as rebuild_memory_cache, update_status as update_memory_status, validate_memory  # noqa: E402
 from harness_progress_check import build_report as build_progress_report  # noqa: E402
-from harness_progress_html import build_report as build_progress_html_report  # noqa: E402
+from harness_progress_html import build_report as build_progress_html_report, build_server as build_progress_server  # noqa: E402
 from harness_release_check import build_report as build_release_report  # noqa: E402
 from harness_release_pack import build_package, collect_files as collect_release_files, should_include as should_include_release_file  # noqa: E402
 from harness_state_check import build_report as build_state_report  # noqa: E402
@@ -239,7 +239,26 @@ class HarnessStructureTests(unittest.TestCase):
         self.assertIn('name="harness-progress-viewer" content="dynamic-source"', html)
         self.assertIn('name="harness-progress-source" content="Harness/Progress.md"', html)
         self.assertIn('const SOURCE = "Progress.md";', html)
+        self.assertIn('id="file-hint"', html)
+        self.assertIn("Progress_view.cmd", html)
+        self.assertIn("harness_progress_html.py --serve", html)
         self.assertNotIn("?묒꽦 ?꾩슂:", html)
+
+    def test_progress_html_serve_targets_localhost_and_harness_dir(self) -> None:
+        httpd, url = build_progress_server(self.root, port=0)
+        try:
+            self.assertTrue(url.startswith("http://127.0.0.1:"))
+            self.assertTrue(url.endswith("/Progress_index.html"))
+            self.assertEqual(str(self.root / "Harness"), httpd.RequestHandlerClass.keywords["directory"])
+        finally:
+            httpd.server_close()
+
+    def test_progress_view_launcher_is_tracked_and_invokes_serve(self) -> None:
+        launcher = TOOLS_DIR.parents[2] / "Harness/Progress_view.cmd"
+        self.assertTrue(launcher.exists())
+        text = launcher.read_text(encoding="utf-8")
+        self.assertIn("harness_progress_html.py", text)
+        self.assertIn("--serve", text)
 
     def test_release_check_rejects_static_progress_html(self) -> None:
         (self.root / "Harness/config/project.json").write_text('{"template_mode": true}\n', encoding="utf-8")

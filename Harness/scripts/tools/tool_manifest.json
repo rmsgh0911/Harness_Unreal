@@ -415,14 +415,18 @@
     {
       "name": "harness_progress_html",
       "path": "Harness/scripts/tools/harness_progress_html.py",
-      "purpose": "Writes the tracked Harness/Progress_index.html convenience viewer that loads Harness/Progress.md at view time.",
+      "purpose": "Writes the tracked Harness/Progress_index.html convenience viewer that loads Harness/Progress.md at view time, and with --serve hosts Harness/ on localhost so the viewer can fetch the live Progress.md (browsers block local fetch over file://).",
       "inputs": [
         "Harness/Progress.md",
-        "--write"
+        "--write",
+        "--serve",
+        "--port",
+        "--no-browser"
       ],
       "outputs": [
         "Harness/Progress_index.html",
         "html_preview",
+        "localhost_live_viewer",
         "json"
       ],
       "writes_files": "only_with_--write",
