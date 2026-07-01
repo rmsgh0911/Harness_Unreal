@@ -37,5 +37,6 @@ Read `HARNESS.md` for operating rules and `Harness/docs/template/setup.md` for i
 - Compact current-state files and detailed task/cycle records, so agents do not bury important facts in long dashboards.
 - Optional parallel branch/worktree delivery with explicit final remote-ref checks when branch sync is requested.
 - Reviewed Harness migrations that preserve project-owned docs, config, indexes, work records, Progress, and custom tools.
+- Continuous verification on every push via `.github/workflows/tests.yml`, which runs the tool tests and `harness_verify_all.py` on GitHub Actions and Gitea Actions.
 
 For practical lessons learned from real project use, read `Harness/docs/AgentFieldGuide.md`.

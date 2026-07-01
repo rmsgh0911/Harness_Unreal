@@ -10,12 +10,12 @@ function Fail($Message) {
 }
 
 function Get-ProjectDir {
-    return (Resolve-Path (Join-Path $PSScriptRoot "..\\..\\..")).Path
+    return (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 }
 
 function Read-ProjectConfig {
     $projectDir = Get-ProjectDir
-    $configPath = Join-Path $projectDir "Harness\\config\\project.json"
+    $configPath = Join-Path $projectDir "Harness\config\project.json"
     if (-not (Test-Path $configPath)) {
         Fail "Missing Harness config: $configPath"
     }
@@ -61,8 +61,8 @@ function Resolve-EngineRoot($Config) {
 
 function Resolve-UbtPath($EngineRoot) {
     $candidates = @(
-        (Join-Path $EngineRoot "Engine\\Binaries\\DotNET\\UnrealBuildTool\\UnrealBuildTool.exe"),
-        (Join-Path $EngineRoot "Engine\\Binaries\\DotNET\\UnrealBuildTool.exe")
+        (Join-Path $EngineRoot "Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.exe"),
+        (Join-Path $EngineRoot "Engine\Binaries\DotNET\UnrealBuildTool.exe")
     )
 
     foreach ($candidate in $candidates) {
