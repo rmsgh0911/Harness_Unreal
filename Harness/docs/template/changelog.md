@@ -15,3 +15,4 @@ Project-specific current status belongs in `Harness/Progress.md`, and detailed p
 - Added tracked `Harness/Progress_index.html` and `harness_progress_html.py` as a thin viewer for `Harness/Progress.md`.
 - Changed the Progress dashboard to avoid embedded status snapshots and added release checks for the dynamic viewer marker.
 - Added `--serve` to `harness_progress_html.py` and a double-click `Harness/Progress_view.cmd` launcher that host `Harness/` on localhost so the viewer fetches the live `Progress.md` (browsers block local `fetch()` over `file://`); the viewer now shows in-page guidance to start the local server.
+- Added regression tests for previously untested tools (`harness_scan`, `harness_project_fill`, `harness_docs_index`, `harness_migration_audit`) to widen the tool safety net.
