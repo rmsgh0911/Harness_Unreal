@@ -44,8 +44,10 @@ def run_doctor(root: Path) -> dict:
         root / "HARNESS.md",
         root / "AGENTS.md",
         root / "CLAUDE.md",
-        root / "INSTALL.md",
         harness / "README.md",
+        harness / "Progress_index.html",
+        harness / "docs" / "template" / "setup.md",
+        harness / "docs" / "template" / "changelog.md",
         harness / "work" / "README.md",
         harness / "Progress.md",
         state_path(root),
@@ -82,15 +84,15 @@ def run_doctor(root: Path) -> dict:
     ag_text = read_text(root / "AGENTS.md")
     cl_text = read_text(root / "CLAUDE.md")
     harness_text = read_text(root / "HARNESS.md")
-    install_text = read_text(root / "INSTALL.md")
+    setup_text = read_text(harness / "docs" / "template" / "setup.md")
     results.append(check(includes(ag_text, "HARNESS.md"), "AGENTS.md routes agents to HARNESS.md"))
     results.append(check(includes(ag_text, "Harness/"), "AGENTS.md routes Codex to the shared Harness"))
     if (root / "CLAUDE.md").exists():
         results.append(check(includes(cl_text, "HARNESS.md"), "CLAUDE.md routes Claude Code to HARNESS.md"))
         results.append(check(includes(cl_text, "Harness/"), "CLAUDE.md routes Claude Code to the shared Harness"))
         results.append(check(markdown_section(ag_text, "## Mandatory Startup") == markdown_section(cl_text, "## Mandatory Startup"), "AGENTS.md and CLAUDE.md keep the same mandatory startup workflow"))
-    results.append(check(includes(install_text, "## Configure"), "INSTALL.md explains configuration"))
-    results.append(check(includes(install_text, "worktrees"), "INSTALL.md explains parallel worktrees"))
+    results.append(check(includes(setup_text, "## Configure"), "template setup doc explains configuration"))
+    results.append(check(includes(setup_text, "worktrees"), "template setup doc explains parallel worktrees"))
     results.append(check(
         includes(harness_text, "exact requested count") and includes(harness_text, "upper-bound cycle budget"),
         "HARNESS.md explains exact and upper-bound cycle requests",

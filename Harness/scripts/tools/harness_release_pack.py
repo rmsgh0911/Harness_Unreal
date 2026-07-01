@@ -18,7 +18,6 @@ from harness_release_check import build_report as build_release_report
 DEFAULT_OUTPUT = Path("dist") / "Harness_Unreal_Template.zip"
 ROOT_FILES = [
     "README.md",
-    "INSTALL.md",
     "AGENTS.md",
     "CLAUDE.md",
     "HARNESS.md",
@@ -39,6 +38,10 @@ EXCLUDED_PARTS = {
 EXCLUDED_NAMES = {
     "handoff.md",
 }
+EXCLUDED_SUFFIXES = {
+    ".sqlite",
+    ".db",
+}
 
 
 def should_include(path: Path, root: Path) -> bool:
@@ -51,7 +54,11 @@ def should_include(path: Path, root: Path) -> bool:
         return False
     if path.name in EXCLUDED_NAMES:
         return False
+    if path.suffix in EXCLUDED_SUFFIXES or path.name.endswith((".sqlite-wal", ".sqlite-shm", ".db-wal", ".db-shm")):
+        return False
     if path.suffix == ".pyc":
+        return False
+    if len(rel_path.parts) >= 3 and rel_path.parts[:3] == ("Harness", "data", "memory") and relative != "Harness/data/memory/.gitkeep":
         return False
     if len(rel_path.parts) >= 3 and rel_path.parts[:3] == ("Harness", "work", "cycles") and relative != "Harness/work/cycles/.gitkeep":
         return False

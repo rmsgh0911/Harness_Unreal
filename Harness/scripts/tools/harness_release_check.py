@@ -19,7 +19,9 @@ DUPLICATED_WORK_PATHS = ("Harness/work/work/",)
 _PROJECT_DOC_PATH_PATTERN = re.compile(
     r"(?P<quote>[\"'])Harness[\\/]docs[\\/](?P<folder>[^/\\\"']+)[\\/][^\"']*(?P=quote)"
 )
-GENERIC_TEMPLATE_DOC_FOLDERS = {"examples"}
+GENERIC_TEMPLATE_DOC_FOLDERS = {"examples", "template"}
+PROGRESS_VIEWER_PATTERN = re.compile(r'<meta\s+name="harness-progress-viewer"\s+content="dynamic-source">')
+PROGRESS_SOURCE_PATTERN = re.compile(r'<meta\s+name="harness-progress-source"\s+content="Harness/Progress.md">')
 
 
 def _has_utf8_bom(path: Path) -> bool:
@@ -110,6 +112,13 @@ def build_report(root: Path, strict: bool = False) -> dict:
     project = load_json(harness / "config" / "project.json", {}) or {}
     if isinstance(project, dict) and project.get("template_mode"):
         progress_text = read_text(harness / "Progress.md")
+        progress_html = harness / "Progress_index.html"
+        if progress_html.exists():
+            html_text = read_text(progress_html)
+            if not PROGRESS_VIEWER_PATTERN.search(html_text):
+                errors.append({"path": "Harness/Progress_index.html", "message": "progress_html_not_dynamic_viewer"})
+            if not PROGRESS_SOURCE_PATTERN.search(html_text):
+                errors.append({"path": "Harness/Progress_index.html", "message": "progress_html_missing_progress_source"})
         required_sections = {"현재 상태", "최근 완료", "확인 필요", "다음 작업"}
         section_bullets: dict[str, list[str]] = {section: [] for section in required_sections}
         current_section = ""

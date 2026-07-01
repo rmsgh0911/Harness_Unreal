@@ -265,10 +265,10 @@
       "purpose": "Previews or atomically writes a clean Harness template ZIP while excluding local files, symlinks, caches, generated handoffs, and real work records; protected output paths and strict hygiene failures block writes unless only the hygiene failure is explicitly forced.",
       "inputs": [
         "README.md",
-        "INSTALL.md",
         "AGENTS.md",
         "CLAUDE.md",
         "HARNESS.md",
+        "Harness/docs/template/",
         "Harness/",
         "--write",
         "--force",
@@ -324,6 +324,32 @@
       "writes_files": false,
       "safe_by_default": true,
       "verify": "python Harness/scripts/tools/harness_knowledge.py --query \"Harness update\" --json"
+    },
+    {
+      "name": "harness_memory",
+      "path": "Harness/scripts/tools/harness_memory.py",
+      "purpose": "Maintains optional daily JSONL memory shards with UUID entries, review status changes, pruning diagnostics, and a rebuildable local SQLite search cache.",
+      "inputs": [
+        "--init",
+        "--add",
+        "--validate",
+        "--promote",
+        "--demote",
+        "--doctor",
+        "--prune",
+        "--query",
+        "--rebuild",
+        "Harness/data/memory/*.jsonl",
+        "Harness/data/harness.sqlite"
+      ],
+      "outputs": [
+        "memory_entry",
+        "ranked_memory_results",
+        "sqlite_cache"
+      ],
+      "writes_files": "only_with_--init_or_--add_or_--rebuild",
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_memory.py --query \"Harness\" --json"
     },
     {
       "name": "harness_migration_audit",
@@ -385,6 +411,23 @@
       "safe_by_default": true,
       "context_check": true,
       "verify": "python Harness/scripts/tools/harness_progress_check.py --json"
+    },
+    {
+      "name": "harness_progress_html",
+      "path": "Harness/scripts/tools/harness_progress_html.py",
+      "purpose": "Writes the tracked Harness/Progress_index.html convenience viewer that loads Harness/Progress.md at view time.",
+      "inputs": [
+        "Harness/Progress.md",
+        "--write"
+      ],
+      "outputs": [
+        "Harness/Progress_index.html",
+        "html_preview",
+        "json"
+      ],
+      "writes_files": "only_with_--write",
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_progress_html.py --json"
     },
     {
       "name": "harness_python_check",

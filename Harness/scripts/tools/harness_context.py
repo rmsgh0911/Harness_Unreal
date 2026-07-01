@@ -182,7 +182,7 @@ def evaluate_cycle_request(request: str, policy: dict) -> dict:
     }
 
 
-def build_context(root: Path, request: str = "", task: str = "", all_next: bool = False) -> dict:
+def build_context(root: Path, request: str = "", task: str = "", all_next: bool = False, use_memory: bool = True, memory_limit: int = 3) -> dict:
     harness = harness_dir(root)
     project = load_json(harness / "config" / "project.json", {}) or {}
     policy = load_json(harness / "config" / "cycle_policy.json", {}) or {}
@@ -196,8 +196,9 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
     state_matches = matched_markdown_sections(root, state_path(root), request, limit=2)
     selected_next_items = select_next_items(read_text(next_path(root)), request, all_next=all_next)
     first_reads = ["HARNESS.md", "Harness/README.md"]
-    if _request_has_any(request, UPDATE_HINTS) and (root / "INSTALL.md").exists():
-        first_reads.append("INSTALL.md")
+    setup_doc = harness / "docs" / "template" / "setup.md"
+    if _request_has_any(request, UPDATE_HINTS) and setup_doc.exists():
+        first_reads.append(rel(setup_doc, root))
     if state_matches:
         first_reads.append("Harness/work/state.md")
     if selected_next_items:
@@ -218,6 +219,26 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
             item for item in existing_knowledge["matches"] if item["kind"] not in {"snapshot", "index"}
         ][:3]
         first_reads.extend(item["path"] for item in existing_knowledge["matches"])
+        if use_memory and memory_limit > 0:
+            try:
+                from argparse import Namespace
+                from harness_memory import query_memory
+
+                memory_report = query_memory(
+                    root,
+                    Namespace(query=request, include_draft=False, limit=memory_limit, max_chars=300 * memory_limit),
+                )
+                existing_knowledge["memory_matches"] = memory_report.get("results", [])[:memory_limit]
+                existing_knowledge["memory_source"] = memory_report.get("source", "")
+                existing_knowledge["memory_errors"] = memory_report.get("errors", [])
+            except Exception as exc:  # noqa: BLE001
+                existing_knowledge["memory_matches"] = []
+                existing_knowledge["memory_source"] = "unavailable"
+                existing_knowledge["memory_errors"] = [{"error": str(exc)}]
+        else:
+            existing_knowledge["memory_matches"] = []
+            existing_knowledge["memory_source"] = "disabled"
+            existing_knowledge["memory_errors"] = []
     first_reads = list(dict.fromkeys(first_reads))
 
     files = {
@@ -320,6 +341,13 @@ def format_text(context: dict) -> str:
             f"- [{item['kind']}] {item['path']}:{item['line']} > {item['section']}"
             for item in context["existing_knowledge"]["matches"]
         )
+    memory_matches = context["existing_knowledge"].get("memory_matches", [])
+    if memory_matches:
+        lines.extend(["", "Memory hints:"])
+        for item in memory_matches:
+            tags = ",".join(item.get("tags", []))
+            suffix = f" [{tags}]" if tags else ""
+            lines.append(f"- {item['title']}{suffix}: {item['body']}")
     lines.extend(["", "All next items:" if context["all_next"] else "Related next:"])
     if context["next_items"]:
         lines.extend(f"- {item}" for item in context["next_items"])
@@ -334,10 +362,14 @@ def main() -> None:
     parser.add_argument("--request", default="", help="Optional user request to evaluate.")
     parser.add_argument("--task", default="", type=validate_task_id, help="Optional active task ID for task-scoped routing.")
     parser.add_argument("--all-next", action="store_true", help="Show every next.md item instead of request-related items only.")
+    parser.add_argument("--no-memory", action="store_true", help="Disable optional Harness memory hints.")
+    parser.add_argument("--memory-limit", type=int, default=3, help="Maximum memory hints to include.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     args = parser.parse_args()
     root = find_project_root(args.root)
-    context = build_context(root, args.request, args.task, all_next=args.all_next)
+    if args.memory_limit < 0:
+        parser.error("--memory-limit must be non-negative")
+    context = build_context(root, args.request, args.task, all_next=args.all_next, use_memory=not args.no_memory, memory_limit=args.memory_limit)
     print_text_or_json(context if args.json else format_text(context), args.json)
 
 

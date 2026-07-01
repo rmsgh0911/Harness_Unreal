@@ -25,20 +25,24 @@ PROJECT_OWNED_PREFIXES = (
     "Harness/index/",
     "Harness/work/",
 )
+TEMPLATE_DOC_PREFIX = "Harness/docs/template/"
 MERGE_REVIEW_PATHS = {
     "AGENTS.md",
     "CLAUDE.md",
     "HARNESS.md",
-    "INSTALL.md",
     ".gitattributes",
     ".gitignore",
     "Harness/README.md",
+    "Harness/docs/template/setup.md",
+    "Harness/docs/template/changelog.md",
     "Harness/config/agents.json",
     "Harness/config/cycle_policy.json",
 }
 
 
 def _is_project_owned(relative: str) -> bool:
+    if relative == TEMPLATE_DOC_PREFIX.rstrip("/") or relative.startswith(TEMPLATE_DOC_PREFIX):
+        return False
     return relative in PROJECT_OWNED_FILES or any(relative == prefix.rstrip("/") or relative.startswith(prefix) for prefix in PROJECT_OWNED_PREFIXES)
 
 

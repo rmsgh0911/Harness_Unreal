@@ -97,3 +97,12 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 dist/
+
+# Harness local memory cache
+Harness/data/harness.sqlite
+Harness/data/*.sqlite
+Harness/data/*.sqlite-wal
+Harness/data/*.sqlite-shm
+Harness/data/*.db
+Harness/data/*.db-wal
+Harness/data/*.db-shm

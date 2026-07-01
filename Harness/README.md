@@ -7,6 +7,7 @@ All supported agents use this single Harness layout. If a project uses parallel 
 ## Layout
 
 - `config/`: project, docs, cycle, and agent configuration
+- `data/`: optional daily JSONL memory shards, examples, schema, and ignored local SQLite cache
 - `docs/`: confirmed project documents
 - `index/`: compact project routing maps
 - `scripts/`: build, Unreal, and Harness tools
@@ -15,6 +16,7 @@ All supported agents use this single Harness layout. If a project uses parallel 
 - `work/tasks/`: one conflict-resistant record per active task or branch
 - `work/cycles/`: short task-scoped work loop records
 - `Progress.md`: short Korean human-facing dashboard
+- `Progress_index.html`: tracked convenience viewer that loads `Progress.md` at view time
 
 Keep the current decision surface compact:
 
@@ -34,9 +36,13 @@ python Harness/scripts/tools/harness_cycle.py "Task Name" --task <task-id> --wor
 python Harness/scripts/tools/harness_iteration_status.py --request "<repeated task>" --task <task-id>
 python Harness/scripts/tools/harness_update_plan.py --target C:\Path\To\OlderProject
 python Harness/scripts/tools/harness_knowledge.py --query "<feature or issue>"
+python Harness/scripts/tools/harness_memory.py --query "<feature or issue>" --limit 5
+python Harness/scripts/tools/harness_progress_html.py --write
 ```
 
 Use the context briefing first, then open only the recommended sections or files. Read the full state, next, and index files only when Python is unavailable, the briefing reports a conflict, or the request needs broader project context.
+
+Use `harness_memory.py` only for compact routing hints that still need confirmation against source, config, assets, logs, docs, or verification output. `Progress_index.html` is a stable viewer; routine status changes should update `Progress.md` and then reload the viewer.
 
 For parallel work, create a separate worktree and branch only when the task actually needs parallel isolation, then create `Harness/work/tasks/<task-id>.md`. Keep agent names and timestamps there rather than repeatedly editing shared `state.md` or `next.md`.
 

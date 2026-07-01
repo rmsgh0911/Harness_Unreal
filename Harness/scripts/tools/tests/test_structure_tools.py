@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import sys
 import tempfile
 import unittest
@@ -23,7 +24,9 @@ from harness_index_check import build_report as build_index_report  # noqa: E402
 from harness_iteration_status import build_status as build_iteration_status  # noqa: E402
 from harness_handoff import build_handoff  # noqa: E402
 from harness_knowledge import build_knowledge  # noqa: E402
+from harness_memory import add_entry as add_memory_entry, memory_doctor, prune_memory, query_memory as query_memory_entries, rebuild_cache as rebuild_memory_cache, update_status as update_memory_status, validate_memory  # noqa: E402
 from harness_progress_check import build_report as build_progress_report  # noqa: E402
+from harness_progress_html import build_report as build_progress_html_report  # noqa: E402
 from harness_release_check import build_report as build_release_report  # noqa: E402
 from harness_release_pack import build_package, collect_files as collect_release_files, should_include as should_include_release_file  # noqa: E402
 from harness_state_check import build_report as build_state_report  # noqa: E402
@@ -224,6 +227,35 @@ class HarnessStructureTests(unittest.TestCase):
         self.assertFalse(report["ok"])
         self.assertIn("appears_to_be_date_log:4", report["errors"])
 
+    def test_progress_html_writes_tracked_dashboard(self) -> None:
+        report = build_progress_html_report(self.root, write=True)
+        output = self.root / "Harness/Progress_index.html"
+        self.assertTrue(report["ok"])
+        self.assertTrue(report["output_exists"])
+        self.assertEqual("dynamic-source", report["viewer_mode"])
+        self.assertTrue(output.exists())
+        html = output.read_text(encoding="utf-8")
+        self.assertIn("<title>Harness Progress</title>", html)
+        self.assertIn('name="harness-progress-viewer" content="dynamic-source"', html)
+        self.assertIn('name="harness-progress-source" content="Harness/Progress.md"', html)
+        self.assertIn('const SOURCE = "Progress.md";', html)
+        self.assertNotIn("?묒꽦 ?꾩슂:", html)
+
+    def test_release_check_rejects_static_progress_html(self) -> None:
+        (self.root / "Harness/config/project.json").write_text('{"template_mode": true}\n', encoding="utf-8")
+        (self.root / "Harness/Progress_index.html").write_text(
+            "<html><body><section>Static progress snapshot</section></body></html>\n",
+            encoding="utf-8",
+        )
+
+        report = build_release_report(self.root)
+
+        self.assertFalse(report["ok"])
+        self.assertTrue(
+            any(item["message"] == "progress_html_not_dynamic_viewer" for item in report["errors"]),
+            report["errors"],
+        )
+
     def test_state_check_warns_about_completed_next_item(self) -> None:
         path = self.root / "Harness/work/next.md"
         path.write_text("# Next\n\n## Active Work\n- [x] Old work\n- New work\n", encoding="utf-8")
@@ -310,9 +342,10 @@ class HarnessStructureTests(unittest.TestCase):
         self.assertTrue(evaluate_cycle_request("검증을 반복해줘", policy)["is_cycle_work"])
 
     def test_harness_update_context_routes_to_install_guide(self) -> None:
-        (self.root / "INSTALL.md").write_text("# Install\n", encoding="utf-8")
+        (self.root / "Harness/docs/template").mkdir(parents=True, exist_ok=True)
+        (self.root / "Harness/docs/template/setup.md").write_text("# Install\n", encoding="utf-8")
         context = build_context(self.root, request="older Harness update")
-        self.assertIn("INSTALL.md", context["recommended_first_reads"])
+        self.assertIn("Harness/docs/template/setup.md", context["recommended_first_reads"])
         self.assertFalse(context["cycle_policy"]["request_eval"]["is_cycle_work"])
 
     def test_context_includes_task_iteration_progress(self) -> None:
@@ -509,6 +542,129 @@ class HarnessStructureTests(unittest.TestCase):
         report = build_knowledge(self.root, query="api")
         self.assertFalse(any(item["path"].endswith("Budget.md") for item in report["matches"]))
 
+    def test_memory_add_rebuild_and_query_uses_daily_jsonl(self) -> None:
+        args = argparse.Namespace(
+            id="00000000-0000-4000-8000-000000000123",
+            created_at="2026-07-01T12:00:00+09:00",
+            status="confirmed",
+            title="UMG PIE visibility",
+            body="AddToViewport in BeginPlay is visible only in PIE.",
+            tags="unreal,umg,pie",
+            source="Harness/docs/AgentFieldGuide.md",
+        )
+        added = add_memory_entry(self.root, args)
+        self.assertEqual("Harness/data/memory/2026-07-01.jsonl", added["shard"])
+        self.assertTrue((self.root / "Harness/data/memory/2026-07-01.jsonl").exists())
+        rebuilt = rebuild_memory_cache(self.root)
+        self.assertTrue(rebuilt["ok"])
+        validation = validate_memory(self.root)
+        self.assertTrue(validation["ok"])
+        self.assertEqual(1, validation["entries"])
+        query_args = argparse.Namespace(query="widget visible PIE", include_draft=False, limit=5, max_chars=1600)
+        result = query_memory_entries(self.root, query_args)
+        self.assertEqual(1, result["count"])
+        self.assertEqual("UMG PIE visibility", result["results"][0]["title"])
+
+    def test_memory_query_excludes_draft_by_default(self) -> None:
+        args = argparse.Namespace(
+            id="00000000-0000-4000-8000-000000000124",
+            created_at="2026-07-02T12:00:00+09:00",
+            status="draft",
+            title="Draft encoding note",
+            body="Verify this before relying on it.",
+            tags="encoding",
+            source="",
+        )
+        add_memory_entry(self.root, args)
+        query_args = argparse.Namespace(query="encoding", include_draft=False, limit=5, max_chars=1600)
+        self.assertEqual(0, query_memory_entries(self.root, query_args)["count"])
+        query_args.include_draft = True
+        self.assertEqual(1, query_memory_entries(self.root, query_args)["count"])
+
+    def test_memory_validation_rejects_duplicate_ids(self) -> None:
+        memory = self.root / "Harness/data/memory"
+        memory.mkdir(parents=True, exist_ok=True)
+        duplicate = (
+            '{"id":"00000000-0000-4000-8000-000000000125","created_at":"2026-07-03T12:00:00+09:00",'
+            '"status":"confirmed","title":"One","body":"First body.","tags":["test"],"source":""}\n'
+        )
+        (memory / "2026-07-03.jsonl").write_text(duplicate + duplicate, encoding="utf-8")
+        validation = validate_memory(self.root)
+        self.assertFalse(validation["ok"])
+        self.assertTrue(any("duplicate memory id" in item["error"] for item in validation["errors"]))
+
+    def test_context_includes_bounded_memory_hints(self) -> None:
+        args = argparse.Namespace(
+            id="00000000-0000-4000-8000-000000000126",
+            created_at="2026-07-04T12:00:00+09:00",
+            status="confirmed",
+            title="Private Gitea memory",
+            body="Daily JSONL shards may be committed in private repositories after review.",
+            tags="memory,gitea",
+            source="Harness/data/README.md",
+        )
+        add_memory_entry(self.root, args)
+        context = build_context(self.root, request="private Gitea memory shards")
+        hints = context["existing_knowledge"].get("memory_matches", [])
+        self.assertEqual(1, len(hints))
+        self.assertEqual("Private Gitea memory", hints[0]["title"])
+        limited = build_context(self.root, request="private Gitea memory shards", use_memory=False)
+        self.assertEqual([], limited["existing_knowledge"].get("memory_matches"))
+
+    def test_memory_promote_demote_updates_jsonl_and_cache(self) -> None:
+        entry_id = "00000000-0000-4000-8000-000000000127"
+        args = argparse.Namespace(
+            id=entry_id,
+            created_at="2026-07-05T12:00:00+09:00",
+            status="draft",
+            title="Reviewable memory",
+            body="Draft memory can be promoted after review.",
+            tags="memory",
+            source="",
+        )
+        add_memory_entry(self.root, args)
+        promoted = update_memory_status(self.root, entry_id, "confirmed")
+        self.assertTrue(promoted["ok"])
+        query_args = argparse.Namespace(query="reviewable", include_draft=False, limit=5, max_chars=1600)
+        self.assertEqual(1, query_memory_entries(self.root, query_args)["count"])
+        demoted = update_memory_status(self.root, entry_id, "draft")
+        self.assertTrue(demoted["ok"])
+        self.assertEqual(0, query_memory_entries(self.root, query_args)["count"])
+
+    def test_memory_doctor_and_prune_report_quality_candidates(self) -> None:
+        memory = self.root / "Harness/data/memory"
+        memory.mkdir(parents=True, exist_ok=True)
+        stale = (
+            '{"id":"00000000-0000-4000-8000-000000000128","created_at":"2020-01-01T12:00:00+09:00",'
+            '"status":"draft","title":"Old draft","body":"Remove me after review.","tags":["memory"],"source":""}\n'
+        )
+        duplicate = (
+            '{"id":"00000000-0000-4000-8000-000000000129","created_at":"2026-07-06T12:00:00+09:00",'
+            '"status":"confirmed","title":"Same","body":"Same body.","tags":["memory"],"source":""}\n'
+            '{"id":"00000000-0000-4000-8000-000000000130","created_at":"2026-07-06T12:01:00+09:00",'
+            '"status":"confirmed","title":"Same","body":"Same body.","tags":["memory"],"source":""}\n'
+        )
+        (memory / "2026-07-06.jsonl").write_text(stale + duplicate, encoding="utf-8")
+        doctor = memory_doctor(self.root, draft_days=30, max_body_chars=600)
+        kinds = {item["kind"] for item in doctor["findings"]}
+        self.assertIn("stale_draft", kinds)
+        self.assertIn("duplicate_content", kinds)
+        prune_args = argparse.Namespace(write=False, prune_draft_days=30, prune_max_body_chars=600)
+        dry_run = prune_memory(self.root, prune_args)
+        self.assertEqual(2, len(dry_run["candidates"]))
+        prune_args.write = True
+        applied = prune_memory(self.root, prune_args)
+        self.assertEqual(2, len(applied["removed"]))
+
+    def test_memory_prune_fails_when_jsonl_has_errors(self) -> None:
+        memory = self.root / "Harness/data/memory"
+        memory.mkdir(parents=True, exist_ok=True)
+        (memory / "2026-07-07.jsonl").write_text("{not json}\n", encoding="utf-8")
+        prune_args = argparse.Namespace(write=False, prune_draft_days=30, prune_max_body_chars=600)
+        report = prune_memory(self.root, prune_args)
+        self.assertFalse(report["ok"])
+        self.assertTrue(report["doctor"]["errors"])
+
     def test_korean_particles_do_not_hide_relevant_knowledge(self) -> None:
         docs = self.root / "Harness/docs"
         docs.mkdir(exist_ok=True)
@@ -526,9 +682,12 @@ class HarnessStructureTests(unittest.TestCase):
             (base / "Harness/config").mkdir(parents=True)
             (base / "Harness/docs").mkdir(parents=True)
             (base / "Harness/scripts/tools").mkdir(parents=True)
-        for name in ["HARNESS.md", "AGENTS.md", "CLAUDE.md", "INSTALL.md"]:
+        for name in ["HARNESS.md", "AGENTS.md", "CLAUDE.md"]:
             (template / name).write_text(f"new {name}\n", encoding="utf-8")
         (template / "Harness/README.md").write_text("new readme\n", encoding="utf-8")
+        (template / "Harness/docs/template").mkdir(parents=True, exist_ok=True)
+        (template / "Harness/docs/template/setup.md").write_text("new setup\n", encoding="utf-8")
+        (template / "Harness/docs/template/changelog.md").write_text("new changelog\n", encoding="utf-8")
         (template / "Harness/config/project.json").write_text('{"template_mode": true}\n', encoding="utf-8")
         (template / "Harness/config/docs.json").write_text('{"doc_roots": []}\n', encoding="utf-8")
         (template / "Harness/docs/Guide.md").write_text("new guide\n", encoding="utf-8")
@@ -544,6 +703,7 @@ class HarnessStructureTests(unittest.TestCase):
         actions = {item["path"]: item["action"] for item in plan["actions"]}
         self.assertEqual("preserve", actions["Harness/config/project.json"])
         self.assertEqual("preserve", actions["Harness/docs/Guide.md"])
+        self.assertEqual("add", actions["Harness/docs/template/setup.md"])
         self.assertEqual("merge_review", actions["HARNESS.md"])
         self.assertEqual("replace_review", actions["Harness/scripts/tools/standard.py"])
         self.assertEqual("replace_review", actions["Harness/Progress.md.bak"])
@@ -731,6 +891,12 @@ class HarnessStructureTests(unittest.TestCase):
         candidate = self.root / "Harness/linked.md"
         with patch.object(Path, "is_symlink", return_value=True):
             self.assertFalse(should_include_release_file(candidate, self.root))
+
+    def test_release_pack_excludes_memory_cache_and_daily_shards(self) -> None:
+        self.assertFalse(should_include_release_file(self.root / "Harness/data/harness.sqlite", self.root))
+        self.assertFalse(should_include_release_file(self.root / "Harness/data/harness.sqlite-wal", self.root))
+        self.assertFalse(should_include_release_file(self.root / "Harness/data/memory/2026-07-01.jsonl", self.root))
+        self.assertTrue(should_include_release_file(self.root / "Harness/data/memory/.gitkeep", self.root))
 
     def test_release_rejects_and_excludes_symlinks(self) -> None:
         external = self.root.parent / f"{self.root.name}-external.txt"

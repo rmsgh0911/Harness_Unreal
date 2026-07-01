@@ -29,7 +29,7 @@ def audit(root: Path) -> dict:
     cleanup: list[str] = []
     template_controlled = [
         "run the new template's harness_update_plan.py before copying or replacing files",
-        "review and merge AGENTS.md, CLAUDE.md, HARNESS.md, INSTALL.md, and Harness/README.md from the new template",
+        "review and merge AGENTS.md, CLAUDE.md, HARNESS.md, Harness/README.md, and Harness/docs/template/ from the new template",
         "review and merge Harness/config/agents.json and Harness/config/cycle_policy.json",
         "review and merge standard Harness/scripts/ tools, build helpers, and Unreal helpers while preserving custom behavior",
         "review and merge Harness/work/tasks/task.example.md and template documentation examples",

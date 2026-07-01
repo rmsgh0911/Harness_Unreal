@@ -11,6 +11,13 @@ python Harness/scripts/tools/harness_context.py --request "<task>"
 python Harness/scripts/tools/harness_verify_all.py
 ```
 
+Optional local memory uses daily JSONL shards and a rebuildable SQLite cache:
+
+```powershell
+python Harness/scripts/tools/harness_memory.py --query "<topic>" --limit 5
+python Harness/scripts/tools/harness_memory.py --doctor
+```
+
 For optional parallel work:
 
 1. Create a worktree and branch for the task only when parallel isolation is needed.
@@ -21,7 +28,7 @@ For optional parallel work:
 python Harness/scripts/tools/harness_cycle.py "Task Name" --task <task-id> --worker Codex
 ```
 
-Read `HARNESS.md` for operating rules and `INSTALL.md` for installation or migration.
+Read `HARNESS.md` for operating rules and `Harness/docs/template/setup.md` for installation or migration.
 
 ## What This Template Optimizes For
 

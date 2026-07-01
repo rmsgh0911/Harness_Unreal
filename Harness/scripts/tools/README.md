@@ -49,6 +49,7 @@ Keep tools small. Split them by purpose when they grow.
 - `harness_iteration_status.py`: reports cycle progress, budget, verification gaps, and repeated unresolved work without writing files.
 - `harness_update_plan.py`: compares a new template with an older project, preserves exact project-owned paths, rejects escaping plan paths, adds only missing files with an explicit option, and stages changed template files for review.
 - `harness_knowledge.py`: searches retained docs, indexes, tasks, cycles, archives, state, and next files as bounded routing evidence.
+- `harness_memory.py`: maintains optional daily JSONL memory shards with UUID entries, review status changes, pruning diagnostics, and a rebuildable local SQLite search cache.
 - `harness_cycle.py`: creates cycle log entries; writes only with `--write`. Use `--task` and `--worker` for parallel work.
 - `harness_diff_guard.py`: checks changed files and Unreal risk signals.
 - `harness_field_check.py`: checks field-proven operating risks, suspicious doc text artifacts, nested Harness review copies, Unreal Python wrapper hints, and optional branch-ref alignment.
@@ -59,6 +60,7 @@ Keep tools small. Split them by purpose when they grow.
 - `harness_migration_audit.py`: audits an older Harness project before migration.
 - `harness_state_check.py`: checks whether state/next/tasks/cycles are compact, stale, or mixed with completed history.
 - `harness_progress_check.py`: enforces the four-section, 40-line Progress dashboard contract.
+- `harness_progress_html.py`: writes the tracked `Harness/Progress_index.html` viewer that loads `Harness/Progress.md` at view time.
 - `harness_python_check.py`: checks Python 3 availability and Unreal Python candidates.
 - `harness_init_plan.py`: summarizes preservation, fill, and verification work for initialization or migration.
 - `harness_docs_index.py`: indexes project doc headings to reduce reading scope.
@@ -74,6 +76,7 @@ Keep tools small. Split them by purpose when they grow.
 - Use `harness_unreal_script.py --script <file> --run` for scripts that import `unreal`; plain CPython is only enough for ordinary Python helpers.
 - Use `harness_iteration_status.py` before continuing long repeated work so cycle budgets, missing verification, and stop conditions stay visible.
 - Use `harness_knowledge.py --query "<request>"` after migrations or context handoffs to route into retained docs and cycle records without broad scans.
+- Use `harness_memory.py --query "<request>" --limit 5` for short reviewed lessons; treat results as routing hints, not final evidence.
 - Use `harness_verify_all.py` as the standard finish gate, then inspect `git diff --stat` to confirm scope.
 
 Examples:
@@ -81,6 +84,8 @@ Examples:
 ```powershell
 python Harness/scripts/tools/harness_context.py
 python Harness/scripts/tools/harness_context.py --request "Improve lock-on input flow"
+python Harness/scripts/tools/harness_context.py --request "Improve lock-on input flow" --no-memory
+python Harness/scripts/tools/harness_context.py --request "Improve lock-on input flow" --memory-limit 5
 python Harness/scripts/tools/harness_context.py --request "Improve lock-on input flow" --all-next
 python Harness/scripts/tools/harness_doctor.py --json
 python Harness/scripts/tools/harness_docs_check.py --json
@@ -92,6 +97,13 @@ python Harness/scripts/tools/harness_update_plan.py --target C:\Path\To\OlderPro
 python Harness/scripts/tools/harness_update_plan.py --target C:\Path\To\OlderProject --apply-missing --stage-review C:\Temp\HarnessReview
 python Harness/scripts/tools/harness_update_plan.py --target C:\Path\To\OlderProject --stage-review C:\Temp\HarnessReview --overwrite-stage
 python Harness/scripts/tools/harness_knowledge.py --query "lock-on input"
+python Harness/scripts/tools/harness_memory.py --add --title "UMG PIE visibility" --body "AddToViewport in BeginPlay is PIE-only." --tags unreal,umg,pie --source Harness/docs/AgentFieldGuide.md
+python Harness/scripts/tools/harness_memory.py --validate
+python Harness/scripts/tools/harness_memory.py --doctor
+python Harness/scripts/tools/harness_memory.py --promote 00000000-0000-4000-8000-000000000001
+python Harness/scripts/tools/harness_memory.py --prune
+python Harness/scripts/tools/harness_memory.py --query "widget visible PIE" --limit 5
+python Harness/scripts/tools/harness_memory.py --rebuild
 python Harness/scripts/tools/harness_cycle.py "Input fix" --changed "..." --verified "..." --remaining "..."
 python Harness/scripts/tools/harness_cycle.py "Parallel input fix" --task input-fix --worker Codex --changed "..." --verified "..."
 python Harness/scripts/tools/harness_cycle.py "Iteration 2" --task input-fix --max-cycles 5 --decision continue --success-criterion "Lock-on remains stable"
@@ -106,6 +118,7 @@ python Harness/scripts/tools/harness_release_pack.py --write
 python Harness/scripts/tools/harness_migration_audit.py --target C:\Path\To\OldProject
 python Harness/scripts/tools/harness_state_check.py --target C:\Path\To\Project
 python Harness/scripts/tools/harness_progress_check.py --json
+python Harness/scripts/tools/harness_progress_html.py --write
 python Harness/scripts/tools/harness_python_check.py
 python Harness/scripts/tools/harness_init_plan.py
 python Harness/scripts/tools/harness_docs_index.py

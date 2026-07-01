@@ -56,9 +56,9 @@ def _field_guide_report(root: Path) -> dict:
     references = [
         "HARNESS.md",
         "README.md",
-        "INSTALL.md",
         "Harness/README.md",
         "Harness/docs/README.md",
+        "Harness/docs/template/setup.md",
         "Harness/scripts/tools/README.md",
     ]
     linked_from = [

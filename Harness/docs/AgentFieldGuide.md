@@ -17,6 +17,23 @@ This guide captures practical lessons from applying Harness in real Unreal proje
 - Prefer a narrow fix that changes that mechanism. Avoid broad rewrites, visual-only patches, or duplicated fallback systems unless the existing system cannot support the behavior.
 - Make generated data idempotent. Loader or placement scripts should clear, update, or deduplicate their own prior output before adding new rows or actors.
 - For Korean text and Windows consoles, verify stored file content or rendered output instead of trusting garbled terminal display.
+- A garbled `Get-Content` result on Windows is usually an output decoding problem, not proof that the file is damaged. Confirm with an explicit UTF-8 read such as `python -c "from pathlib import Path; print(Path('Harness/Progress.md').read_text(encoding='utf-8'))"`.
+- When a task only needs agent context, prefer English Harness docs and compact indexes. Read Korean files only when they are directly relevant to the user-facing status, copy, or project requirements.
+
+## Text And Encoding
+
+- Keep long-lived agent instructions, indexes, tool docs, tests, and template docs in English unless the project has a specific reason to do otherwise.
+- Keep Korean content short and human-facing. `Harness/Progress.md` is the default place for Korean project status; detailed Korean work history should not accumulate there.
+- If Korean output looks corrupted, first check whether the bytes decode as UTF-8 and whether replacement characters are actually present. Do not rework content based only on terminal mojibake.
+- For PowerShell inspection sessions, use UTF-8 settings when practical:
+
+```powershell
+chcp 65001
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$OutputEncoding = [System.Text.UTF8Encoding]::new()
+```
+
+- If tools still disagree, trust source bytes, UTF-8 explicit reads, rendered output, or project verification over console display.
 
 ## Unreal Verification
 
@@ -63,6 +80,8 @@ Use the actual branch names for the project.
 
 - `Harness/Progress.md` is a short human dashboard. Keep it to current status, recent completion, confirmation needed, and next work.
 - Put detailed work history in task and cycle records, not in `Progress.md`, `state.md`, or `next.md`.
+- Use optional `Harness/data/memory/*.jsonl` only for compact reusable lessons or routing hints. Do not copy long logs, private credentials, or unverified agent guesses into memory.
+- Rebuild `Harness/data/harness.sqlite` from JSONL shards when search cache behavior looks stale; do not edit or commit the SQLite file.
 - For repeated work, record success criteria, cycle number, changed items, verification, remaining work, and one decision.
 - Archive completed task/cycle records when they stop helping current routing.
 - If verification passes with warnings, record what the warning means and whether it is baseline/environmental or caused by the current change.

@@ -8,16 +8,15 @@ Harness의 다른 운영 문서는 이식 안정성을 위해 기본적으로 �
 
 ## 현재 상태
 
-- 템플릿 재점검 완료. 10사이클 개선 작업 및 커밋·푸시 준비 완료.
+- 작성 필요: 현재 프로젝트 상태를 적습니다.
 
 ## 최근 완료
 
-- Harness_Unreal 운영 경험 기반 템플릿 개선 통합 (HARNESS.md, AgentFieldGuide.md, cycle_log.example.md, harness_unreal_risk.py, 테스트 3개 추가)
-- harness_verify_all 전체 통과, strict release check 통과
+- 작성 필요: 최근 완료한 프로젝트 작업을 적습니다.
 
 ## 확인 필요
 
-- 작성 필요: PIE, 입력 감각, 애니메이션, 에셋 상태처럼 사람 확인이 필요한 항목을 적습니다.
+- 작성 필요: 사람이 확인해야 할 항목을 적습니다.
 
 ## 다음 작업
 

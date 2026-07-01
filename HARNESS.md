@@ -104,10 +104,22 @@ Recommended cycle entry:
 - `Harness/index/` is a compact Project Understanding Layer, not the source of truth.
 - Keep `state.md` compact; put project structure and routing notes in `Harness/index/`.
 - `Harness/Progress.md` is a short Korean human-facing dashboard, not a work log. Keep only Current Status, Recent Completion, Needs Confirmation, and Next Work, with at most three core bullets per section and about 40 lines total.
+- `Harness/Progress_index.html` is a tracked convenience viewer that loads `Harness/Progress.md` at view time. Do not rewrite it during routine progress updates.
+- Keep agent-facing Harness docs in English by default. Limit Korean text to short human-facing files such as `Harness/Progress.md` unless project requirements need otherwise.
+- If Korean text appears garbled in a Windows console, do not treat that output as file corruption. Re-read the file with an explicit UTF-8 path, for example Python `Path.read_text(encoding="utf-8")`, before drawing conclusions.
+
+## Optional Memory
+
+- `Harness/data/memory/*.jsonl` may store reviewed, compact memory entries as daily JSONL shards. Each entry uses a UUID so Git merges can keep both lines when branches add different memories.
+- `Harness/data/harness.sqlite` is a local search cache rebuilt from JSONL shards. It is ignored by Git and is never the source of truth.
+- Private repositories may commit reviewed daily JSONL shards even while `template_mode` is still true. Public template packages exclude real daily shards and SQLite cache files.
+- Use `python Harness/scripts/tools/harness_memory.py --query "<request>" --limit 5` as a routing hint only. Confirm final claims against code, config, assets, logs, build output, docs, or verification results.
+- Use `--promote`, `--demote`, `--doctor`, and `--prune` to keep memory reviewed and compact. `--prune` only deletes candidates when `--write` is explicitly supplied.
+- Keep entries short: one title, one to three body sentences, tags, status, and optional source. Default queries should prefer `confirmed` entries; use `draft` only for unverified notes.
 
 ## Harness Updates
 
-- Read `INSTALL.md` before installing, migrating, or updating Harness.
+- Read `Harness/docs/template/setup.md` before installing, migrating, or updating Harness.
 - Treat updates as reviewed migrations, not blind replacement.
 - Preserve project-specific config, docs, index, work records, Progress, and custom scripts.
 - Run the new template's `harness_update_plan.py --target <project>` before copying. `--apply-missing` may add absent files but never overwrites; `--stage-review <dir>` transactionally places changed template files outside both the template and target trees for review.
@@ -140,15 +152,17 @@ Recommended cycle entry:
 1. Verify the requested behavior with the smallest useful command or manual check.
 2. Inspect `git diff --stat` and confirm the scope matches the request. Do not stage `.umap` files changed only by editor navigation (camera/selection state) unless the level content genuinely changed.
 3. Refresh `Harness/Progress.md` when meaningful project behavior or a human decision changed. `Progress.md` is Korean by default; keep it to ~40 lines covering Current Status, Recent Completion, Needs Confirmation, and Next Work.
-4. Update the active task file and consolidate durable facts into `state.md` or `next.md` only when appropriate.
-5. Run `python Harness/scripts/tools/harness_verify_all.py`.
-6. For requested branch-family or worktree syncs, confirm each involved checkout/worktree is clean enough for the operation and verify remote refs after push with `git ls-remote --heads origin <branches...>`.
-7. For C++ changes that affect actor visualization or widget behavior, add a `Remaining` note specifying what to confirm in PIE or the editor viewport. Do not claim visual correctness from a build pass alone.
-8. For Unreal Python scripts that place or update actors, confirm the script runs idempotently: a second run should produce the same actor count and state, not duplicates.
+4. Do not rewrite `Harness/Progress_index.html` for routine progress changes; update `Harness/Progress.md` and reload the viewer instead.
+5. Update the active task file and consolidate durable facts into `state.md` or `next.md` only when appropriate.
+6. Run `python Harness/scripts/tools/harness_verify_all.py`.
+7. For requested branch-family or worktree syncs, confirm each involved checkout/worktree is clean enough for the operation and verify remote refs after push with `git ls-remote --heads origin <branches...>`.
+8. For C++ changes that affect actor visualization or widget behavior, add a `Remaining` note specifying what to confirm in PIE or the editor viewport. Do not claim visual correctness from a build pass alone.
+9. For Unreal Python scripts that place or update actors, confirm the script runs idempotently: a second run should produce the same actor count and state, not duplicates.
 
 ## Git And Language
 
 - Never revert user changes or unrelated generated files unless explicitly asked.
 - Commit, branch, rebase, force-push, or rewrite history only when explicitly asked.
 - Reply in the user's language.
-- Write agent-facing Harness files in English by default. `Harness/Progress.md` is Korean by default.
+- Write agent-facing Harness files in English by default. `Harness/Progress.md` is Korean by default and should stay short.
+- For Windows PowerShell sessions that need to inspect Korean text, prefer a UTF-8 session: `chcp 65001`, `[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()`, and `$OutputEncoding = [System.Text.UTF8Encoding]::new()`. If the terminal still displays mojibake, verify stored content with an explicit UTF-8 reader instead of repeating broad file scans.

@@ -2,9 +2,11 @@
 
 Use this guide when copying the template into an Unreal Engine project or updating an older Harness install.
 
+`Harness/docs/template/changelog.md` tracks the reusable Harness_Unreal template itself. `Harness/Progress.md` is copied as a neutral project-facing dashboard and should only describe the target project's current status after installation.
+
 ## Copy Into A Project
 
-Copy `AGENTS.md`, `CLAUDE.md`, `HARNESS.md`, `INSTALL.md`, and `Harness/` into the project root. Copy the root `README.md` only when the target does not already have one.
+Copy `AGENTS.md`, `CLAUDE.md`, `HARNESS.md`, and `Harness/` into the project root. Copy the root `README.md` only when the target does not already have one. `Harness/docs/template/changelog.md` is template provenance; keep project work history in task and cycle records instead of adding project entries there.
 
 Review and merge these repository files instead of blindly replacing project-specific rules:
 
@@ -20,10 +22,12 @@ Do not copy `.git/`, `.claude/`, Python caches, generated handoffs, or real proj
 3. Register project docs in `Harness/config/docs.json`.
 4. Fill `Harness/work/state.md` with the compact current snapshot and keep only the 3-5 highest-priority unresolved project items in `Harness/work/next.md`.
 5. Fill `Harness/index/project_index.md` as a compact routing map.
-6. Keep `Harness/Progress.md` as the short Korean dashboard.
-7. For parallel work, use separate worktrees and branches only when parallel isolation is needed. Create one `Harness/work/tasks/<task-id>.md` per task.
-8. Confirm Git LFS is installed and the `.gitattributes` rules match team policy before committing binary Unreal assets.
-9. Read `Harness/docs/AgentFieldGuide.md` and remove or adapt any guidance that does not fit the project's workflow.
+6. Keep `Harness/Progress.md` as the short Korean dashboard for the target project. Replace the neutral `작성 필요:` bullets only after there is real project status to record.
+7. Keep agent-facing Harness docs in English by default. Put Korean project status in `Harness/Progress.md`, and avoid long Korean logs that agents would repeatedly re-read.
+8. Use `Harness/data/memory/*.jsonl` only when the project wants a reviewed memory layer. Private Gitea projects may commit reviewed daily shards; public template packages should keep real shards empty or absent. SQLite cache files under `Harness/data/` are local and ignored.
+9. For parallel work, use separate worktrees and branches only when parallel isolation is needed. Create one `Harness/work/tasks/<task-id>.md` per task.
+10. Confirm Git LFS is installed and the `.gitattributes` rules match team policy before committing binary Unreal assets.
+11. Read `Harness/docs/AgentFieldGuide.md` and remove or adapt any guidance that does not fit the project's workflow.
 
 ## Verify Setup
 
@@ -47,7 +51,7 @@ python C:\Path\To\NewHarnessTemplate\Harness\scripts\tools\harness_update_plan.p
 
 An update is a reviewed migration, not a blind replacement. Preserve project-specific config, docs, indexes, work records, Progress, and custom scripts.
 
-Treat `project.json`, `docs.json`, project docs, indexes, work records, Progress, and custom script behavior as project-owned. Review and merge root instructions, shared policy config, standard tools, and templates from the new Harness version. When adopting the compact-document rules, preserve removed history in existing task/cycle records or an archive before replacing current state, next, or Progress content.
+Treat `project.json`, `docs.json`, project docs, indexes, work records, Progress, and custom script behavior as project-owned. Review and merge root instructions, shared policy config, standard tools, and templates from the new Harness version. Use the template checkout's `Harness/docs/template/changelog.md` to understand what changed between template versions, but do not use it as a substitute for target-project task or cycle records. When adopting the compact-document rules, preserve removed history in existing task/cycle records or an archive before replacing current state, next, or Progress content.
 
 Completed task/cycle records can be preserved with `python Harness/scripts/tools/harness_archive.py --task <task-id> --archive`. Preview the command without `--archive` first.
 
@@ -57,7 +61,7 @@ Recommended reviewed update flow:
 2. Add only absent template files with `--apply-missing`. This option requires an existing target `Harness/` directory and never overwrites an existing target file; use the normal initialization flow for a project without Harness.
 3. Copy changed shared/standard template files into an empty comparison folder outside both the template and target trees with `--stage-review C:\Path\To\HarnessReview`. Existing review files are protected unless `--overwrite-stage` is explicitly supplied; a failed staging operation rolls back its changes.
 4. Merge `AGENTS.md`, `CLAUDE.md`, `HARNESS.md`, shared config, and repository rules from the staged copy. Review standard tool replacements; keep project-specific behavior and unregistered custom tools.
-5. Do not replace `project.json`, `docs.json`, `Harness/docs/`, `Harness/index/`, `Harness/work/`, or `Harness/Progress.md`. Migrate their structure only when needed.
+5. Do not replace `project.json`, `docs.json`, project docs, `Harness/index/`, `Harness/work/`, or `Harness/Progress.md`. Migrate their structure only when needed. Review `Harness/docs/template/` separately as template-owned documentation and adopt changes only when they are useful provenance.
 6. Search the retained material with `python Harness/scripts/tools/harness_knowledge.py --query "<current feature or issue>"` and refresh compact state/index files only from confirmed evidence.
 7. Run `harness_verify_all.py`, inspect `git diff --stat`, and remove legacy split directories only after verification passes.
 8. If the old project accumulated useful agent lessons, generalize them into `Harness/docs/AgentFieldGuide.md` or a project doc. Do not copy real paths, branch names, credentials, or active work logs into the reusable template.
