@@ -45,7 +45,7 @@ Keep tools small. Split them by purpose when they grow.
 - `harness_doctor.py`: checks Harness document, config, and manifest consistency.
 - `harness_docs_check.py`: checks `Harness/docs` and `docs.json` discovery / reading policy.
 - `harness_scan.py`: summarizes Unreal project structure and `project.json` candidates.
-- `harness_archive.py`: previews or transactionally archives completed task/cycle records by task ID; validates the month and rolls back failed moves.
+- `harness_archive.py`: previews or transactionally archives completed task/cycle records by task ID, or date-named cycle files older than a month with `--before YYYY-MM`; validates the month and rolls back failed moves.
 - `harness_iteration_status.py`: reports cycle progress, budget, verification gaps, and repeated unresolved work without writing files.
 - `harness_update_plan.py`: compares a new template with an older project, preserves exact project-owned paths, rejects escaping plan paths, adds only missing files with an explicit option, and stages changed template files for review.
 - `harness_knowledge.py`: searches retained docs, indexes, tasks, cycles, archives, state, and next files as bounded routing evidence.
@@ -69,6 +69,7 @@ Keep tools small. Split them by purpose when they grow.
 - `harness_cycle_summary.py`: summarizes recent cycle logs.
 - `harness_unreal_risk.py`: extracts Unreal-specific risk signals from changed files.
 - `harness_unreal_script.py`: checks Unreal Python script readiness and command; runs only with `--run`.
+- `harness_tool_usage.py`: static reference audit of the tools; flags low-reference consolidation candidates as the tool count grows.
 
 ## Field-Proven Tool Choices
 

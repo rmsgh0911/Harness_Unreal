@@ -5,6 +5,9 @@ Project-specific current status belongs in `Harness/Progress.md`, and detailed p
 
 ## Unreleased
 
+- Added a `**Last updated:** YYYY-MM-DD HH:MM:SS +09:00` header to `Harness/Progress.md`; `harness_progress_check.py` parses it and warns when missing. Worktree merge conflicts on this replace-in-place dashboard are resolved by keeping the newest-stamped block (documented in HARNESS.md), and the integrator now explicitly owns Progress.md consolidation.
+- Added `harness_tool_usage.py`: a static reference audit that flags low-reference tools as consolidation candidates as the tool count grows past twenty.
+- Split the single `test_structure_tools.py` into per-area `test_*.py` files sharing `_harness_test_base.py`, so a failing tool's tests are easy to locate; the suite still runs via `unittest discover`.
 - Added `harness_archive.py --before YYYY-MM` to archive date-named cycle files (including worker-prefixed ones) into monthly folders; task-based archiving alone could never drain them.
 - `harness_state_check.py` now warns when completed task records remain unarchived and includes the exact archive command in cycle-accumulation findings.
 - `harness_release_check.py` ignores imported reference Harness copies (`Harness_*-work*/`, mirrored in `.gitignore`) so real-project material brought in for migration analysis does not fail template hygiene.

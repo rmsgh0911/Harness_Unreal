@@ -49,7 +49,8 @@ Do not broadly scan the repository, run external reviewers, or use multi-agent m
 - Keep `state.md` near 80 lines or fewer and limited to Project, Current State, Latest Verification, and Risks.
 - Keep `next.md` to the 3-5 highest-priority active project items. Remove completed work immediately; move optional ideas to a project backlog document when needed.
 - Update `state.md`, `next.md`, and `Progress.md` at integration, handoff, or merge-ready points instead of after every small edit.
-- During parallel branch work, the integrator owns consolidation into `state.md` and `next.md`; other branches keep branch-specific details in task and cycle files.
+- During parallel branch work, the integrator owns consolidation into `state.md`, `next.md`, and `Progress.md`; other branches keep branch-specific details in task and cycle files.
+- Stamp `Progress.md` with `**Last updated:** YYYY-MM-DD HH:MM:SS +09:00` (seconds and timezone) on every update. When merging worktrees, resolve a `Progress.md` conflict by keeping the block with the newest `Last updated` rather than merging bullets line by line.
 - Archive completed task/cycle pairs with `harness_archive.py --task <task-id> --archive` when history becomes noisy. Archive old date-named cycle files with `harness_archive.py --before YYYY-MM --archive`. Both modes preview by default and preserve lookup entries in `Harness/work/archive/index.md`.
 - Archive a task as soon as its record reaches a completed status; `harness_state_check.py` warns while completed tasks remain in `Harness/work/tasks/`.
 - A short `Last consolidated` and `Consolidated by` header is allowed in `state.md` and `next.md`; per-edit timestamps belong in task or cycle files.
@@ -135,6 +136,7 @@ Recommended cycle entry:
 - Tools should be read-only by default; writes require explicit options such as `--write`, `--apply`, or `--update`.
 - Put project-specific values in `Harness/config/project.json` or command-line arguments.
 - Update `Harness/scripts/tools/tool_manifest.json` and run the smallest useful verification for changed tools.
+- Periodically run `harness_tool_usage.py` to find low-reference tools; prefer consolidating or removing rarely-wired tools over adding near-duplicates.
 - Prefer adding a small check to an existing finish gate before creating a broad new workflow. Field-proven checks that catch repeated mistakes belong in `harness_field_check.py` or another read-only tool.
 
 ## Unreal Cautions

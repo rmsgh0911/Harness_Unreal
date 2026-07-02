@@ -586,6 +586,24 @@
       "writes_files": "only_when_target_unreal_script_writes",
       "safe_by_default": true,
       "verify": "python Harness/scripts/tools/harness_unreal_script.py --json"
+    },
+    {
+      "name": "harness_tool_usage",
+      "path": "Harness/scripts/tools/harness_tool_usage.py",
+      "purpose": "Static reference audit of Harness tools: reports how each tool is wired into orchestrators, docs, and other tools, and flags low-reference consolidation candidates.",
+      "inputs": [
+        "Harness/scripts/tools/*.py",
+        "Harness/scripts/tools/tool_manifest.json",
+        "HARNESS.md and Harness docs",
+        "--root"
+      ],
+      "outputs": [
+        "tool_usage_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_tool_usage.py --json"
     }
   ]
 }

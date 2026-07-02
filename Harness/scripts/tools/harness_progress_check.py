@@ -15,6 +15,11 @@ from harness_common import dump_json, find_project_root, read_text
 PROGRESS_RELATIVE = "Harness/Progress.md"
 DATE_PATTERN = re.compile(r"20\d\d[-./]\d\d[-./]\d\d")
 DATE_LOG_LINE_PATTERN = re.compile(r"^\s*(?:[-*]\s*)?(?:#+\s*)?20\d\d[-./]\d\d[-./]\d\d", re.MULTILINE)
+# A single `Last updated:` header (seconds precision) makes worktree merge
+# conflicts on this replace-in-place dashboard trivial to resolve: keep the
+# block with the newest timestamp. It is a header, not a date-log entry.
+LAST_UPDATED_LINE_PATTERN = re.compile(r"(?im)^\s*\**\s*Last updated:\**\s*(.*?)\s*$")
+LAST_UPDATED_TIMESTAMP_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}")
 HARD_LINE_LIMIT = 40
 MAX_SECTION_BULLETS = 3
 ALLOWED_SECTIONS = ["현재 상태", "최근 완료", "확인 필요", "다음 작업"]
@@ -52,6 +57,13 @@ def build_report(root: Path) -> dict:
     warnings: list[str] = []
     errors: list[str] = []
 
+    last_updated_match = LAST_UPDATED_LINE_PATTERN.search(text)
+    last_updated_value = last_updated_match.group(1).strip() if last_updated_match else ""
+    timestamp_match = LAST_UPDATED_TIMESTAMP_PATTERN.search(last_updated_value) if last_updated_value else None
+    last_updated = timestamp_match.group(0) if timestamp_match else None
+    if path.exists() and last_updated_match is None:
+        warnings.append("missing_last_updated_header")
+
     if not path.exists():
         errors.append("missing")
     if len(lines) > HARD_LINE_LIMIT:
@@ -76,6 +88,7 @@ def build_report(root: Path) -> dict:
         "exists": path.exists(),
         "ok": not errors,
         "lines": len(lines),
+        "last_updated": last_updated,
         "date_count": date_count,
         "date_log_line_count": date_log_line_count,
         "recent_completed_count": section_bullets.get("최근 완료", 0),
@@ -87,6 +100,7 @@ def build_report(root: Path) -> dict:
             "Keep Progress.md as a current dashboard, not an append-only work log.",
             "Use only 현재 상태, 최근 완료, 확인 필요, and 다음 작업, with at most three bullets each.",
             "Refresh existing bullets in place and move detailed history to Harness/work/tasks/, Harness/work/cycles/, or an archive.",
+            "Stamp `**Last updated:** YYYY-MM-DD HH:MM:SS +09:00` so a worktree merge conflict is resolved by keeping the newest block.",
         ],
     }
 
@@ -98,6 +112,7 @@ def format_text(report: dict) -> str:
         f"- Path: {report['path']}",
         f"- Status: {'ok' if report['ok'] else 'needs attention'}",
         f"- Lines: {report['lines']}",
+        f"- Last updated: {report.get('last_updated') or 'unset'}",
         f"- Dates: {report['date_count']}",
         f"- Sections: {', '.join(report['sections']) or 'none'}",
     ]
