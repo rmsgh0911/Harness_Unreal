@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import re
 import sys
 from pathlib import Path
@@ -22,6 +23,10 @@ _PROJECT_DOC_PATH_PATTERN = re.compile(
 GENERIC_TEMPLATE_DOC_FOLDERS = {"examples", "template"}
 PROGRESS_VIEWER_PATTERN = re.compile(r'<meta\s+name="harness-progress-viewer"\s+content="dynamic-source">')
 PROGRESS_SOURCE_PATTERN = re.compile(r'<meta\s+name="harness-progress-source"\s+content="Harness/Progress.md">')
+# Imported reference Harness copies from real projects (mirrors the .gitignore
+# pattern). They sit next to the template for migration analysis only and must
+# not affect template-release hygiene.
+REFERENCE_COPY_PATTERN = "Harness_*-work*"
 
 
 def _has_utf8_bom(path: Path) -> bool:
@@ -52,6 +57,8 @@ def build_report(root: Path, strict: bool = False) -> dict:
 
     for path in sorted(root.rglob("*")):
         if any(part in {".git", ".claude", "Binaries", "Intermediate", "Saved", "DerivedDataCache"} for part in path.parts):
+            continue
+        if any(fnmatch.fnmatch(part, REFERENCE_COPY_PATTERN) for part in path.parts):
             continue
         if path.is_symlink():
             errors.append({"path": rel(path, root), "message": "template_symlink_not_allowed"})

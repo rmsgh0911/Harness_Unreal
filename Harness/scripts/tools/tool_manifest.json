@@ -97,13 +97,15 @@
     {
       "name": "harness_archive",
       "path": "Harness/scripts/tools/harness_archive.py",
-      "purpose": "Previews or transactionally archives a completed task and its cycle record into a validated monthly folder while retaining a task-ID index and rolling back failed moves.",
+      "purpose": "Previews or transactionally archives completed task/cycle pairs by task ID, or date-named cycle files older than a given month, into validated monthly folders with a searchable index and rollback on failed moves.",
       "inputs": [
         "--task",
+        "--before",
         "--month",
         "--archive",
         "Harness/work/tasks/<task-id>.md",
-        "Harness/work/cycles/<task-id>.md"
+        "Harness/work/cycles/<task-id>.md",
+        "Harness/work/cycles/*<YYYY-MM-DD>*.md"
       ],
       "outputs": [
         "archive_plan",

@@ -82,6 +82,18 @@ def run_doctor(root: Path) -> dict:
         )
     )
 
+    # The SQLite cache under Harness/data/ is local-only and must never be
+    # committed; upgraded projects that merged an old .gitignore can miss this.
+    if (harness / "data").is_dir():
+        gitignore_text = read_text(root / ".gitignore")
+        results.append(
+            check(
+                "*.sqlite" in gitignore_text or "Harness/data/" in gitignore_text,
+                ".gitignore excludes Harness/data SQLite caches",
+                severity="warning",
+            )
+        )
+
     ag_text = read_text(root / "AGENTS.md")
     cl_text = read_text(root / "CLAUDE.md")
     harness_text = read_text(root / "HARNESS.md")
@@ -166,10 +178,24 @@ def run_doctor(root: Path) -> dict:
                 script_rel = rel(script, root)
                 if script.name == "harness_common.py":
                     continue
+                registered = script_rel in declared_paths
+                message = (
+                    f"tool script is listed in manifest: {script_rel}"
+                    if registered
+                    else f"tool script is not listed in manifest (register it in tool_manifest.json or move one-off scripts out of tools/): {script_rel}"
+                )
+                results.append(check(registered, message, "warning"))
+
+            # scripts/tools is a Python CLI tool directory; source files of other
+            # languages parked here are neither runnable tools nor registrable.
+            expected_tool_suffixes = {".py", ".json", ".md"}
+            for stray in sorted((harness / "scripts" / "tools").iterdir()):
+                if stray.is_dir() or stray.suffix.lower() in expected_tool_suffixes:
+                    continue
                 results.append(
                     check(
-                        script_rel in declared_paths,
-                        f"tool script is listed in manifest: {script_rel}",
+                        False,
+                        f"non-tool file parked in scripts/tools (move source/assets to the project tree or an archive): {rel(stray, root)}",
                         "warning",
                     )
                 )

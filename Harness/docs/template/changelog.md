@@ -5,6 +5,18 @@ Project-specific current status belongs in `Harness/Progress.md`, and detailed p
 
 ## Unreleased
 
+- Added `harness_archive.py --before YYYY-MM` to archive date-named cycle files (including worker-prefixed ones) into monthly folders; task-based archiving alone could never drain them.
+- `harness_state_check.py` now warns when completed task records remain unarchived and includes the exact archive command in cycle-accumulation findings.
+- `harness_release_check.py` ignores imported reference Harness copies (`Harness_*-work*/`, mirrored in `.gitignore`) so real-project material brought in for migration analysis does not fail template hygiene.
+- `harness_update_plan.py` stages template scaffolding READMEs/examples inside project-owned directories as merge-review candidates instead of preserving them forever, and emits `Post-Apply Notes` for transitional states (unregistered new tools, new `Harness/data/` layer, Progress viewer).
+- `harness_doctor.py` warns when `Harness/data/` exists but `.gitignore` lacks the SQLite cache exclusions.
+- Documented version-specific upgrade notes (memory/data layer, archive modes, transitional doctor warnings, Progress viewer) in the template setup guide.
+- `harness_verify_all.py` reports unreadable Python sources (for example Windows MAX_PATH overflows on deep Unreal project paths) as compile failures instead of crashing mid-verification.
+- `harness_docs_check.py` warns when a `Harness/docs` root grows heavy with binary design exports (field evidence: 160+ MB of Figma exports), pointing at external doc roots or Git LFS.
+- `harness_doctor.py` unregistered-tool warnings now say how to fix them, and stray non-tool files (for example `.cpp` sources) parked in `scripts/tools/` are flagged.
+- `harness_field_check.py` warns when `Harness/scripts/unreal/` accumulates more than 25 scripts; finished one-off capture/export scripts should be deleted since Git history preserves them.
+- `harness_update_plan.py` lists target-only tool registrations (`custom_manifest_entries`) and warns to re-merge them so a wholesale manifest replacement cannot silently drop custom tools.
+- Reviewed memory shards are explicitly protected during upgrades: `Harness/data/memory/` is project-owned in the update plan and listed as preserve by the migration audit.
 - Split template history from the project-facing progress dashboard.
 - Keep `Harness/Progress.md` neutral in template mode so strict release hygiene can pass.
 - Clarified install and update guidance for preserving project-owned state while tracking template changes here.

@@ -15,7 +15,7 @@ if str(TOOLS_DIR) not in sys.path:
 
 from harness_context import build_context  # noqa: E402
 from harness_context import evaluate_cycle_request  # noqa: E402
-from harness_archive import apply_archive, build_plan as build_archive_plan, validate_archive_month  # noqa: E402
+from harness_archive import apply_archive, build_before_plan as build_archive_before_plan, build_plan as build_archive_plan, validate_archive_month  # noqa: E402
 from harness_cycle import build_entry, validate_iteration_entry  # noqa: E402
 from harness_cycle_summary import analyze_iteration, build_summary as build_cycle_summary, parse_cycle_file  # noqa: E402
 from harness_diff_guard import PROGRESS_TRIGGER_PREFIXES  # noqa: E402
@@ -32,8 +32,9 @@ from harness_release_check import build_report as build_release_report  # noqa: 
 from harness_release_pack import build_package, collect_files as collect_release_files, should_include as should_include_release_file  # noqa: E402
 from harness_state_check import build_report as build_state_report  # noqa: E402
 from harness_unreal_risk import classify_path, idempotency_hints, pie_only_hints  # noqa: E402
+from harness_doctor import run_doctor  # noqa: E402
 from harness_update_plan import apply_missing_files, build_update_plan, stage_review_files  # noqa: E402
-from harness_verify_all import check_build_readiness, required_checks_ok  # noqa: E402
+from harness_verify_all import check_build_readiness, compile_python_files, required_checks_ok  # noqa: E402
 from harness_scan import scan  # noqa: E402
 from harness_project_fill import build_report as build_project_fill_report, deep_fill  # noqa: E402
 from harness_docs_index import build_index as build_docs_index  # noqa: E402
@@ -134,6 +135,19 @@ class HarnessStructureTests(unittest.TestCase):
         self.assertEqual("single_checkout", report["worktrees"]["checkout_mode"])
         self.assertFalse(report["worktrees"]["remote_alignment"]["enabled"])
         self.assertIsNone(report["worktrees"]["remote_alignment"]["aligned"])
+
+    def test_field_check_warns_about_unreal_script_accumulation(self) -> None:
+        unreal = self.root / "Harness/scripts/unreal"
+        unreal.mkdir(parents=True)
+        for index in range(25):
+            (unreal / f"capture_sample_{index}.py").write_text("VALUE = 1\n", encoding="utf-8")
+        report = build_field_report(self.root)
+        self.assertFalse(any("unreal_script_accumulation" in item["message"] for item in report["warnings"]))
+        (unreal / "capture_sample_extra.py").write_text("VALUE = 1\n", encoding="utf-8")
+        report = build_field_report(self.root)
+        matches = [item for item in report["warnings"] if "unreal_script_accumulation" in item["message"]]
+        self.assertEqual(1, len(matches))
+        self.assertIn("26", matches[0]["message"])
 
     def test_field_check_warns_for_nested_harness_root(self) -> None:
         (self.root / "Harness/docs").mkdir(parents=True, exist_ok=True)
@@ -433,6 +447,59 @@ class HarnessStructureTests(unittest.TestCase):
         self.assertFalse((self.root / "Harness/work/archive/2026-06/tasks/rollback-task.md").exists())
         self.assertFalse((self.root / "Harness/work/archive/index.md").exists())
         self.assertFalse((self.root / "Harness/work/archive").exists())
+
+    def test_archive_before_moves_only_old_date_cycles_by_their_own_month(self) -> None:
+        cycles = self.root / "Harness/work/cycles"
+        cycles.mkdir()
+        (cycles / "2026-05-08.md").write_text("# Cycle\n", encoding="utf-8")
+        (cycles / "claude-2026-05-10.md").write_text("# Cycle\n", encoding="utf-8")
+        (cycles / "2026-06-26-dashboard-panel-spacing.md").write_text("# Cycle\n", encoding="utf-8")
+        (cycles / "model0619-dashboard.md").write_text("# Task cycle without date\n", encoding="utf-8")
+        plan = build_archive_before_plan(self.root, "2026-06")
+        self.assertTrue(plan["ready"])
+        self.assertEqual(
+            ["Harness/work/cycles/2026-05-08.md", "Harness/work/cycles/claude-2026-05-10.md"],
+            [source["path"] for source in plan["sources"]],
+        )
+        moved = apply_archive(self.root, plan)
+        self.assertEqual(2, len(moved))
+        self.assertTrue((self.root / "Harness/work/archive/2026-05/cycles/2026-05-08.md").exists())
+        self.assertTrue((self.root / "Harness/work/archive/2026-05/cycles/claude-2026-05-10.md").exists())
+        self.assertTrue((cycles / "2026-06-26-dashboard-panel-spacing.md").exists())
+        self.assertTrue((cycles / "model0619-dashboard.md").exists())
+        index = (self.root / "Harness/work/archive/index.md").read_text(encoding="utf-8")
+        self.assertIn("cycles 2026-05", index)
+
+    def test_archive_before_reports_not_ready_without_old_cycles_or_valid_month(self) -> None:
+        cycles = self.root / "Harness/work/cycles"
+        cycles.mkdir()
+        (cycles / "2026-06-17.md").write_text("# Cycle\n", encoding="utf-8")
+        plan = build_archive_before_plan(self.root, "2026-06")
+        self.assertFalse(plan["ready"])
+        self.assertTrue(any("no date-based cycle records" in error for error in plan["errors"]))
+        invalid = build_archive_before_plan(self.root, "../../outside")
+        self.assertFalse(invalid["ready"])
+
+    def test_release_check_ignores_imported_reference_harness_copies(self) -> None:
+        reference = self.root / "Harness_Customer-work1/work/cycles"
+        reference.mkdir(parents=True)
+        bom_file = reference / "claude-2026-05-21.md"
+        bom_file.write_bytes(b"\xef\xbb\xbf# Cycle\n")
+        report = build_release_report(self.root, strict=True)
+        flagged = [item for item in [*report["errors"], *report["warnings"]] if "Harness_Customer-work1" in item["path"]]
+        self.assertEqual([], flagged)
+
+    def test_state_check_warns_about_completed_task_records(self) -> None:
+        tasks = self.root / "Harness/work/tasks"
+        tasks.mkdir()
+        (tasks / "done-task.md").write_text("# Task\n\n- Status: complete\n", encoding="utf-8")
+        (tasks / "active-task.md").write_text("# Task\n\n- Status: active\n", encoding="utf-8")
+        findings = build_state_report(self.root)["findings"]
+        matches = [item for item in findings if "completed task records should be archived" in item["message"]]
+        self.assertEqual(1, len(matches))
+        self.assertIn("done-task", matches[0]["message"])
+        self.assertNotIn("active-task", matches[0]["message"])
+        self.assertIn("harness_archive.py --task", matches[0]["message"])
 
     def test_cycle_entry_records_budget_decision_and_success_criteria(self) -> None:
         entry = build_entry(
@@ -745,6 +812,74 @@ class HarnessStructureTests(unittest.TestCase):
             stage_review_files(template, stage, plan)
         stage_review_files(template, stage, plan, overwrite=True)
         self.assertEqual("new HARNESS.md\n", staged_harness.read_text(encoding="utf-8"))
+
+    def test_update_plan_stages_scaffolding_and_emits_post_apply_notes(self) -> None:
+        template = self.root / "new-template"
+        target = self.root / "old-project"
+        for base in [template, target]:
+            (base / "Harness/scripts/tools").mkdir(parents=True)
+            (base / "Harness/work/archive").mkdir(parents=True)
+        (template / "HARNESS.md").write_text("new rules\n", encoding="utf-8")
+        (template / "Harness/work/archive/README.md").write_text("new archive guide with --before\n", encoding="utf-8")
+        (template / "Harness/work/state.md").write_text("# State template\n", encoding="utf-8")
+        (template / "Harness/data").mkdir()
+        (template / "Harness/data/README.md").write_text("memory layer\n", encoding="utf-8")
+        (template / "Harness/scripts/tools/harness_memory.py").write_text("NEW_TOOL = 1\n", encoding="utf-8")
+        (template / "Harness/scripts/tools/tool_manifest.json").write_text('{"tools": [{"name": "harness_memory"}]}\n', encoding="utf-8")
+        (target / "HARNESS.md").write_text("old rules\n", encoding="utf-8")
+        (target / "Harness/work/archive/README.md").write_text("old archive guide, task mode only\n", encoding="utf-8")
+        (target / "Harness/work/state.md").write_text("# Project state, must be preserved\n", encoding="utf-8")
+        (target / "Harness/scripts/tools/tool_manifest.json").write_text('{"tools": [{"name": "project_custom_tool"}]}\n', encoding="utf-8")
+        plan = build_update_plan(template, target)
+        actions = {item["path"]: item["action"] for item in plan["actions"]}
+        self.assertEqual("merge_review", actions["Harness/work/archive/README.md"])
+        self.assertEqual("preserve", actions["Harness/work/state.md"])
+        self.assertEqual("add", actions["Harness/data/README.md"])
+        self.assertEqual("add", actions["Harness/scripts/tools/harness_memory.py"])
+        self.assertEqual(["project_custom_tool"], plan["custom_manifest_entries"])
+        notes = " ".join(plan["post_apply_notes"])
+        self.assertIn("tool_manifest.json", notes)
+        self.assertIn("Harness/data", notes)
+        self.assertIn("project_custom_tool", notes)
+        self.assertTrue(any("Harness/data/" in step for step in plan["recommended_sequence"]))
+        copied = apply_missing_files(template, target, plan)
+        self.assertIn("Harness/data/README.md", copied)
+        self.assertIn("old archive guide, task mode only\n", (target / "Harness/work/archive/README.md").read_text(encoding="utf-8"))
+        self.assertIn("must be preserved", (target / "Harness/work/state.md").read_text(encoding="utf-8"))
+
+    def test_compile_check_reports_unreadable_source_instead_of_crashing(self) -> None:
+        (self.root / "Harness/scripts/tools/sample_tool.py").write_text("VALUE = 1\n", encoding="utf-8")
+        with patch("harness_verify_all.py_compile.compile", side_effect=OSError("simulated MAX_PATH overflow")):
+            report = compile_python_files(self.root)
+        self.assertFalse(report["ok"])
+        self.assertTrue(any("unreadable source file" in failure["error"] for failure in report["failures"]))
+
+    def test_doctor_flags_unregistered_and_parked_files_in_tools(self) -> None:
+        tools = self.root / "Harness/scripts/tools"
+        (tools / "tool_manifest.json").write_text('{"tools": []}\n', encoding="utf-8")
+        (tools / "one_off_export.py").write_text("VALUE = 1\n", encoding="utf-8")
+        (tools / "fbx_combine.cpp").write_text("// stray source\n", encoding="utf-8")
+        checks = run_doctor(self.root)["checks"]
+        unregistered = [item for item in checks if "not listed in manifest" in item["message"]]
+        self.assertTrue(any("one_off_export.py" in item["message"] and not item["ok"] for item in unregistered))
+        parked = [item for item in checks if "parked in scripts/tools" in item["message"]]
+        self.assertEqual(1, len(parked))
+        self.assertFalse(parked[0]["ok"])
+        self.assertEqual("warning", parked[0]["severity"])
+        self.assertIn("fbx_combine.cpp", parked[0]["message"])
+
+    def test_doctor_warns_when_data_dir_lacks_gitignore_exclusions(self) -> None:
+        (self.root / "Harness/data").mkdir()
+        (self.root / ".gitignore").write_text("Binaries/\n", encoding="utf-8")
+        results = run_doctor(self.root)["checks"]
+        matches = [item for item in results if "Harness/data SQLite" in item["message"]]
+        self.assertEqual(1, len(matches))
+        self.assertFalse(matches[0]["ok"])
+        self.assertEqual("warning", matches[0]["severity"])
+        (self.root / ".gitignore").write_text("Binaries/\nHarness/data/*.sqlite\n", encoding="utf-8")
+        results = run_doctor(self.root)["checks"]
+        matches = [item for item in results if "Harness/data SQLite" in item["message"]]
+        self.assertTrue(matches[0]["ok"])
 
     def test_update_apply_requires_existing_harness_target(self) -> None:
         missing_target = self.root / "typo-target"
@@ -1113,11 +1248,38 @@ class HarnessStructureTests(unittest.TestCase):
         self.assertTrue(report["ok"])
         self.assertIn("Harness/config/project.json", report["preserve"])
         self.assertTrue(any("build config is incomplete" in item["message"] for item in report["findings"]))
+        self.assertFalse(any("memory shards" in item for item in report["preserve"]))
+        (self.root / "Harness/data/memory").mkdir(parents=True)
+        (self.root / "Harness/data/memory/2026-07-01.jsonl").write_text('{"id": "example"}\n', encoding="utf-8")
+        report = migration_audit(self.root)
+        self.assertTrue(any("memory shards" in item for item in report["preserve"]))
 
     def test_diff_guard_standard_prefixes_do_not_contain_project_paths(self) -> None:
         known_standard = {"Source/", "Config/", "Content/", "Plugins/", "Harness/scripts/unreal/"}
         unexpected = [p for p in PROGRESS_TRIGGER_PREFIXES if p not in known_standard]
         self.assertEqual([], unexpected, f"non-standard prefixes in PROGRESS_TRIGGER_PREFIXES: {unexpected}")
+
+    def test_docs_check_warns_about_heavy_harness_doc_root(self) -> None:
+        from harness_docs_check import build_report as build_docs_report
+        (self.root / "Harness/config/docs.json").write_text(
+            '{"doc_roots": ["Harness/docs"], "entry_points": ["Harness/docs/README.md"], '
+            '"read_policy": {"default": "on_demand", "read_when": ["spec"], "do_not_read_when": ["format"]}}\n',
+            encoding="utf-8",
+        )
+        docs = self.root / "Harness/docs"
+        docs.mkdir()
+        (docs / "README.md").write_text("# Document Map\n", encoding="utf-8")
+        report = build_docs_report(self.root)
+        self.assertFalse(any("heavy" in item["message"] for item in report["findings"]))
+        exports = docs / "figma_exports"
+        exports.mkdir()
+        for index in range(201):
+            (exports / f"icon_{index}.png").write_bytes(b"\x89PNG fake image data")
+        report = build_docs_report(self.root)
+        heavy = [item for item in report["findings"] if "heavy" in item["message"]]
+        self.assertEqual(1, len(heavy))
+        self.assertEqual("warning", heavy[0]["level"])
+        self.assertIn("binary files", heavy[0]["message"])
 
     def test_docs_check_skip_hints_take_priority_over_read_hints(self) -> None:
         from harness_docs_check import evaluate_request

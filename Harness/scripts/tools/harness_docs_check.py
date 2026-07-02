@@ -57,11 +57,34 @@ REQUEST_SKIP_HINTS = [
 ]
 
 
+# Harness/docs is an agent working set, not an asset store. Field evidence: a
+# real project accumulated 160+ MB of Figma exports and captures there, which
+# slows scans and bloats every clone.
+HEAVY_DOC_ROOT_BYTES = 50 * 1024 * 1024
+HEAVY_DOC_ROOT_BINARY_FILES = 200
+TEXT_DOC_SUFFIXES = {".md", ".txt", ".json", ".csv", ".yml", ".yaml"}
+
+
 def add_finding(findings: list[dict], level: str, message: str, path: str = "") -> None:
     item = {"level": level, "message": message}
     if path:
         item["path"] = path
     findings.append(item)
+
+
+def doc_root_weight(base: Path) -> dict:
+    total_bytes = 0
+    binary_files = 0
+    for path in base.rglob("*"):
+        if not path.is_file():
+            continue
+        try:
+            total_bytes += path.stat().st_size
+        except OSError:
+            continue
+        if path.suffix.lower() not in TEXT_DOC_SUFFIXES:
+            binary_files += 1
+    return {"total_bytes": total_bytes, "binary_files": binary_files}
 
 
 def is_safe_relative_path(value: str) -> bool:
@@ -182,11 +205,21 @@ def build_report(root: Path, request: str = "") -> dict:
         path = root / doc_root
         inside_harness = path.resolve().parts[: len((root / "Harness").resolve().parts)] == (root / "Harness").resolve().parts
         exists = path.exists() and path.is_dir()
-        root_status.append({"path": doc_root, "exists": exists, "inside_harness": inside_harness})
+        weight = doc_root_weight(path) if exists else {"total_bytes": 0, "binary_files": 0}
+        root_status.append({"path": doc_root, "exists": exists, "inside_harness": inside_harness, **weight})
         if not exists:
             add_finding(findings, "warning", "doc root is missing", doc_root)
         if inside_harness and not is_harness_docs_path(doc_root):
             add_finding(findings, "error", "project documents inside Harness must use Harness/docs", doc_root)
+        if is_harness_docs_path(doc_root) and (weight["total_bytes"] > HEAVY_DOC_ROOT_BYTES or weight["binary_files"] > HEAVY_DOC_ROOT_BINARY_FILES):
+            add_finding(
+                findings,
+                "warning",
+                f"doc root is heavy for a Harness working set ({weight['total_bytes'] // (1024 * 1024)} MB, "
+                f"{weight['binary_files']} binary files); move design exports and captures to an external doc root "
+                "registered in docs.json, or manage them with Git LFS",
+                doc_root,
+            )
 
     optional_status: list[dict] = []
     for optional_root in normalize_string_list(optional_external_roots):

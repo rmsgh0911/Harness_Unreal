@@ -80,6 +80,8 @@ def audit(root: Path) -> dict:
                 "Harness/scripts/ custom changes",
             ]
         )
+        if (harness / "data" / "memory").exists():
+            preserve.append("Harness/data/memory/ reviewed memory shards")
         update.extend(template_controlled)
     else:
         layout = "unknown"

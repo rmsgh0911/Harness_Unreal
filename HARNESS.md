@@ -50,7 +50,8 @@ Do not broadly scan the repository, run external reviewers, or use multi-agent m
 - Keep `next.md` to the 3-5 highest-priority active project items. Remove completed work immediately; move optional ideas to a project backlog document when needed.
 - Update `state.md`, `next.md`, and `Progress.md` at integration, handoff, or merge-ready points instead of after every small edit.
 - During parallel branch work, the integrator owns consolidation into `state.md` and `next.md`; other branches keep branch-specific details in task and cycle files.
-- Archive completed task/cycle pairs with `harness_archive.py --task <task-id> --archive` when history becomes noisy. The command previews by default and preserves task-ID lookup in `Harness/work/archive/index.md`.
+- Archive completed task/cycle pairs with `harness_archive.py --task <task-id> --archive` when history becomes noisy. Archive old date-named cycle files with `harness_archive.py --before YYYY-MM --archive`. Both modes preview by default and preserve lookup entries in `Harness/work/archive/index.md`.
+- Archive a task as soon as its record reaches a completed status; `harness_state_check.py` warns while completed tasks remain in `Harness/work/tasks/`.
 - A short `Last consolidated` and `Consolidated by` header is allowed in `state.md` and `next.md`; per-edit timestamps belong in task or cycle files.
 - Do not duplicate the same detail across task files, cycles, state, next, and Progress.
 
@@ -130,6 +131,7 @@ Recommended cycle entry:
 ## Tool Additions
 
 - Put repeatable small CLI tools under `Harness/scripts/tools/`.
+- Delete finished one-off Unreal scripts (captures, exports, experiments) from `Harness/scripts/unreal/` instead of accumulating them; Git history preserves them and `harness_field_check.py` warns when the folder grows past its limit.
 - Tools should be read-only by default; writes require explicit options such as `--write`, `--apply`, or `--update`.
 - Put project-specific values in `Harness/config/project.json` or command-line arguments.
 - Update `Harness/scripts/tools/tool_manifest.json` and run the smallest useful verification for changed tools.

@@ -27,6 +27,8 @@ HISTORY_HINTS = [
 _DATE_PATTERN = re.compile(r"20\d\d-\d\d-\d\d")
 _CONSOLIDATED_PATTERN = re.compile(r"Last consolidated:\s*(20\d\d-\d\d-\d\d)", re.IGNORECASE)
 _COMPLETED_CHECKBOX_PATTERN = re.compile(r"^\s*-\s*\[[xX]\]", re.MULTILINE)
+# Mirrors harness_archive.COMPLETED_STATUS_PATTERN so the warning matches what the archive tool accepts.
+_COMPLETED_TASK_STATUS_PATTERN = re.compile(r"^\s*-\s*Status:\s*(completed|complete|done|closed)\s*$", re.IGNORECASE | re.MULTILINE)
 _TOP_LEVEL_BULLET_PATTERN = re.compile(r"^-\s+", re.MULTILINE)
 STATE_ALLOWED_SECTIONS = ["Project", "Current State", "Latest Verification", "Risks"]
 NEXT_HISTORY_HEADINGS = ["complete", "completed", "done", "history", "archive", "완료", "이력", "과거"]
@@ -183,13 +185,22 @@ def task_summary(root: Path) -> dict:
     excluded = {"README.md", "task.example.md"}
     files = sorted(path for path in tasks.glob("*.md") if path.name not in excluded) if tasks.exists() else []
     large_files: list[dict] = []
+    completed_tasks: list[str] = []
     total_lines = 0
     for path in files:
-        lines = line_count(read_text(path))
+        text = read_text(path)
+        lines = line_count(text)
         total_lines += lines
         if lines > 180:
             large_files.append({"path": rel(path, root), "lines": lines})
-    return {"file_count": len(files), "total_lines": total_lines, "large_files": large_files}
+        if _COMPLETED_TASK_STATUS_PATTERN.search(text):
+            completed_tasks.append(path.stem)
+    return {
+        "file_count": len(files),
+        "total_lines": total_lines,
+        "large_files": large_files,
+        "completed_tasks": completed_tasks,
+    }
 
 
 def build_report(root: Path) -> dict:
@@ -223,12 +234,20 @@ def build_report(root: Path) -> dict:
         findings.append({"level": "warning", "path": next_doc["path"], "line": next_doc["history_heading_lines"][0], "message": "history-like headings should move to task/cycle records or an archive: " + ", ".join(next_doc["history_headings"])})
     if next_doc["active_item_count"] > 5:
         findings.append({"level": "warning", "path": next_doc["path"], "message": f"too many active project items: {next_doc['active_item_count']} > 5"})
+    archive_hint = "archive old date cycles: python Harness/scripts/tools/harness_archive.py --before YYYY-MM --archive"
     if cycles["large_files"]:
         findings.append({"level": "info", "path": "Harness/work/cycles/", "message": f"large cycle files: {len(cycles['large_files'])}"})
     if cycles["file_count"] > 45:
-        findings.append({"level": "info", "path": "Harness/work/cycles/", "message": f"many cycle files: {cycles['file_count']}"})
+        findings.append({"level": "info", "path": "Harness/work/cycles/", "message": f"many cycle files: {cycles['file_count']} ({archive_hint})"})
     if cycles["total_lines"] > 1200:
-        findings.append({"level": "info", "path": "Harness/work/cycles/", "message": f"large cycle history: {cycles['total_lines']} lines"})
+        findings.append({"level": "info", "path": "Harness/work/cycles/", "message": f"large cycle history: {cycles['total_lines']} lines ({archive_hint})"})
+    if tasks["completed_tasks"]:
+        findings.append({
+            "level": "warning",
+            "path": "Harness/work/tasks/",
+            "message": "completed task records should be archived (python Harness/scripts/tools/harness_archive.py --task <id> --archive): "
+            + ", ".join(tasks["completed_tasks"]),
+        })
     if tasks["large_files"]:
         findings.append({"level": "warning", "path": "Harness/work/tasks/", "message": f"large task files: {len(tasks['large_files'])}"})
     if tasks["file_count"] > 50:

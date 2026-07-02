@@ -15,6 +15,7 @@ from harness_common import dump_json, find_project_root, harness_dir, load_json,
 
 REF_HEADS_PREFIX = "refs/heads/"
 SUSPICIOUS_TEXT_ARTIFACT_PATTERN = re.compile(r"\ufffd|(?<=\S)\?\?(?=\S)")
+UNREAL_SCRIPT_ACCUMULATION_LIMIT = 25
 
 
 def _branch_name_from_ref(ref: str) -> str:
@@ -245,6 +246,15 @@ def build_report(root: Path, branches: list[str] | None = None) -> dict:
                 "message": "imports_unreal; use harness_unreal_script wrapper",
                 "command": item["run_with"],
             })
+    # Field evidence: one-off capture/export scripts accumulate by the dozen in
+    # real projects; finished experiments should be deleted (Git history keeps
+    # them) so the repeatable operations stay findable.
+    if len(unreal_scripts["scripts"]) > UNREAL_SCRIPT_ACCUMULATION_LIMIT:
+        warnings.append({
+            "path": "Harness/scripts/unreal/",
+            "message": f"unreal_script_accumulation:{len(unreal_scripts['scripts'])}; "
+            "delete finished one-off capture/export scripts (Git history preserves them) and keep only repeatable operations",
+        })
 
     if branches:
         alignment = worktrees.get("remote_alignment", {})

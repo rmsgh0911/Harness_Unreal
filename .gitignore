@@ -106,3 +106,6 @@ Harness/data/*.sqlite-shm
 Harness/data/*.db
 Harness/data/*.db-wal
 Harness/data/*.db-shm
+
+# Imported reference Harness copies from real projects (analysis only, never commit)
+Harness_*-work*/

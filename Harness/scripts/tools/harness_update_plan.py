@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import dump_json, find_project_root, rel
+from harness_common import dump_json, find_project_root, load_json, rel
 from harness_migration_audit import audit
 from harness_release_pack import collect_files
 
@@ -24,8 +24,24 @@ PROJECT_OWNED_PREFIXES = (
     "Harness/docs/",
     "Harness/index/",
     "Harness/work/",
+    # Reviewed memory shards are project data; the template ships only the
+    # empty directory marker and the example shard outside this prefix.
+    "Harness/data/memory/",
 )
 TEMPLATE_DOC_PREFIX = "Harness/docs/template/"
+# Template-owned scaffolding that lives inside project-owned directories.
+# Without this list these guidance files would stay "preserve" forever and
+# never receive template updates (for example an archive README that predates
+# newer archive modes).
+TEMPLATE_SCAFFOLDING_FILES = {
+    "Harness/docs/README.md",
+    "Harness/docs/examples/cycle_log.example.md",
+    "Harness/index/README.md",
+    "Harness/work/README.md",
+    "Harness/work/archive/README.md",
+    "Harness/work/tasks/README.md",
+    "Harness/work/tasks/task.example.md",
+}
 MERGE_REVIEW_PATHS = {
     "AGENTS.md",
     "CLAUDE.md",
@@ -37,17 +53,35 @@ MERGE_REVIEW_PATHS = {
     "Harness/docs/template/changelog.md",
     "Harness/config/agents.json",
     "Harness/config/cycle_policy.json",
+    *TEMPLATE_SCAFFOLDING_FILES,
 }
 
 
 def _is_project_owned(relative: str) -> bool:
     if relative == TEMPLATE_DOC_PREFIX.rstrip("/") or relative.startswith(TEMPLATE_DOC_PREFIX):
         return False
+    if relative in TEMPLATE_SCAFFOLDING_FILES:
+        return False
     return relative in PROJECT_OWNED_FILES or any(relative == prefix.rstrip("/") or relative.startswith(prefix) for prefix in PROJECT_OWNED_PREFIXES)
 
 
 def _same_bytes(left: Path, right: Path) -> bool:
     return left.exists() and right.exists() and left.read_bytes() == right.read_bytes()
+
+
+def _manifest_tool_names(root: Path) -> set[str]:
+    manifest = load_json(root / "Harness" / "scripts" / "tools" / "tool_manifest.json", {}) or {}
+    tools = manifest.get("tools", []) if isinstance(manifest, dict) else []
+    return {str(tool.get("name", "")) for tool in tools if isinstance(tool, dict) and tool.get("name")}
+
+
+def _custom_manifest_entries(template: Path, target: Path) -> list[str]:
+    """Tool registrations that exist only in the target manifest.
+
+    Applying the template manifest wholesale would silently drop these; the
+    review must merge them back (harness_doctor flags the loss afterwards).
+    """
+    return sorted(_manifest_tool_names(target) - _manifest_tool_names(template))
 
 
 def _is_within(path: Path, parent: Path) -> bool:
@@ -113,6 +147,48 @@ def build_update_plan(template: Path, target: Path) -> dict:
     for item in actions:
         counts[item["action"]] = counts.get(item["action"], 0) + 1
     migration = audit(target)
+
+    action_by_path = {item["path"]: item["action"] for item in actions}
+    added_paths = [item["path"] for item in actions if item["action"] in {"add", "initialize_missing"}]
+    post_apply_notes: list[str] = []
+    new_tool_scripts = [path for path in added_paths if path.startswith("Harness/scripts/tools/") and path.endswith(".py")]
+    manifest_pending = action_by_path.get("Harness/scripts/tools/tool_manifest.json") in {"merge_review", "replace_review"}
+    if new_tool_scripts and manifest_pending:
+        post_apply_notes.append(
+            "new tool scripts stay unregistered in the target tool_manifest.json until the manifest review is applied; "
+            "harness_doctor warns about them in this transitional state"
+        )
+    custom_manifest_entries = _custom_manifest_entries(template, target)
+    if custom_manifest_entries and manifest_pending:
+        post_apply_notes.append(
+            "the target tool_manifest.json registers custom tools that the template manifest does not know; "
+            "re-merge these entries instead of replacing the manifest wholesale: " + ", ".join(custom_manifest_entries)
+        )
+    if any(path.startswith("Harness/data/") for path in added_paths):
+        post_apply_notes.append(
+            "the optional memory/data layer was added: merge .gitignore first so Harness/data SQLite caches are never committed, "
+            "then validate with python Harness/scripts/tools/harness_memory.py --doctor"
+        )
+    if "Harness/Progress_index.html" in added_paths or "Harness/Progress_view.cmd" in added_paths:
+        post_apply_notes.append(
+            "the Progress viewer was added: open it live with Harness/Progress_view.cmd or harness_progress_html.py --serve "
+            "(browsers block local fetch() over file://)"
+        )
+
+    recommended_sequence = [
+        "commit or back up the target project before applying additions",
+        "apply only missing files, then review staged merge/replace candidates",
+        "preserve project-owned config, docs, index, work records, Progress, and custom tools",
+    ]
+    if any(path.startswith("Harness/data/") for path in added_paths):
+        recommended_sequence.append("merge .gitignore data exclusions before the first commit that touches Harness/data/")
+    recommended_sequence.extend(
+        [
+            "run harness_knowledge.py to reuse existing Harness material",
+            "run harness_verify_all.py and inspect git diff --stat before removing legacy paths",
+        ]
+    )
+
     return {
         "template": str(template),
         "target": str(target),
@@ -121,15 +197,11 @@ def build_update_plan(template: Path, target: Path) -> dict:
         "counts": counts,
         "actions": actions,
         "custom_tools": custom_tools,
+        "custom_manifest_entries": custom_manifest_entries,
         "preserve": migration["preserve"],
         "cleanup_after_verification": migration["cleanup"],
-        "recommended_sequence": [
-            "commit or back up the target project before applying additions",
-            "apply only missing files, then review staged merge/replace candidates",
-            "preserve project-owned config, docs, index, work records, Progress, and custom tools",
-            "run harness_knowledge.py to reuse existing Harness material",
-            "run harness_verify_all.py and inspect git diff --stat before removing legacy paths",
-        ],
+        "post_apply_notes": post_apply_notes,
+        "recommended_sequence": recommended_sequence,
     }
 
 
@@ -279,6 +351,8 @@ def format_text(report: dict) -> str:
             lines.append("- none")
     if report["custom_tools"]:
         lines.extend(["", "Custom Tools:", *(f"- {item}" for item in report["custom_tools"])])
+    if report.get("post_apply_notes"):
+        lines.extend(["", "Post-Apply Notes:", *(f"- {item}" for item in report["post_apply_notes"])])
     lines.extend(["", "Recommended Sequence:", *(f"- {item}" for item in report["recommended_sequence"])])
     return "\n".join(lines)
 

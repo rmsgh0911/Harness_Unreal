@@ -45,6 +45,13 @@ def compile_python_files(root: Path) -> dict:
                 py_compile.compile(str(path), cfile=str(cfile), doraise=True)
             except py_compile.PyCompileError as exc:
                 failures.append({"path": rel(path, root), "error": str(exc)})
+            except OSError as exc:
+                # Deep Unreal project paths plus long script names can exceed the
+                # Windows MAX_PATH limit; report it instead of crashing verification.
+                failures.append({
+                    "path": rel(path, root),
+                    "error": f"unreadable source file ({exc}); if the absolute path is near 260 characters, enable Windows long paths or shorten the checkout path",
+                })
     return {
         "ok": not failures,
         "checked": [rel(path, root) for path in files],
