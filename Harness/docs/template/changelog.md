@@ -5,6 +5,8 @@ Project-specific current status belongs in `Harness/Progress.md`, and detailed p
 
 ## Unreleased
 
+- Fixed `harness_project_readiness.py` false positives: `TODO` / `작성 필요` now count as unfilled template slots only when they appear as a bullet start or a `key: TODO` value, so a real note that merely mentions "the TODO in Character.cpp" no longer fails the readiness gate (and therefore no longer fails `harness_verify_all.py`).
+- `harness_scan.py` tolerates a malformed or partially-written `.uproject` instead of crashing with a traceback, reporting it as `readable: false`; `harness_project_readiness.py` surfaces that as a clear error, while `{}` stays valid.
 - Added `harness_project_readiness.py` and wired it into `harness_verify_all.py`, so first project connection and post-update placeholder/config gaps are caught by the standard finish gate.
 - `harness_init_plan.py` now includes project fill/readiness commands in its verification sequence.
 - Added `template/first-project-connect.md`, a short agent checklist for initial Harness connection and post-update readiness.

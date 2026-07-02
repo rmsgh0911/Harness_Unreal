@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -12,14 +13,19 @@ from harness_common import dump_json, find_project_root, harness_dir, load_json,
 from harness_scan import scan
 
 
-PLACEHOLDER_MARKERS = (
-    "TODO",
+# Distinctive template boilerplate sentences; safe to match anywhere.
+SPECIFIC_PLACEHOLDER_MARKERS = (
     "Fill `Harness/config/project.json`",
     "Record systems, maps, inputs",
     "Summarize the project purpose",
     "Add major systems",
     "List only important maps",
-    "작성 필요",
+)
+# `TODO` / `작성 필요` only count as unfilled template slots when they appear as a
+# bullet start or a value placeholder (`key: TODO`), not when real project notes
+# happen to mention the word (for example "fix the TODO in Character.cpp").
+PLACEHOLDER_SLOT_PATTERN = re.compile(
+    r"(?m)(?:^\s*[-*]\s*TODO\b|:\s*TODO\s*$|^\s*[-*]\s*작성 필요|:\s*작성 필요\s*$)"
 )
 
 
@@ -29,7 +35,9 @@ def add_finding(findings: list[dict], level: str, path: str, message: str) -> No
 
 def _has_placeholder(path: Path) -> bool:
     text = read_text(path)
-    return any(marker in text for marker in PLACEHOLDER_MARKERS)
+    if any(marker in text for marker in SPECIFIC_PLACEHOLDER_MARKERS):
+        return True
+    return bool(PLACEHOLDER_SLOT_PATTERN.search(text))
 
 
 def _project_value(project: dict, key: str) -> str:
@@ -48,6 +56,9 @@ def build_report(root: Path, after_update: bool = False) -> dict:
 
     scan_report = scan(root, include_assets=False)
     uproject_files = [item["file"] for item in scan_report["uprojects"]]
+    unreadable_uprojects = [item["file"] for item in scan_report["uprojects"] if item.get("readable") is False]
+    for unreadable in unreadable_uprojects:
+        add_finding(findings, "error", unreadable, "uproject file is not valid JSON; fix it before relying on project scans")
     template_mode = bool(project.get("template_mode"))
 
     if template_mode:

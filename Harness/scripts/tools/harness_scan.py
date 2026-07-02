@@ -29,14 +29,26 @@ def safe_rglob(root: Path, pattern: str, limit: int = 200) -> tuple[list[Path], 
 
 
 def parse_uproject(path: Path) -> dict:
-    data = load_json(path, {}) or {}
-    modules = [item.get("Name") for item in data.get("Modules", []) if item.get("Name")]
-    plugins = [item.get("Name") for item in data.get("Plugins", []) if item.get("Name")]
+    # A malformed or partially-written .uproject must not crash a scan, since
+    # scan feeds readiness and verify_all; report it as unreadable instead.
+    # `{}` is valid JSON, so readability tracks parse success, not emptiness.
+    readable = True
+    try:
+        data = load_json(path, {})
+    except (json.JSONDecodeError, OSError, ValueError):
+        data = {}
+        readable = False
+    if not isinstance(data, dict):
+        data = {}
+        readable = False
+    modules = [item.get("Name") for item in data.get("Modules", []) if isinstance(item, dict) and item.get("Name")]
+    plugins = [item.get("Name") for item in data.get("Plugins", []) if isinstance(item, dict) and item.get("Name")]
     return {
         "file": path.name,
         "engine_association": data.get("EngineAssociation", ""),
         "modules": modules,
         "plugins": plugins,
+        "readable": readable,
     }
 
 

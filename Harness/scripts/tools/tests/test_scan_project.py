@@ -68,6 +68,13 @@ class ScanProjectTests(HarnessBaseTestCase):
         candidate = scan(self.root)["project_json_candidate"]
         self.assertEqual("", candidate["project_name"])
         self.assertEqual("", candidate["uproject_file"])
+
+    def test_scan_marks_malformed_uproject_unreadable_without_crashing(self) -> None:
+        (self.root / "Broken.uproject").write_text("not json {", encoding="utf-8")
+        report = scan(self.root)
+        self.assertEqual(1, len(report["uprojects"]))
+        self.assertFalse(report["uprojects"][0]["readable"])
+        self.assertEqual([], report["uprojects"][0]["modules"])
     def test_init_plan_includes_project_readiness_gate(self) -> None:
         from harness_init_plan import build_plan
         plan = build_plan(self.root)
