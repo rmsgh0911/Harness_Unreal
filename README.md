@@ -28,7 +28,7 @@ For optional parallel work:
 python Harness/scripts/tools/harness_cycle.py "Task Name" --task <task-id> --worker Codex
 ```
 
-Read `HARNESS.md` for operating rules and `Harness/docs/template/setup.md` for installation or migration.
+Read `HARNESS.md` for operating rules and `Harness/docs/template/setup.md` for installation or migration. For CI rollout, no-runner Gitea use, or closed-network runners, also review `Harness/docs/template/gitea-ci.md` and `Harness/docs/template/project-ci.md`.
 
 ## What This Template Optimizes For
 
@@ -37,6 +37,6 @@ Read `HARNESS.md` for operating rules and `Harness/docs/template/setup.md` for i
 - Compact current-state files and detailed task/cycle records, so agents do not bury important facts in long dashboards.
 - Optional parallel branch/worktree delivery with explicit final remote-ref checks when branch sync is requested.
 - Reviewed Harness migrations that preserve project-owned docs, config, indexes, work records, Progress, and custom tools.
-- Continuous verification on every push via `.github/workflows/tests.yml`, which runs the tool tests and `harness_verify_all.py` on GitHub Actions and Gitea Actions.
+- Continuous verification on every push via `.github/workflows/tests.yml`, with documented Gitea runner modes and a separate project-CI attachment path for real Unreal builds, commandlets, and PIE evidence.
 
 For practical lessons learned from real project use, read `Harness/docs/AgentFieldGuide.md`.

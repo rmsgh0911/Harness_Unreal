@@ -24,6 +24,17 @@ Minimum:
 - Remove `__pycache__/` and `*.pyc` before strict template verification.
 - Run `python Harness/scripts/tools/harness_verify_all.py --skip-tool-tests` after the standalone test step.
 - For Windows workflow changes, parse `Harness/scripts/build/build_verify.ps1` with the PowerShell parser.
+- For Gitea runner assumptions, check `Harness/docs/template/gitea-ci.md`.
+- If Actions or runners are unavailable, use the local-only finish gate in `Harness/docs/template/gitea-ci.md` and record the missing CI limitation.
+
+## Unreal Project CI Attachment
+
+Minimum:
+
+- Keep template-level CI green first: tool tests plus `harness_verify_all.py`.
+- In real projects, fill `Harness/config/project.json`, set `template_mode` to `false`, and add a target-project CI job for the strongest practical tier in `Harness/docs/template/project-ci.md`.
+- Prefer a Windows runner for Editor builds, PowerShell scripts, Windows path handling, and Unreal automation.
+- If CI cannot run Unreal, record the local build, commandlet, PIE, or manual evidence requirement in the task or cycle record.
 
 ## Blueprint-Facing Change
 

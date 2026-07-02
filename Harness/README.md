@@ -26,16 +26,26 @@ Keep the current decision surface compact:
 - `work/next.md`: only the 3-5 highest-priority unresolved project items
 - detailed history: task/cycle records or an optional project backlog document, never the current dashboard
 
-## Standard Commands
+## Primary Command Surface
+
+Most daily work should fit through these five commands:
 
 ```powershell
 python Harness/scripts/tools/harness_context.py --request "<task description>"
+python Harness/scripts/tools/harness_cycle.py "Task Name" --task <task-id> --worker <agent>
+python Harness/scripts/tools/harness_verify_all.py
+python Harness/scripts/tools/harness_handoff.py --request "<handoff summary>"
+python Harness/scripts/tools/harness_update_plan.py --target C:\Path\To\OlderProject
+```
+
+Use the rest of the tools as focused diagnostics, migration helpers, or optional project features.
+
+## Supporting Commands
+
+```powershell
 python Harness/scripts/tools/harness_context.py --request "<task description>" --task <task-id>
 python Harness/scripts/tools/harness_context.py --request "<task description>" --all-next
-python Harness/scripts/tools/harness_verify_all.py
-python Harness/scripts/tools/harness_cycle.py "Task Name" --task <task-id> --worker <agent>
 python Harness/scripts/tools/harness_iteration_status.py --request "<repeated task>" --task <task-id>
-python Harness/scripts/tools/harness_update_plan.py --target C:\Path\To\OlderProject
 python Harness/scripts/tools/harness_knowledge.py --query "<feature or issue>"
 python Harness/scripts/tools/harness_memory.py --query "<feature or issue>" --limit 5
 python Harness/scripts/tools/harness_progress_html.py --write

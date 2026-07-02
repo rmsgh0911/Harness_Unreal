@@ -5,6 +5,10 @@ Project-specific current status belongs in `Harness/Progress.md`, and detailed p
 
 ## Unreleased
 
+- Added `template/gitea-ci.md` to document online Gitea, closed-network mirrored-action, and preinstalled-Python CI runner modes.
+- Documented a no-Actions/no-runner Gitea mode with a local-only finish gate so solo projects are not treated as if CI passed implicitly.
+- Added `template/project-ci.md` to separate portable Harness CI from real Unreal project build, commandlet, automation, and PIE verification tiers.
+- Narrowed the documented daily tool surface to five primary commands and moved the rest into supporting diagnostics.
 - Added a `**Last updated:** YYYY-MM-DD HH:MM:SS +09:00` header to `Harness/Progress.md`; `harness_progress_check.py` parses it and warns when missing. Worktree merge conflicts on this replace-in-place dashboard are resolved by keeping the newest-stamped block (documented in HARNESS.md), and the integrator now explicitly owns Progress.md consolidation.
 - Added `harness_tool_usage.py`: a static reference audit that flags low-reference tools as consolidation candidates as the tool count grows past twenty.
 - Split the single `test_structure_tools.py` into per-area `test_*.py` files sharing `_harness_test_base.py`, so a failing tool's tests are easy to locate; the suite still runs via `unittest discover`.

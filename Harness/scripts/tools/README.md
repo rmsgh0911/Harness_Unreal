@@ -39,6 +39,18 @@ python Harness/scripts/tools/example_tool.py --write
 
 Keep tools small. Split them by purpose when they grow.
 
+## Primary Commands
+
+Agents should remember this small command surface first:
+
+- `harness_context.py`: start with a request-scoped briefing.
+- `harness_cycle.py`: record repeated or task-scoped work.
+- `harness_verify_all.py`: run the standard finish gate.
+- `harness_handoff.py`: prepare a compact handoff for another worker or session.
+- `harness_update_plan.py`: update an older Harness install without overwriting project-owned data.
+
+Other tools in this folder are supporting diagnostics, migration helpers, optional project features, or implementation details used by the primary commands.
+
 ## Standard Tools
 
 - `harness_context.py`: prints a short Harness briefing with only request-related next items and index sections; use `--all-next` for the full list.
