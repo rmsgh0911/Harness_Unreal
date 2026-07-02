@@ -28,17 +28,20 @@ Keep the current decision surface compact:
 
 ## Primary Command Surface
 
-Most daily work should fit through these five commands:
+Most daily work should fit through this small command surface:
 
 ```powershell
 python Harness/scripts/tools/harness_context.py --request "<task description>"
 python Harness/scripts/tools/harness_cycle.py "Task Name" --task <task-id> --worker <agent>
 python Harness/scripts/tools/harness_verify_all.py
+python Harness/scripts/tools/harness_local_gate.py
 python Harness/scripts/tools/harness_handoff.py --request "<handoff summary>"
 python Harness/scripts/tools/harness_update_plan.py --target C:\Path\To\OlderProject
 ```
 
 Use the rest of the tools as focused diagnostics, migration helpers, or optional project features.
+
+Use `harness_local_gate.py` instead of server CI when a private Gitea project has no Actions or registered runners. It runs the local test/verify/cache-cleanup finish gate, checks diff hygiene, and prints `git diff --stat`.
 
 ## Supporting Commands
 

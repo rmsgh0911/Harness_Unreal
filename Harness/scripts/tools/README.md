@@ -46,6 +46,7 @@ Agents should remember this small command surface first:
 - `harness_context.py`: start with a request-scoped briefing.
 - `harness_cycle.py`: record repeated or task-scoped work.
 - `harness_verify_all.py`: run the standard finish gate.
+- `harness_local_gate.py`: run the local no-CI finish gate for solo or private Gitea work.
 - `harness_handoff.py`: prepare a compact handoff for another worker or session.
 - `harness_update_plan.py`: update an older Harness install without overwriting project-owned data.
 
@@ -66,6 +67,7 @@ Other tools in this folder are supporting diagnostics, migration helpers, option
 - `harness_diff_guard.py`: checks changed files and Unreal risk signals.
 - `harness_field_check.py`: checks field-proven operating risks, suspicious doc text artifacts, nested Harness review copies, Unreal Python wrapper hints, and optional branch-ref alignment.
 - `harness_handoff.py`: creates a minimal handoff brief for another worker or session.
+- `harness_local_gate.py`: runs the no-CI local finish gate: tool tests, Harness Python cache cleanup, `harness_verify_all.py --skip-tool-tests`, optional strict release check, `git diff --check`, and `git diff --stat`.
 - `harness_verify_all.py`: runs lightweight standard checks before finishing work; real project mode requires complete build configuration.
 - `harness_release_check.py`: checks template packaging hygiene, including generated files and symlinks, before copying or zipping.
 - `harness_release_pack.py`: previews or atomically writes a clean template ZIP; protected output paths and strict hygiene failures block writes.
@@ -123,6 +125,8 @@ python Harness/scripts/tools/harness_cycle.py "Iteration 2" --task input-fix --m
 python Harness/scripts/tools/harness_diff_guard.py
 python Harness/scripts/tools/harness_field_check.py --branches main feature/login release/1.2
 python Harness/scripts/tools/harness_handoff.py --request "Continue lock-on work"
+python Harness/scripts/tools/harness_local_gate.py
+python Harness/scripts/tools/harness_local_gate.py --release
 python Harness/scripts/tools/harness_verify_all.py
 python Harness/scripts/tools/harness_release_check.py --json
 python Harness/scripts/tools/harness_release_check.py --strict

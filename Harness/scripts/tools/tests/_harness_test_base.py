@@ -25,6 +25,7 @@ from harness_index_check import build_report as build_index_report  # noqa: E402
 from harness_iteration_status import build_status as build_iteration_status  # noqa: E402
 from harness_handoff import build_handoff  # noqa: E402
 from harness_knowledge import build_knowledge  # noqa: E402
+from harness_local_gate import build_gate as build_local_gate, clean_python_caches as clean_local_gate_caches  # noqa: E402
 from harness_memory import add_entry as add_memory_entry, memory_doctor, prune_memory, query_memory as query_memory_entries, rebuild_cache as rebuild_memory_cache, update_status as update_memory_status, validate_memory  # noqa: E402
 from harness_progress_check import build_report as build_progress_report  # noqa: E402
 from harness_progress_html import build_report as build_progress_html_report, build_server as build_progress_server  # noqa: E402

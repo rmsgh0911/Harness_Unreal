@@ -22,17 +22,13 @@ If the Gitea server has no Actions support, no enabled Actions setting, or no re
 Local-only minimum before commit or push:
 
 ```powershell
-python -B -m unittest discover -s Harness/scripts/tools/tests -p "test_*.py"
-Get-ChildItem -Path Harness -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force
-Get-ChildItem -Path Harness -Recurse -File -Filter *.pyc | Remove-Item -Force
-python Harness/scripts/tools/harness_verify_all.py --skip-tool-tests
-git diff --stat
+python Harness/scripts/tools/harness_local_gate.py
 ```
 
 For template releases, add:
 
 ```powershell
-python Harness/scripts/tools/harness_release_check.py --strict
+python Harness/scripts/tools/harness_local_gate.py --release
 python Harness/scripts/tools/harness_release_pack.py --write
 ```
 

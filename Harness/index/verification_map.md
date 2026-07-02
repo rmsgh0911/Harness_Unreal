@@ -25,7 +25,7 @@ Minimum:
 - Run `python Harness/scripts/tools/harness_verify_all.py --skip-tool-tests` after the standalone test step.
 - For Windows workflow changes, parse `Harness/scripts/build/build_verify.ps1` with the PowerShell parser.
 - For Gitea runner assumptions, check `Harness/docs/template/gitea-ci.md`.
-- If Actions or runners are unavailable, use the local-only finish gate in `Harness/docs/template/gitea-ci.md` and record the missing CI limitation.
+- If Actions or runners are unavailable, run `python Harness/scripts/tools/harness_local_gate.py` and record the missing CI limitation.
 
 ## Unreal Project CI Attachment
 

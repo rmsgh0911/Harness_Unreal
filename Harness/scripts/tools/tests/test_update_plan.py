@@ -4,6 +4,13 @@ from _harness_test_base import *  # noqa: F401,F403
 
 
 class UpdatePlanTests(HarnessBaseTestCase):
+    def test_migration_audit_accepts_direct_harness_directory(self) -> None:
+        report = migration_audit(self.root / "Harness")
+        self.assertTrue(report["ok"])
+        self.assertTrue(report["layout"]["target_is_harness_dir"])
+        self.assertEqual("single", report["layout"]["kind"])
+        self.assertTrue(any(item["level"] == "info" for item in report["findings"]))
+
     def test_migration_audit_reports_single_layout_and_incomplete_build(self) -> None:
         (self.root / "Harness/config/project.json").write_text(
             json.dumps({"project_name": "Demo", "template_mode": False, "build": {}}),

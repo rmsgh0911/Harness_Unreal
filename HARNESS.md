@@ -158,7 +158,7 @@ Recommended cycle entry:
 3. Refresh `Harness/Progress.md` when meaningful project behavior or a human decision changed. `Progress.md` is Korean by default; keep it to ~40 lines covering Current Status, Recent Completion, Needs Confirmation, and Next Work.
 4. Do not hand-edit `Harness/Progress_index.html` for routine progress changes; update `Harness/Progress.md`, then reload the viewer (double-click `Harness/Progress_view.cmd` or run `harness_progress_html.py --serve` for a live local view over HTTP).
 5. Update the active task file and consolidate durable facts into `state.md` or `next.md` only when appropriate.
-6. Run `python Harness/scripts/tools/harness_verify_all.py`.
+6. Run `python Harness/scripts/tools/harness_verify_all.py`. If the repository has no server-side CI, run `python Harness/scripts/tools/harness_local_gate.py` before commit or push; it wraps the local finish gate and final diff checks.
 7. For requested branch-family or worktree syncs, confirm each involved checkout/worktree is clean enough for the operation and verify remote refs after push with `git ls-remote --heads origin <branches...>`.
 8. For C++ changes that affect actor visualization or widget behavior, add a `Remaining` note specifying what to confirm in PIE or the editor viewport. Do not claim visual correctness from a build pass alone.
 9. For Unreal Python scripts that place or update actors, confirm the script runs idempotently: a second run should produce the same actor count and state, not duplicates.

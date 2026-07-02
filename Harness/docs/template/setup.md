@@ -40,7 +40,7 @@ python Harness/scripts/tools/harness_verify_all.py
 
 Use `harness_field_check.py --branches <branch-a> <branch-b>` only when the project intentionally maintains multiple branches that must be checked for remote alignment.
 
-For CI setup, keep the template workflow as the Harness baseline and choose a runner mode from `Harness/docs/template/gitea-ci.md`. If the target Gitea server has no Actions or runners, use the documented local-only finish gate before commit or push instead of treating CI as passed. For a real Unreal project, add the strongest practical project-specific tier from `Harness/docs/template/project-ci.md`; the reusable template CI does not replace an Editor build, commandlet, automation test, or PIE evidence.
+For CI setup, keep the template workflow as the Harness baseline and choose a runner mode from `Harness/docs/template/gitea-ci.md`. If the target Gitea server has no Actions or runners, run `python Harness/scripts/tools/harness_local_gate.py` before commit or push instead of treating CI as passed. For a real Unreal project, add the strongest practical project-specific tier from `Harness/docs/template/project-ci.md`; the reusable template CI does not replace an Editor build, commandlet, automation test, or PIE evidence.
 
 ## Update An Existing Harness Install
 
@@ -70,7 +70,7 @@ Recommended reviewed update flow:
 
 Version-specific upgrade notes:
 
-- **CI runner modes**: if the target project runs on private Gitea, review `Harness/docs/template/gitea-ci.md` before replacing workflows. A server with no Actions or no registered runners should use the local-only finish gate. Closed-network runners may need mirrored actions or preinstalled Python instead of the public `actions/*` sources.
+- **CI runner modes**: if the target project runs on private Gitea, review `Harness/docs/template/gitea-ci.md` before replacing workflows. A server with no Actions or no registered runners should use `harness_local_gate.py`. Closed-network runners may need mirrored actions or preinstalled Python instead of the public `actions/*` sources.
 - **Project Unreal CI attachment**: keep template CI portable, then add target-project jobs from `Harness/docs/template/project-ci.md` after engine paths, maps, plugins, and automation are known.
 - **Memory/data layer (`Harness/data/`)**: older installs have no `Harness/data/`. `--apply-missing` adds the scaffolding (`README.md`, `schema.sql`, `memory.example.jsonl`, empty `memory/`). Merge the new `.gitignore` entries **before the first commit** so local `Harness/data/*.sqlite*` caches are never committed; `harness_doctor.py` warns when `Harness/data/` exists without those exclusions. The layer is optional — validate it with `python Harness/scripts/tools/harness_memory.py --doctor` and leave the shards empty if the project does not want reviewed memory.
 - **Archive modes**: older `harness_archive.py` handles only `--task`. The updated tool also archives old date-named cycle files (`2026-06-17.md`, `claude-2026-05-08.md`) with `--before YYYY-MM --archive`, and `harness_state_check.py` warns while completed tasks remain unarchived. After applying the tool review, run a preview (`--before <this-month>`) to drain accumulated date cycles into monthly archive folders.

@@ -11,6 +11,12 @@ python Harness/scripts/tools/harness_context.py --request "<task>"
 python Harness/scripts/tools/harness_verify_all.py
 ```
 
+If the target Gitea repository has no Actions or registered runners, use the local gate before commit or push:
+
+```powershell
+python Harness/scripts/tools/harness_local_gate.py
+```
+
 Optional local memory uses daily JSONL shards and a rebuildable SQLite cache:
 
 ```powershell
@@ -37,6 +43,7 @@ Read `HARNESS.md` for operating rules and `Harness/docs/template/setup.md` for i
 - Compact current-state files and detailed task/cycle records, so agents do not bury important facts in long dashboards.
 - Optional parallel branch/worktree delivery with explicit final remote-ref checks when branch sync is requested.
 - Reviewed Harness migrations that preserve project-owned docs, config, indexes, work records, Progress, and custom tools.
-- Continuous verification on every push via `.github/workflows/tests.yml`, with documented Gitea runner modes and a separate project-CI attachment path for real Unreal builds, commandlets, and PIE evidence.
+- Continuous verification on every push via `.github/workflows/tests.yml` when CI exists, or `harness_local_gate.py` as the local finish gate when private Gitea has no Actions or runners.
+- A separate project-CI attachment path for real Unreal builds, commandlets, and PIE evidence.
 
 For practical lessons learned from real project use, read `Harness/docs/AgentFieldGuide.md`.

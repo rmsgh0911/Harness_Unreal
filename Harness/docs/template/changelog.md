@@ -7,8 +7,12 @@ Project-specific current status belongs in `Harness/Progress.md`, and detailed p
 
 - Added `template/gitea-ci.md` to document online Gitea, closed-network mirrored-action, and preinstalled-Python CI runner modes.
 - Documented a no-Actions/no-runner Gitea mode with a local-only finish gate so solo projects are not treated as if CI passed implicitly.
+- Added `harness_local_gate.py` as the one-command local finish gate for projects without GitHub/Gitea Actions or registered runners, including diff hygiene before the final diff stat.
+- Root agent instructions now point no-CI Gitea projects at `harness_local_gate.py` before commit or push.
+- `harness_migration_audit.py` now accepts a direct Harness folder as a read-only audit target, useful for reference copies such as `Harness_P2HumanError/`.
+- Broadened ignored imported reference Harness copies from `Harness_*-work*/` to root-level `Harness_*/`, so folders such as `Harness_P2HumanError/` can be kept for migration analysis without affecting template release hygiene.
 - Added `template/project-ci.md` to separate portable Harness CI from real Unreal project build, commandlet, automation, and PIE verification tiers.
-- Narrowed the documented daily tool surface to five primary commands and moved the rest into supporting diagnostics.
+- Narrowed the documented daily tool surface to primary commands and moved the rest into supporting diagnostics.
 - Added a `**Last updated:** YYYY-MM-DD HH:MM:SS +09:00` header to `Harness/Progress.md`; `harness_progress_check.py` parses it and warns when missing. Worktree merge conflicts on this replace-in-place dashboard are resolved by keeping the newest-stamped block (documented in HARNESS.md), and the integrator now explicitly owns Progress.md consolidation.
 - Added `harness_tool_usage.py`: a static reference audit that flags low-reference tools as consolidation candidates as the tool count grows past twenty.
 - Split the single `test_structure_tools.py` into per-area `test_*.py` files sharing `_harness_test_base.py`, so a failing tool's tests are easy to locate; the suite still runs via `unittest discover`.

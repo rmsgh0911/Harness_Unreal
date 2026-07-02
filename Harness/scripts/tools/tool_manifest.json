@@ -245,6 +245,27 @@
       "verify": "python Harness/scripts/tools/harness_verify_all.py --json --skip-tool-tests"
     },
     {
+      "name": "harness_local_gate",
+      "path": "Harness/scripts/tools/harness_local_gate.py",
+      "purpose": "Runs the local finish gate for solo or private Gitea projects without Actions or registered runners: tool tests, Harness cache cleanup, verify_all, optional strict release check, diff hygiene, and diff stat.",
+      "inputs": [
+        "Harness/scripts/tools/tests/",
+        "Harness/scripts/tools/harness_verify_all.py",
+        "Harness/scripts/tools/harness_release_check.py with --release",
+        "git diff --check",
+        "git diff --stat",
+        "--release",
+        "--skip-tests"
+      ],
+      "outputs": [
+        "local_gate_report",
+        "json"
+      ],
+      "writes_files": "removes_Harness_python_caches_only",
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_local_gate.py --json --skip-tests"
+    },
+    {
       "name": "harness_release_check",
       "path": "Harness/scripts/tools/harness_release_check.py",
       "purpose": "Checks template-release hygiene such as generated caches, symlinks, old work-layout paths, BOM markers, duplicated work paths, leaked project paths, and real work records.",

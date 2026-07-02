@@ -11,6 +11,20 @@ sys.dont_write_bytecode = True
 from harness_common import dump_json, load_json, rel
 
 
+def looks_like_harness_dir(path: Path) -> bool:
+    return path.is_dir() and all((path / name).exists() for name in ("config", "scripts", "index", "work"))
+
+
+def resolve_target(root: Path) -> tuple[Path, bool]:
+    """Return the Harness directory and whether the target itself is that directory."""
+    nested = root / "Harness"
+    if nested.exists():
+        return nested, False
+    if looks_like_harness_dir(root):
+        return root, True
+    return nested, False
+
+
 def files_under(path: Path) -> list[str]:
     if not path.exists():
         return []
@@ -19,7 +33,7 @@ def files_under(path: Path) -> list[str]:
 
 
 def audit(root: Path) -> dict:
-    harness = root / "Harness"
+    harness, target_is_harness_dir = resolve_target(root)
     split_dirs = [harness / name for name in ("Codex", "Claude", "Common")]
     has_split = any(path.exists() for path in split_dirs)
     has_single = all((harness / name).exists() for name in ("config", "scripts", "index", "work"))
@@ -35,6 +49,9 @@ def audit(root: Path) -> dict:
         "review and merge Harness/work/tasks/task.example.md and template documentation examples",
         "run harness_knowledge.py after migration to reuse retained docs, indexes, task/cycle history, and archives",
     ]
+
+    if target_is_harness_dir:
+        findings.append({"level": "info", "message": "target is a Harness directory; use the project root for apply/update operations"})
 
     if not harness.exists():
         findings.append({"level": "error", "message": "Harness directory is missing"})
@@ -106,7 +123,13 @@ def audit(root: Path) -> dict:
     return {
         "root": str(root),
         "ok": not any(item["level"] == "error" for item in findings),
-        "layout": {"kind": layout, "has_harness": harness.exists(), "has_single": has_single, "has_split": has_split},
+        "layout": {
+            "kind": layout,
+            "has_harness": harness.exists(),
+            "has_single": has_single,
+            "has_split": has_split,
+            "target_is_harness_dir": target_is_harness_dir,
+        },
         "summary": {"task_files": len(task_files), "cycle_files": len(cycle_files), "findings": len(findings)},
         "project": {
             "exists": project_path.exists(),
