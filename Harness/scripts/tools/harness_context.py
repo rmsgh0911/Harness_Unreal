@@ -292,6 +292,7 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
             "engine_version": project.get("engine_version", ""),
             "configured": configured,
             "template_mode": bool(project.get("template_mode", False)),
+            "ci_mode": (project.get("ci", {}) or {}).get("mode", "") if isinstance(project.get("ci"), dict) else "",
         },
         "files": files,
         "state_heading": first_heading(read_text(state_path(root))),
@@ -323,6 +324,11 @@ def format_text(context: dict) -> str:
         f"- Template mode: {context['project']['template_mode']}",
         f"- Registered tools: {context['tools']['registered_count']}",
     ]
+    ci_mode = context["project"].get("ci_mode", "")
+    if not context["project"]["template_mode"]:
+        lines.append(f"- CI mode: {ci_mode or 'undeclared (set ci.mode in Harness/config/project.json)'}")
+        if ci_mode == "no_actions_or_runners":
+            lines.append("- Finish gate: python Harness/scripts/tools/harness_local_gate.py (no server CI)")
     if context["warnings"]:
         lines.append("- Warnings: " + "; ".join(context["warnings"]))
     cycle_request = context["cycle_policy"]["request_eval"]

@@ -24,6 +24,7 @@ python Harness/scripts/tools/harness_local_gate.py
 
 - `Harness/config/project.json` has `template_mode: false`.
 - `project_name`, `uproject_file`, `engine_version`, `build.engine_root`, and `build.editor_target_name` are filled.
+- `ci.mode` declares the finish-gate policy (`online_runner`, `closed_network_runner`, or `no_actions_or_runners`) per `Harness/docs/template/gitea-ci.md`.
 - The configured `.uproject` file exists.
 - `Harness/work/state.md`, `Harness/work/next.md`, and `Harness/index/project_index.md` no longer contain template placeholders.
 - `Harness/index/verification_map.md` records the practical Unreal verification tier for the project.

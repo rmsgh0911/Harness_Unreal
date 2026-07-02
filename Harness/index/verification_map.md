@@ -10,6 +10,7 @@ Pin the mandatory verification tier for each change type after connecting the pr
 - Config change: TODO (e.g., Tier 0 tool checks + affected runtime path)
 - UI / UMG / input change: TODO (e.g., Tier 3 PIE note required)
 - Content / asset change: TODO (e.g., manual editor check recorded)
+- CI workflow change: TODO (e.g., Ubuntu + Windows workflow green, or harness_local_gate.py evidence when no runners)
 
 ## C++ Source Change
 

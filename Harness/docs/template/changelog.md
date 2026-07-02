@@ -5,6 +5,7 @@ Project-specific current status belongs in `Harness/Progress.md`, and detailed p
 
 ## Unreleased
 
+- `ci.mode` is now part of the connection surface end to end: the setup Configure steps and the first-project-connect checklist require declaring it, `verification_map.md` includes a CI-workflow tier slot, and the context briefing shows the declared CI mode for connected projects with a `harness_local_gate.py` finish-gate reminder when the mode is `no_actions_or_runners`.
 - Lightened the mandatory startup: agents now run `harness_context.py` first and read only what it recommends; the briefing includes `HARNESS.md` only for cycle/iteration or Harness-update work and `Harness/README.md` only before the project is connected, instead of unconditionally recommending both every task.
 - Projects now declare their CI mode in `Harness/config/project.json` (`ci.mode`: `online_runner`, `closed_network_runner`, `no_actions_or_runners`); `harness_project_readiness.py` warns while it is blank (blocking under `--strict` at the connection milestone) so the finish gate choice is explicit.
 - `Harness/index/verification_map.md` gains a per-project "Minimum Required Tier" section to pin mandatory verification tiers per change type after connection.

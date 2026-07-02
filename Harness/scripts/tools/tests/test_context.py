@@ -29,6 +29,25 @@ class ContextTests(HarnessBaseTestCase):
         unconnected = build_context(self.root, request="Fix dashboard input")
         self.assertIn("Harness/README.md", unconnected["recommended_first_reads"])
 
+    def test_context_surfaces_ci_mode_and_local_gate_reminder(self) -> None:
+        from harness_context import format_text
+        (self.root / "Harness/config/project.json").write_text(
+            '{"template_mode": false, "project_name": "Demo", "uproject_file": "Demo.uproject", '
+            '"ci": {"mode": "no_actions_or_runners"}}\n',
+            encoding="utf-8",
+        )
+        context = build_context(self.root, request="Fix dashboard input")
+        self.assertEqual("no_actions_or_runners", context["project"]["ci_mode"])
+        text = format_text(context)
+        self.assertIn("CI mode: no_actions_or_runners", text)
+        self.assertIn("harness_local_gate.py", text)
+        (self.root / "Harness/config/project.json").write_text(
+            '{"template_mode": false, "project_name": "Demo", "uproject_file": "Demo.uproject"}\n',
+            encoding="utf-8",
+        )
+        text = format_text(build_context(self.root, request="Fix dashboard input"))
+        self.assertIn("undeclared", text)
+
     def test_context_filters_unrelated_next_items(self) -> None:
         context = build_context(self.root, request="Fix dashboard input")
         self.assertEqual(["Repair dashboard input routing."], context["next_items"])

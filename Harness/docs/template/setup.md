@@ -19,15 +19,16 @@ Do not copy `.git/`, `.claude/`, Python caches, generated handoffs, or real proj
 
 1. Edit `Harness/config/project.json` and set `template_mode` to `false`.
 2. Fill the project name, `.uproject`, engine version, engine root, and editor target.
-3. Register project docs in `Harness/config/docs.json`.
-4. Fill `Harness/work/state.md` with the compact current snapshot and keep only the 3-5 highest-priority unresolved project items in `Harness/work/next.md`.
-5. Fill `Harness/index/project_index.md` as a compact routing map.
-6. Keep `Harness/Progress.md` as the short Korean dashboard for the target project. Replace the neutral `작성 필요:` bullets only after there is real project status to record.
-7. Keep agent-facing Harness docs in English by default. Put Korean project status in `Harness/Progress.md`, and avoid long Korean logs that agents would repeatedly re-read.
-8. Use `Harness/data/memory/*.jsonl` only when the project wants a reviewed memory layer. Private Gitea projects may commit reviewed daily shards; public template packages should keep real shards empty or absent. SQLite cache files under `Harness/data/` are local and ignored.
-9. For parallel work, use separate worktrees and branches only when parallel isolation is needed. Create one `Harness/work/tasks/<task-id>.md` per task.
-10. Confirm Git LFS is installed and the `.gitattributes` rules match team policy before committing binary Unreal assets.
-11. Read `Harness/docs/AgentFieldGuide.md` and remove or adapt any guidance that does not fit the project's workflow.
+3. Set `ci.mode` in `Harness/config/project.json` (`online_runner`, `closed_network_runner`, or `no_actions_or_runners`) per `Harness/docs/template/gitea-ci.md`; readiness `--strict` blocks connection while it is blank.
+4. Register project docs in `Harness/config/docs.json`.
+5. Fill `Harness/work/state.md` with the compact current snapshot and keep only the 3-5 highest-priority unresolved project items in `Harness/work/next.md`.
+6. Fill `Harness/index/project_index.md` as a compact routing map.
+7. Keep `Harness/Progress.md` as the short Korean dashboard for the target project. Replace the neutral `작성 필요:` bullets only after there is real project status to record.
+8. Keep agent-facing Harness docs in English by default. Put Korean project status in `Harness/Progress.md`, and avoid long Korean logs that agents would repeatedly re-read.
+9. Use `Harness/data/memory/*.jsonl` only when the project wants a reviewed memory layer. Private Gitea projects may commit reviewed daily shards; public template packages should keep real shards empty or absent. SQLite cache files under `Harness/data/` are local and ignored.
+10. For parallel work, use separate worktrees and branches only when parallel isolation is needed. Create one `Harness/work/tasks/<task-id>.md` per task.
+11. Confirm Git LFS is installed and the `.gitattributes` rules match team policy before committing binary Unreal assets.
+12. Read `Harness/docs/AgentFieldGuide.md` and remove or adapt any guidance that does not fit the project's workflow.
 
 ## Verify Setup
 
