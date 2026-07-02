@@ -49,6 +49,12 @@ class ProjectReadinessTests(HarnessBaseTestCase):
         (self.root / "Harness/index/project_index.md").write_text("# Project Index\n\n## Main\n- Path: `Source/UI/Dashboard.cpp`\n", encoding="utf-8")
         report = build_project_readiness_report(self.root)
         self.assertTrue(report["ok"])
+        # strict still fails until the CI mode is declared at the connection milestone
+        self.assertFalse(build_project_readiness_report(self.root, strict=True)["ok"])
+        config_path = self.root / "Harness/config/project.json"
+        project = json.loads(config_path.read_text(encoding="utf-8"))
+        project["ci"] = {"mode": "no_actions_or_runners"}
+        config_path.write_text(json.dumps(project), encoding="utf-8")
         self.assertTrue(build_project_readiness_report(self.root, strict=True)["ok"])
 
     def test_project_readiness_hard_error_blocks_even_in_standard_mode(self) -> None:
@@ -84,6 +90,23 @@ class ProjectReadinessTests(HarnessBaseTestCase):
         )
         (self.root / "Harness/work/state.md").write_text("# State\n\n## Project\n- Demo\n", encoding="utf-8")
         (self.root / "Harness/index/project_index.md").write_text("# Project Index\n\n## Main\n- Path: `Source/UI/Dashboard.cpp`\n", encoding="utf-8")
+
+    def test_project_readiness_warns_when_ci_mode_is_blank_or_unknown(self) -> None:
+        self._connect_project()
+        (self.root / "Harness/work/next.md").write_text("# Next\n\n## Active Work\n- Confirm first feature.\n", encoding="utf-8")
+        report = build_project_readiness_report(self.root)
+        self.assertTrue(report["ok"])  # soft warning only
+        self.assertTrue(any("ci.mode is blank" in item["message"] for item in report["findings"]))
+        config_path = self.root / "Harness/config/project.json"
+        project = json.loads(config_path.read_text(encoding="utf-8"))
+        project["ci"] = {"mode": "carrier_pigeon", "allowed_modes": ["online_runner", "no_actions_or_runners"]}
+        config_path.write_text(json.dumps(project), encoding="utf-8")
+        report = build_project_readiness_report(self.root)
+        self.assertTrue(any("not in allowed_modes" in item["message"] for item in report["findings"]))
+        project["ci"]["mode"] = "no_actions_or_runners"
+        config_path.write_text(json.dumps(project), encoding="utf-8")
+        report = build_project_readiness_report(self.root)
+        self.assertFalse(any("ci.mode" in item["message"] for item in report["findings"]))
 
     def test_project_readiness_allows_real_notes_that_mention_todo(self) -> None:
         self._connect_project()

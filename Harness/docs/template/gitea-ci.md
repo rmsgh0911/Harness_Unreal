@@ -46,6 +46,7 @@ Do not silently drop the Windows job if the project relies on PowerShell build s
 
 ## Recommended Gitea Policy
 
+- Declare the chosen mode in `Harness/config/project.json` under `ci.mode` (`online_runner`, `closed_network_runner`, or `no_actions_or_runners`); `harness_project_readiness.py` warns while it is blank so the finish gate stays explicit.
 - Treat the workflow in this template as the public baseline.
 - If Actions are unavailable, explicitly use the local-only finish gate above instead of treating CI as implicitly passed.
 - Keep project-specific CI changes in the target project, not in the reusable template, unless they are useful to every Unreal Harness install.

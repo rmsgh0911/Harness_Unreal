@@ -18,5 +18,10 @@
     "game_target_name": "",
     "platform": "Win64",
     "configuration": "Development"
+  },
+  "ci": {
+    "mode": "",
+    "allowed_modes": ["online_runner", "closed_network_runner", "no_actions_or_runners"],
+    "note": "Pick one mode from Harness/docs/template/gitea-ci.md after connecting the project. no_actions_or_runners means harness_local_gate.py is the finish gate."
   }
 }

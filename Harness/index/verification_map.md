@@ -2,6 +2,15 @@
 
 Task-type-specific minimum verification guidance. Keep entries short and practical.
 
+## Minimum Required Tier (fill per project)
+
+Pin the mandatory verification tier for each change type after connecting the project (tiers are defined in `Harness/docs/template/project-ci.md`). Example:
+
+- C++ / module change: TODO (e.g., Tier 1 editor build required)
+- Config change: TODO (e.g., Tier 0 tool checks + affected runtime path)
+- UI / UMG / input change: TODO (e.g., Tier 3 PIE note required)
+- Content / asset change: TODO (e.g., manual editor check recorded)
+
 ## C++ Source Change
 
 Minimum:

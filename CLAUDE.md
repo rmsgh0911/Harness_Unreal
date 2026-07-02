@@ -6,13 +6,12 @@ This repository uses the Harness workflow.
 
 Before starting any task:
 
-1. Read the root `HARNESS.md`.
-2. Read `Harness/README.md` for the single Harness and worktree layout.
-3. Before editing any project file, run this command unless Python is unavailable:
+1. Before editing any project file, run this command unless Python is unavailable:
    `python Harness/scripts/tools/harness_context.py --request "<user request>"`
    Add `--task <task-id>` when working from a parallel task record.
-4. Read only the state, next, task, cycle, or index sections recommended by the context briefing.
-5. Follow the default Harness loop:
+2. Read only the files and sections the context briefing recommends. It includes `HARNESS.md` and `Harness/README.md` when the task needs them.
+3. Open `HARNESS.md` yourself when the briefing did not recommend it but rules feel unclear, the work involves cycles/iteration budgets, or you are about to finish and record.
+4. Follow the default Harness loop:
    `implement -> minimal verification -> self-review -> record`.
 
 If the context command cannot run, manually read `HARNESS.md`, `Harness/README.md`, `Harness/work/state.md`, `Harness/work/next.md`, and `Harness/index/project_index.md` when present before editing.

@@ -195,7 +195,18 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
     index_reads = list(dict.fromkeys(match["path"] for match in index_matches))
     state_matches = matched_markdown_sections(root, state_path(root), request, limit=2)
     selected_next_items = select_next_items(read_text(next_path(root)), request, all_next=all_next)
-    first_reads = ["HARNESS.md", "Harness/README.md"]
+    cycle_request_eval = evaluate_cycle_request(request, policy)
+    # AGENTS.md/CLAUDE.md already embed the everyday operating essentials, so
+    # recommend the full HARNESS.md rulebook only when the task actually
+    # exercises its detailed rules (cycle/iteration budgets, Harness updates),
+    # and the layout/command README only before the project is connected.
+    # This keeps the context briefing token-light for routine connected work.
+    first_reads = []
+    if cycle_request_eval["is_cycle_work"] or _request_has_any(request, UPDATE_HINTS):
+        first_reads.append("HARNESS.md")
+    project_connected = bool(project.get("project_name")) and not project.get("template_mode", False)
+    if not project_connected:
+        first_reads.append("Harness/README.md")
     setup_doc = harness / "docs" / "template" / "setup.md"
     if _request_has_any(request, UPDATE_HINTS) and setup_doc.exists():
         first_reads.append(rel(setup_doc, root))
@@ -267,7 +278,6 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
 
     uprojects = sorted(path.name for path in root.glob("*.uproject"))
     tools = [tool for tool in manifest.get("tools", []) if isinstance(tool, dict)]
-    cycle_request_eval = evaluate_cycle_request(request, policy)
     iteration_status = None
     if cycle_request_eval["is_cycle_work"]:
         from harness_iteration_status import build_status as build_iteration_status
@@ -326,7 +336,10 @@ def format_text(context: dict) -> str:
             f"- Continue recommended: {iteration_status.get('continue_recommended', True)}",
             "- Loop: change or evidence -> minimal verification -> self-review -> decision -> record",
         ])
-    lines.extend(["", "Read first:", *(f"- {path}" for path in context["recommended_first_reads"])])
+    if context["recommended_first_reads"]:
+        lines.extend(["", "Read first:", *(f"- {path}" for path in context["recommended_first_reads"])])
+    else:
+        lines.extend(["", "Read first:", "- none; the sections below cover this request (open HARNESS.md only when rules are unclear)"])
     if context["project_index"]["matched_sections"]:
         lines.extend(["", "Relevant index sections:"])
         for item in context["project_index"]["matched_sections"]:

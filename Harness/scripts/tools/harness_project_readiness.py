@@ -107,6 +107,14 @@ def build_report(root: Path, after_update: bool = False, strict: bool = False) -
         if not build.get("game_target_name"):
             add_finding(findings, "warning", "Harness/config/project.json", "build.game_target_name is blank; fill it when packaging or game-target builds matter")
 
+        ci = project.get("ci", {}) if isinstance(project.get("ci"), dict) else {}
+        ci_mode = ci.get("mode", "").strip() if isinstance(ci.get("mode"), str) else ""
+        allowed_modes = ci.get("allowed_modes", []) if isinstance(ci.get("allowed_modes"), list) else []
+        if not ci_mode:
+            add_finding(findings, "warning", "Harness/config/project.json", "ci.mode is blank; pick a mode from Harness/docs/template/gitea-ci.md so the finish gate (server CI vs harness_local_gate.py) is explicit")
+        elif allowed_modes and ci_mode not in allowed_modes:
+            add_finding(findings, "warning", "Harness/config/project.json", f"ci.mode '{ci_mode}' is not in allowed_modes; align it with Harness/docs/template/gitea-ci.md")
+
         for relative in [
             "Harness/work/state.md",
             "Harness/work/next.md",

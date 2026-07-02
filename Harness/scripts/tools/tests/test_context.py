@@ -13,6 +13,22 @@ class ContextTests(HarnessBaseTestCase):
     def test_context_does_not_match_api_inside_capital(self) -> None:
         context = build_context(self.root, request="capital budget")
         self.assertNotIn("Harness/index/api_surface.md", context["project_index"]["recommended_first_reads"])
+    def test_context_recommends_rulebook_only_when_task_needs_it(self) -> None:
+        (self.root / "Harness/config/project.json").write_text(
+            '{"template_mode": false, "project_name": "Demo", "uproject_file": "Demo.uproject"}\n',
+            encoding="utf-8",
+        )
+        routine = build_context(self.root, request="Fix dashboard input")
+        self.assertNotIn("HARNESS.md", routine["recommended_first_reads"])
+        self.assertNotIn("Harness/README.md", routine["recommended_first_reads"])
+        cycles = build_context(self.root, request="Improve lock-on, up to 3 cycles")
+        self.assertIn("HARNESS.md", cycles["recommended_first_reads"])
+        update = build_context(self.root, request="Harness update from the new template")
+        self.assertIn("HARNESS.md", update["recommended_first_reads"])
+        (self.root / "Harness/config/project.json").write_text('{"template_mode": true}\n', encoding="utf-8")
+        unconnected = build_context(self.root, request="Fix dashboard input")
+        self.assertIn("Harness/README.md", unconnected["recommended_first_reads"])
+
     def test_context_filters_unrelated_next_items(self) -> None:
         context = build_context(self.root, request="Fix dashboard input")
         self.assertEqual(["Repair dashboard input routing."], context["next_items"])

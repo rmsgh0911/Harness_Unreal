@@ -5,6 +5,9 @@ Project-specific current status belongs in `Harness/Progress.md`, and detailed p
 
 ## Unreleased
 
+- Lightened the mandatory startup: agents now run `harness_context.py` first and read only what it recommends; the briefing includes `HARNESS.md` only for cycle/iteration or Harness-update work and `Harness/README.md` only before the project is connected, instead of unconditionally recommending both every task.
+- Projects now declare their CI mode in `Harness/config/project.json` (`ci.mode`: `online_runner`, `closed_network_runner`, `no_actions_or_runners`); `harness_project_readiness.py` warns while it is blank (blocking under `--strict` at the connection milestone) so the finish gate choice is explicit.
+- `Harness/index/verification_map.md` gains a per-project "Minimum Required Tier" section to pin mandatory verification tiers per change type after connection.
 - `harness_local_gate.py` reports a missing executable (for example git absent from PATH) as a failed gate step instead of crashing with a traceback.
 - Aligned `cycle_policy.json` with the single-Harness model: the stale split-era `worker_switching` section became `agent_handoff`, matching HARNESS.md handoff points and `harness_handoff.py`.
 - Doc routing/consistency: `Harness/docs/README.md` now lists `template/setup.md` and `template/changelog.md`; Quick Start and the primary command surface use `harness_project_readiness.py --strict` at the connection milestone.
