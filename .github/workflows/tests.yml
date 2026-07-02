@@ -9,14 +9,53 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  verify-ubuntu:
     runs-on: ubuntu-latest
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Run tool regression tests
-        run: python -m unittest discover -s Harness/scripts/tools/tests -p "test_*.py"
+        run: python -B -m unittest discover -s Harness/scripts/tools/tests -p "test_*.py"
+      - name: Clean Python caches
+        run: |
+          find Harness -type d -name __pycache__ -prune -exec rm -rf {} +
+          find Harness -type f -name "*.pyc" -delete
       - name: Run full Harness verification
-        run: python Harness/scripts/tools/harness_verify_all.py
+        run: python Harness/scripts/tools/harness_verify_all.py --skip-tool-tests
+
+  verify-windows:
+    runs-on: windows-latest
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Run tool regression tests
+        run: python -B -m unittest discover -s Harness/scripts/tools/tests -p "test_*.py"
+      - name: Clean Python caches
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path Harness -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force
+          Get-ChildItem -Path Harness -Recurse -File -Filter *.pyc | Remove-Item -Force
+      - name: Check PowerShell build helper syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'Harness/scripts/build/build_verify.ps1'),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors) {
+            $errors | Format-List
+            exit 1
+          }
+      - name: Run full Harness verification
+        run: python Harness/scripts/tools/harness_verify_all.py --skip-tool-tests

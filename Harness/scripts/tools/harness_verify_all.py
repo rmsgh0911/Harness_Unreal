@@ -119,7 +119,7 @@ def check_build_readiness(root: Path) -> dict:
     }
 
 
-def build_verify_all(root: Path, include_assets: bool = False, compile_python: bool = True) -> dict:
+def build_verify_all(root: Path, include_assets: bool = False, compile_python: bool = True, run_tests: bool = True) -> dict:
     doctor = run_doctor(root)
     context = build_context(root)
     scan_report = scan(root, include_assets=include_assets)
@@ -131,7 +131,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
     field_check = build_field_report(root)
     json_check = check_json_files(root)
     compile_check = compile_python_files(root) if compile_python else {"ok": True, "checked": [], "failures": [], "skipped": True}
-    tool_tests = run_tool_tests(root)
+    tool_tests = run_tool_tests(root) if run_tests else {"ok": True, "status": "skipped", "output": "", "skipped": True}
     build_readiness = check_build_readiness(root)
     project = load_json(harness_dir(root) / "config" / "project.json", {}) or {}
     template_mode = bool(project.get("template_mode")) if isinstance(project, dict) else False
@@ -274,11 +274,12 @@ def main() -> None:
     parser.add_argument("--root", type=Path, default=None, help="Project root. Defaults to nearest Harness root.")
     parser.add_argument("--include-assets", action="store_true", help="Include Content/*.umap in scan.")
     parser.add_argument("--skip-compile", action="store_true", help="Skip Python compile checks.")
+    parser.add_argument("--skip-tool-tests", action="store_true", help="Skip embedded tool regression tests when they already ran in CI.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     args = parser.parse_args()
 
     root = find_project_root(args.root)
-    report = build_verify_all(root, include_assets=args.include_assets, compile_python=not args.skip_compile)
+    report = build_verify_all(root, include_assets=args.include_assets, compile_python=not args.skip_compile, run_tests=not args.skip_tool_tests)
     if args.json:
         print(dump_json(report))
     else:

@@ -233,7 +233,8 @@
         "harness_diff_guard",
         "harness_field_check",
         "Harness/config/*.json",
-        "Harness/scripts/**/*.py"
+        "Harness/scripts/**/*.py",
+        "--skip-tool-tests"
       ],
       "outputs": [
         "verification_bundle_report",
@@ -241,7 +242,7 @@
       ],
       "writes_files": false,
       "safe_by_default": true,
-      "verify": "python Harness/scripts/tools/harness_verify_all.py --json"
+      "verify": "python Harness/scripts/tools/harness_verify_all.py --json --skip-tool-tests"
     },
     {
       "name": "harness_release_check",
