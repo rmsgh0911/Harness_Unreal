@@ -125,7 +125,7 @@ Recommended cycle entry:
 - Treat updates as reviewed migrations, not blind replacement.
 - Preserve project-specific config, docs, index, work records, Progress, and custom scripts.
 - Run the new template's `harness_update_plan.py --target <project>` before copying. `--apply-missing` may add absent files but never overwrites; `--stage-review <dir>` transactionally places changed template files outside both the template and target trees for review.
-- After initial install or update, run `harness_project_readiness.py`; a real project is not connected until project.json, state, next, and project index are filled from actual evidence.
+- After initial install or update, run `harness_project_readiness.py --strict`; a real project is not connected until project.json, state, next, and project index are filled from actual evidence. Routine `harness_verify_all.py` runs this check non-strict, so only hard connection/config errors block everyday work while unfilled placeholders stay warnings.
 - After migration, run `harness_knowledge.py --query "<current request>"` so retained docs, task/cycle history, archives, and indexes remain discoverable without broad scans.
 - When migrating from split `Harness/Codex/` and `Harness/Claude/` layouts, merge durable records into the single Harness and preserve conflicting task history as separate task files.
 - Do not delete the source template folder from a project until the migrated Harness verifies successfully and `git diff --stat` shows only the intended migration.
@@ -159,7 +159,7 @@ Recommended cycle entry:
 3. Refresh `Harness/Progress.md` when meaningful project behavior or a human decision changed. `Progress.md` is Korean by default; keep it to ~40 lines covering Current Status, Recent Completion, Needs Confirmation, and Next Work.
 4. Do not hand-edit `Harness/Progress_index.html` for routine progress changes; update `Harness/Progress.md`, then reload the viewer (double-click `Harness/Progress_view.cmd` or run `harness_progress_html.py --serve` for a live local view over HTTP).
 5. Update the active task file and consolidate durable facts into `state.md` or `next.md` only when appropriate.
-6. After Harness initialization or update, run `python Harness/scripts/tools/harness_project_readiness.py`.
+6. After Harness initialization or update, run `python Harness/scripts/tools/harness_project_readiness.py --strict` (routine runs are already covered non-strict inside `harness_verify_all.py`).
 7. Run `python Harness/scripts/tools/harness_verify_all.py`. If the repository has no server-side CI, run `python Harness/scripts/tools/harness_local_gate.py` before commit or push; it wraps the local finish gate and final diff checks.
 8. For requested branch-family or worktree syncs, confirm each involved checkout/worktree is clean enough for the operation and verify remote refs after push with `git ls-remote --heads origin <branches...>`.
 9. For C++ changes that affect actor visualization or widget behavior, add a `Remaining` note specifying what to confirm in PIE or the editor viewport. Do not claim visual correctness from a build pass alone.

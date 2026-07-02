@@ -44,7 +44,7 @@ Use the rest of the tools as focused diagnostics, migration helpers, or optional
 
 Use `harness_local_gate.py` instead of server CI when a private Gitea project has no Actions or registered runners. It runs the local test/verify/cache-cleanup finish gate, checks diff hygiene, and prints `git diff --stat`.
 
-Use `harness_project_readiness.py` after first install or Harness update. In real project mode, readiness blocks lingering template placeholders before `harness_verify_all.py` can pass.
+Use `harness_project_readiness.py --strict` at the connection milestone (after first install or Harness update). Inside routine `harness_verify_all.py` it runs non-strict: hard connection/config errors block, while lingering template placeholders are non-blocking warnings until you run it with `--strict`.
 
 ## Supporting Commands
 

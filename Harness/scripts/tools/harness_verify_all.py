@@ -276,10 +276,14 @@ def format_text(report: dict) -> str:
         lines.append("")
         lines.append("Field warnings:")
         lines.extend(f"- {item['path']}: {item['message']}" for item in report["field_check"]["warnings"])
-    if report["project_readiness"]["errors"]:
+    if report["project_readiness"]["errors"] or report["project_readiness"]["warnings"]:
         lines.append("")
-        lines.append("Project readiness errors:")
-        lines.append("- Run python Harness/scripts/tools/harness_project_readiness.py for details.")
+        lines.append("Project readiness:")
+        if report["project_readiness"]["errors"]:
+            lines.append(f"- {report['project_readiness']['errors']} blocking connection/config error(s)")
+        if report["project_readiness"]["warnings"]:
+            lines.append(f"- {report['project_readiness']['warnings']} non-blocking freshness warning(s)")
+        lines.append("- Run python Harness/scripts/tools/harness_project_readiness.py --strict for the full connection gate.")
     return "\n".join(lines)
 
 

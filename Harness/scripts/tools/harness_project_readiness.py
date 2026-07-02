@@ -45,7 +45,13 @@ def _project_value(project: dict, key: str) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
-def build_report(root: Path, after_update: bool = False) -> dict:
+def build_report(root: Path, after_update: bool = False, strict: bool = False) -> dict:
+    # Severity split: hard connection/config invariants (missing project.json
+    # fields, absent/malformed uproject, missing connection files) are errors and
+    # block the standard verify_all finish gate. Soft freshness signals (lingering
+    # template placeholders, optional fields) are warnings so day-to-day work is
+    # not blocked. The explicit connection milestone runs with strict=True to
+    # promote those warnings back to blocking.
     harness = harness_dir(root)
     findings: list[dict] = []
     project_path = harness / "config" / "project.json"
@@ -110,7 +116,7 @@ def build_report(root: Path, after_update: bool = False) -> dict:
             if not path.exists():
                 add_finding(findings, "error", relative, "required project connection file is missing")
             elif _has_placeholder(path):
-                add_finding(findings, "error", relative, "still contains template placeholders; refresh it from actual Source, Config, assets, docs, logs, or verification output")
+                add_finding(findings, "warning", relative, "still contains template placeholders; refresh it from actual Source, Config, assets, docs, logs, or verification output")
 
         verification_map = root / "Harness/index/verification_map.md"
         if verification_map.exists() and "Unreal Project CI Attachment" not in read_text(verification_map):
@@ -123,9 +129,11 @@ def build_report(root: Path, after_update: bool = False) -> dict:
 
     errors = [item for item in findings if item["level"] == "error"]
     warnings = [item for item in findings if item["level"] == "warning"]
+    ok = not errors and (not warnings if strict else True)
     return {
         "root": str(root),
-        "ok": not errors,
+        "ok": ok,
+        "strict": strict,
         "status": status,
         "after_update": after_update,
         "template_mode": template_mode,
@@ -141,7 +149,8 @@ def build_report(root: Path, after_update: bool = False) -> dict:
         },
         "guidance": [
             "Run harness_project_fill.py --write first when project.json fields are blank.",
-            "Run harness_project_readiness.py after initialization or Harness update before declaring the project connected.",
+            "Run harness_project_readiness.py --strict at the connection milestone (after init or Harness update) to also block lingering placeholders.",
+            "harness_verify_all.py runs this check non-strict, so only hard connection/config errors block routine work.",
             "Run harness_local_gate.py when the target Gitea project has no Actions or registered runners.",
         ],
     }
@@ -152,6 +161,7 @@ def format_text(report: dict) -> str:
         "Harness Project Readiness",
         f"- Root: {report['root']}",
         f"- Status: {report['status']}",
+        f"- Mode: {'strict' if report.get('strict') else 'standard'}",
         f"- Result: {'ok' if report['ok'] else 'needs attention'}",
         f"- UProject files: {', '.join(report['uprojects']) or 'none'}",
         f"- Errors: {report['summary']['errors']}",
@@ -167,11 +177,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Check Harness project connection readiness after init or update.")
     parser.add_argument("--root", type=Path, default=None, help="Project root. Defaults to nearest Harness root.")
     parser.add_argument("--after-update", action="store_true", help="Also check post-update expectations.")
+    parser.add_argument("--strict", action="store_true", help="Promote soft freshness warnings (lingering placeholders, optional fields) to blocking; use at the connection milestone.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     args = parser.parse_args()
 
     root = find_project_root(args.root)
-    report = build_report(root, after_update=args.after_update)
+    report = build_report(root, after_update=args.after_update, strict=args.strict)
     print(dump_json(report) if args.json else format_text(report))
     raise SystemExit(0 if report["ok"] else 1)
 

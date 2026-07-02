@@ -8,9 +8,11 @@ Use this checklist when an agent copies Harness into a real Unreal project for t
 python Harness/scripts/tools/harness_context.py --request "connect Harness to this project"
 python Harness/scripts/tools/harness_project_fill.py --json
 python Harness/scripts/tools/harness_project_fill.py --write
-python Harness/scripts/tools/harness_project_readiness.py
+python Harness/scripts/tools/harness_project_readiness.py --strict
 python Harness/scripts/tools/harness_verify_all.py
 ```
+
+Use `--strict` at this connection milestone so lingering template placeholders in state, next, and project index also block completion. Routine `harness_verify_all.py` runs readiness without `--strict`, so only hard connection/config errors (blank required fields, a missing or malformed `.uproject`) block everyday work.
 
 If the target Gitea project has no Actions or registered runners, finish with:
 
@@ -31,7 +33,7 @@ python Harness/scripts/tools/harness_local_gate.py
 
 ```powershell
 python C:\Path\To\NewHarnessTemplate\Harness\scripts\tools\harness_update_plan.py --target C:\Path\To\Project
-python Harness/scripts/tools/harness_project_readiness.py --after-update
+python Harness/scripts/tools/harness_project_readiness.py --after-update --strict
 python Harness/scripts/tools/harness_verify_all.py
 ```
 
