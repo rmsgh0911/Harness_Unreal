@@ -45,6 +45,7 @@ Agents should remember this small command surface first:
 
 - `harness_context.py`: start with a request-scoped briefing.
 - `harness_cycle.py`: record repeated or task-scoped work.
+- `harness_project_readiness.py`: check first-install or post-update project connection quality.
 - `harness_verify_all.py`: run the standard finish gate.
 - `harness_local_gate.py`: run the local no-CI finish gate for solo or private Gitea work.
 - `harness_handoff.py`: prepare a compact handoff for another worker or session.
@@ -80,6 +81,7 @@ Other tools in this folder are supporting diagnostics, migration helpers, option
 - `harness_docs_index.py`: indexes project doc headings to reduce reading scope.
 - `harness_index_check.py`: checks whether `Harness/index/` stays compact, complete, and fresh enough.
 - `harness_project_fill.py`: creates `project.json` candidates and fills blank fields only with `--write`.
+- `harness_project_readiness.py`: checks post-install or post-update project connection quality; `harness_verify_all.py` includes it.
 - `harness_cycle_summary.py`: summarizes recent cycle logs.
 - `harness_unreal_risk.py`: extracts Unreal-specific risk signals from changed files.
 - `harness_unreal_script.py`: checks Unreal Python script readiness and command; runs only with `--run`.
@@ -142,6 +144,8 @@ python Harness/scripts/tools/harness_init_plan.py
 python Harness/scripts/tools/harness_docs_index.py
 python Harness/scripts/tools/harness_index_check.py --json
 python Harness/scripts/tools/harness_project_fill.py --json
+python Harness/scripts/tools/harness_project_readiness.py
+python Harness/scripts/tools/harness_project_readiness.py --after-update
 python Harness/scripts/tools/harness_cycle_summary.py
 python Harness/scripts/tools/harness_unreal_risk.py
 python Harness/scripts/tools/harness_unreal_script.py --script Harness/scripts/unreal/verify_project.py

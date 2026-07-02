@@ -68,6 +68,10 @@ class ScanProjectTests(HarnessBaseTestCase):
         candidate = scan(self.root)["project_json_candidate"]
         self.assertEqual("", candidate["project_name"])
         self.assertEqual("", candidate["uproject_file"])
+    def test_init_plan_includes_project_readiness_gate(self) -> None:
+        from harness_init_plan import build_plan
+        plan = build_plan(self.root)
+        self.assertIn("python Harness/scripts/tools/harness_project_readiness.py", plan["verify"])
     def test_task_template_uses_provider_neutral_branch_placeholder(self) -> None:
         root = TOOLS_DIR.parents[2]
         task_example = (root / "Harness/work/tasks/task.example.md").read_text(encoding="utf-8")

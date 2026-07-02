@@ -23,6 +23,7 @@ from harness_docs_check import build_report as build_docs_report
 from harness_scan import scan
 from harness_release_check import build_report as build_release_report
 from harness_field_check import build_report as build_field_report
+from harness_project_readiness import build_report as build_project_readiness_report
 
 
 def required_checks_ok(*checks: dict) -> bool:
@@ -129,6 +130,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
     state_check = build_state_report(root)
     docs_check = build_docs_report(root)
     field_check = build_field_report(root)
+    project_readiness = build_project_readiness_report(root)
     json_check = check_json_files(root)
     compile_check = compile_python_files(root) if compile_python else {"ok": True, "checked": [], "failures": [], "skipped": True}
     tool_tests = run_tool_tests(root) if run_tests else {"ok": True, "status": "skipped", "output": "", "skipped": True}
@@ -147,6 +149,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
         doctor,
         docs_check,
         field_check,
+        project_readiness,
         json_check,
         compile_check,
         tool_tests,
@@ -186,6 +189,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
             "state_check": "ok" if state_check["ok"] else "failed",
             "docs_check": "ok" if docs_check["ok"] else "failed",
             "field_check": "ok" if field_check["ok"] else "failed",
+            "project_readiness": "ok" if project_readiness["ok"] else "failed",
             "build": build_readiness["status"],
             "release_hygiene": "ok" if release_hygiene["ok"] else "failed",
         },
@@ -224,6 +228,11 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
             "warnings": field_check["warnings"],
             "notes": len(field_check["notes"]),
         },
+        "project_readiness": {
+            "status": project_readiness["status"],
+            "errors": project_readiness["summary"]["errors"],
+            "warnings": project_readiness["summary"]["warnings"],
+        },
         "build_readiness": build_readiness,
         "release_hygiene": {
             "applicable": template_mode,
@@ -251,6 +260,7 @@ def format_text(report: dict) -> str:
         f"- State check (state/next/cycles length and format): {report['summary']['state_check']}",
         f"- Docs policy: {report['summary']['docs_check']}",
         f"- Field check: {report['summary']['field_check']}",
+        f"- Project readiness: {report['summary']['project_readiness']}",
         f"- Build: {report['summary']['build']}",
         f"- Template release hygiene: {report['summary']['release_hygiene']}",
     ]
@@ -266,6 +276,10 @@ def format_text(report: dict) -> str:
         lines.append("")
         lines.append("Field warnings:")
         lines.extend(f"- {item['path']}: {item['message']}" for item in report["field_check"]["warnings"])
+    if report["project_readiness"]["errors"]:
+        lines.append("")
+        lines.append("Project readiness errors:")
+        lines.append("- Run python Harness/scripts/tools/harness_project_readiness.py for details.")
     return "\n".join(lines)
 
 

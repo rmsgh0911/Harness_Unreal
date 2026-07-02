@@ -40,7 +40,9 @@ python Harness/scripts/tools/harness_verify_all.py
 
 Use `harness_field_check.py --branches <branch-a> <branch-b>` only when the project intentionally maintains multiple branches that must be checked for remote alignment.
 
-For CI setup, keep the template workflow as the Harness baseline and choose a runner mode from `Harness/docs/template/gitea-ci.md`. If the target Gitea server has no Actions or runners, run `python Harness/scripts/tools/harness_local_gate.py` before commit or push instead of treating CI as passed. For a real Unreal project, add the strongest practical project-specific tier from `Harness/docs/template/project-ci.md`; the reusable template CI does not replace an Editor build, commandlet, automation test, or PIE evidence.
+Run `python Harness/scripts/tools/harness_project_readiness.py` after filling project data. Do not treat the first connection as complete until readiness and `harness_verify_all.py` pass.
+
+For CI setup, keep the template workflow as the Harness baseline and choose a runner mode from `Harness/docs/template/gitea-ci.md`. If the target Gitea server has no Actions or runners, run `python Harness/scripts/tools/harness_local_gate.py` before commit or push instead of treating CI as passed. For a real Unreal project, add the strongest practical project-specific tier from `Harness/docs/template/project-ci.md`; the reusable template CI does not replace an Editor build, commandlet, automation test, or PIE evidence. For the shortest agent checklist, use `Harness/docs/template/first-project-connect.md`.
 
 ## Update An Existing Harness Install
 
@@ -65,12 +67,13 @@ Recommended reviewed update flow:
 4. Merge `AGENTS.md`, `CLAUDE.md`, `HARNESS.md`, shared config, and repository rules from the staged copy. Review standard tool replacements; keep project-specific behavior and unregistered custom tools.
 5. Do not replace `project.json`, `docs.json`, project docs, `Harness/index/`, `Harness/work/`, or `Harness/Progress.md`. Migrate their structure only when needed. Review `Harness/docs/template/` separately as template-owned documentation and adopt changes only when they are useful provenance. Template scaffolding files inside those directories (`work/README.md`, `work/archive/README.md`, `work/tasks/README.md`, `task.example.md`, `docs/README.md`, `index/README.md`, examples) are staged as merge-review candidates so their guidance can follow the template version.
 6. Search the retained material with `python Harness/scripts/tools/harness_knowledge.py --query "<current feature or issue>"` and refresh compact state/index files only from confirmed evidence.
-7. Run `harness_verify_all.py`, inspect `git diff --stat`, and remove legacy split directories only after verification passes.
+7. Run `harness_project_readiness.py --after-update`, then `harness_verify_all.py`, inspect `git diff --stat`, and remove legacy split directories only after verification passes.
 8. If the old project accumulated useful agent lessons, generalize them into `Harness/docs/AgentFieldGuide.md` or a project doc. Do not copy real paths, branch names, credentials, or active work logs into the reusable template.
 
 Version-specific upgrade notes:
 
 - **CI runner modes**: if the target project runs on private Gitea, review `Harness/docs/template/gitea-ci.md` before replacing workflows. A server with no Actions or no registered runners should use `harness_local_gate.py`. Closed-network runners may need mirrored actions or preinstalled Python instead of the public `actions/*` sources.
+- **Project readiness gate**: `harness_verify_all.py` includes `harness_project_readiness.py`; in a real project, lingering template placeholders in `project.json`, state, next, or project index block completion.
 - **Project Unreal CI attachment**: keep template CI portable, then add target-project jobs from `Harness/docs/template/project-ci.md` after engine paths, maps, plugins, and automation are known.
 - **Memory/data layer (`Harness/data/`)**: older installs have no `Harness/data/`. `--apply-missing` adds the scaffolding (`README.md`, `schema.sql`, `memory.example.jsonl`, empty `memory/`). Merge the new `.gitignore` entries **before the first commit** so local `Harness/data/*.sqlite*` caches are never committed; `harness_doctor.py` warns when `Harness/data/` exists without those exclusions. The layer is optional — validate it with `python Harness/scripts/tools/harness_memory.py --doctor` and leave the shards empty if the project does not want reviewed memory.
 - **Archive modes**: older `harness_archive.py` handles only `--task`. The updated tool also archives old date-named cycle files (`2026-06-17.md`, `claude-2026-05-08.md`) with `--before YYYY-MM --archive`, and `harness_state_check.py` warns while completed tasks remain unarchived. After applying the tool review, run a preview (`--before <this-month>`) to drain accumulated date cycles into monthly archive folders.
@@ -99,11 +102,12 @@ Do not report the update complete until verification passes and `git diff --stat
 Before committing or pushing a project that uses this template:
 
 1. Run the smallest verification that proves the requested behavior.
-2. Run `python Harness/scripts/tools/harness_verify_all.py`.
-3. Run `python Harness/scripts/tools/harness_field_check.py` for root, field-guide, and Unreal Python wrapper hints.
-4. Inspect `git diff --stat` and make sure generated assets/docs are intentionally included.
-5. Keep `Harness/Progress.md` short; move detailed history into task/cycle records.
-6. For requested multi-branch or multi-worktree syncs, verify local checkout status first, push the intended branches, then confirm remote refs with `git ls-remote --heads origin <branches...>`.
+2. Run `python Harness/scripts/tools/harness_project_readiness.py` after initialization or Harness updates.
+3. Run `python Harness/scripts/tools/harness_verify_all.py`.
+4. Run `python Harness/scripts/tools/harness_field_check.py` for root, field-guide, and Unreal Python wrapper hints.
+5. Inspect `git diff --stat` and make sure generated assets/docs are intentionally included.
+6. Keep `Harness/Progress.md` short; move detailed history into task/cycle records.
+7. For requested multi-branch or multi-worktree syncs, verify local checkout status first, push the intended branches, then confirm remote refs with `git ls-remote --heads origin <branches...>`.
 
 ## Build A Clean Template Package
 

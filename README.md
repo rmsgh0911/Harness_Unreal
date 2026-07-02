@@ -8,6 +8,7 @@ Parallel work, when a project needs it, is isolated with Git worktrees and branc
 
 ```powershell
 python Harness/scripts/tools/harness_context.py --request "<task>"
+python Harness/scripts/tools/harness_project_readiness.py
 python Harness/scripts/tools/harness_verify_all.py
 ```
 

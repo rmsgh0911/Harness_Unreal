@@ -5,6 +5,9 @@ Project-specific current status belongs in `Harness/Progress.md`, and detailed p
 
 ## Unreleased
 
+- Added `harness_project_readiness.py` and wired it into `harness_verify_all.py`, so first project connection and post-update placeholder/config gaps are caught by the standard finish gate.
+- `harness_init_plan.py` now includes project fill/readiness commands in its verification sequence.
+- Added `template/first-project-connect.md`, a short agent checklist for initial Harness connection and post-update readiness.
 - Added `template/gitea-ci.md` to document online Gitea, closed-network mirrored-action, and preinstalled-Python CI runner modes.
 - Documented a no-Actions/no-runner Gitea mode with a local-only finish gate so solo projects are not treated as if CI passed implicitly.
 - Added `harness_local_gate.py` as the one-command local finish gate for projects without GitHub/Gitea Actions or registered runners, including diff hygiene before the final diff stat.

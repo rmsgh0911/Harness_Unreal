@@ -77,6 +77,8 @@ def build_plan(root: Path) -> dict:
             "python Harness/scripts/tools/harness_docs_check.py --json",
             "python Harness/scripts/tools/harness_doctor.py",
             "python Harness/scripts/tools/harness_scan.py --json",
+            "python Harness/scripts/tools/harness_project_fill.py --json",
+            "python Harness/scripts/tools/harness_project_readiness.py",
         ]
     )
     if project.get("uproject_file") or len(uprojects) == 1:

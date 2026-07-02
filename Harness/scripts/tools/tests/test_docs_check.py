@@ -17,6 +17,10 @@ class DocsCheckTests(HarnessBaseTestCase):
         self.assertTrue(result["should_read_docs"])
         self.assertIn("install", result["read_hits"])
         self.assertIn("Gitea", result["read_hits"])
+
+        result = evaluate_request("connect Harness to this project", {})
+        self.assertTrue(result["should_read_docs"])
+        self.assertIn("connect", result["read_hits"])
     def test_docs_check_fallbacks_match_template_docs_json(self) -> None:
         import json
         docs_json = TOOLS_DIR.parents[1] / "config" / "docs.json"

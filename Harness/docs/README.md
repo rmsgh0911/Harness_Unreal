@@ -7,6 +7,7 @@ Agents read docs on demand when requested or when code, config, assets, and logs
 ## Template Guidance
 
 - `AgentFieldGuide.md`: field-tested operating habits for Unreal Harness agents.
+- `template/first-project-connect.md`: agent checklist for first project connection and post-update readiness.
 - `template/gitea-ci.md`: GitHub-compatible, Gitea, and closed-network CI runner modes.
 - `template/project-ci.md`: how to attach real Unreal build, commandlet, and PIE verification in target projects.
 - `examples/cycle_log.example.md`: example cycle record shape.

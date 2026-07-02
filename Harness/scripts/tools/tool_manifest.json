@@ -556,6 +556,28 @@
       "verify": "python Harness/scripts/tools/harness_project_fill.py --json"
     },
     {
+      "name": "harness_project_readiness",
+      "path": "Harness/scripts/tools/harness_project_readiness.py",
+      "purpose": "Checks whether Harness is actually connected to a real Unreal project after initialization or update: project.json fields, uproject presence, placeholder state/index files, and verification tier notes.",
+      "inputs": [
+        "Harness/config/project.json",
+        "*.uproject",
+        "Harness/work/state.md",
+        "Harness/work/next.md",
+        "Harness/index/project_index.md",
+        "Harness/index/verification_map.md",
+        "--after-update"
+      ],
+      "outputs": [
+        "project_readiness_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "context_check": true,
+      "verify": "python Harness/scripts/tools/harness_project_readiness.py --json"
+    },
+    {
       "name": "harness_cycle_summary",
       "path": "Harness/scripts/tools/harness_cycle_summary.py",
       "purpose": "Summarizes changed, verified, and remaining items from recent cycle logs to avoid rereading long history.",

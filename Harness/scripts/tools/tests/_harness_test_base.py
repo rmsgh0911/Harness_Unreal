@@ -38,6 +38,7 @@ from harness_update_plan import apply_missing_files, build_update_plan, stage_re
 from harness_verify_all import check_build_readiness, compile_python_files, required_checks_ok  # noqa: E402
 from harness_scan import scan  # noqa: E402
 from harness_project_fill import build_report as build_project_fill_report, deep_fill  # noqa: E402
+from harness_project_readiness import build_report as build_project_readiness_report  # noqa: E402
 from harness_docs_index import build_index as build_docs_index  # noqa: E402
 from harness_migration_audit import audit as migration_audit  # noqa: E402
 

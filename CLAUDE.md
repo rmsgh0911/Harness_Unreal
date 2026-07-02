@@ -25,6 +25,8 @@ For repeated work, establish success criteria and the cycle budget before editin
 
 When updating an older Harness install, run `harness_update_plan.py` from the new template before copying files. Preserve project-owned config, docs, indexes, work records, Progress, and custom tools; use `harness_knowledge.py --query "<request>"` to route into retained material after the update.
 
+After first install or Harness update, run `python Harness/scripts/tools/harness_project_readiness.py` before declaring the project connected.
+
 Before the final response for project changes, check the smallest useful verification result, `git diff --stat`, and whether `Harness/Progress.md` needs a brief Korean update. If the target Gitea repository has no Actions or registered runners, use `python Harness/scripts/tools/harness_local_gate.py` as the local finish gate before commit or push.
 
 ## Defaults
