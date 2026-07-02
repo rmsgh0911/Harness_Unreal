@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from _harness_test_base import HarnessBaseTestCase
-from harness_local_gate import build_gate, clean_python_caches
+from harness_local_gate import build_gate, clean_python_caches, run_command
 
 
 class LocalGateTests(HarnessBaseTestCase):
@@ -23,6 +23,12 @@ class LocalGateTests(HarnessBaseTestCase):
         self.assertTrue(report["ok"])
         self.assertFalse(cache_dir.exists())
         self.assertTrue(outside_pyc.exists())
+
+    def test_run_command_reports_missing_executable_instead_of_crashing(self) -> None:
+        result = run_command(self.root, ["definitely_not_a_real_executable_12345", "--version"])
+        self.assertFalse(result["ok"])
+        self.assertEqual(-1, result["returncode"])
+        self.assertIn("command could not start", result["output"])
 
     def test_build_gate_runs_expected_steps(self) -> None:
         commands: list[list[str]] = []

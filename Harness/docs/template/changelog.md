@@ -5,6 +5,9 @@ Project-specific current status belongs in `Harness/Progress.md`, and detailed p
 
 ## Unreleased
 
+- `harness_local_gate.py` reports a missing executable (for example git absent from PATH) as a failed gate step instead of crashing with a traceback.
+- Aligned `cycle_policy.json` with the single-Harness model: the stale split-era `worker_switching` section became `agent_handoff`, matching HARNESS.md handoff points and `harness_handoff.py`.
+- Doc routing/consistency: `Harness/docs/README.md` now lists `template/setup.md` and `template/changelog.md`; Quick Start and the primary command surface use `harness_project_readiness.py --strict` at the connection milestone.
 - Split `harness_project_readiness.py` severity so it is safe as a permanent `harness_verify_all.py` check: hard connection/config invariants (blank required `project.json` fields, missing/malformed `.uproject`, absent connection files) stay blocking errors, while soft freshness signals (lingering template placeholders, optional fields) are non-blocking warnings. Routine `verify_all` runs it non-strict; the connection milestone runs `harness_project_readiness.py --strict` to promote the warnings back to blocking. `verify_all` now also surfaces the non-blocking readiness warnings.
 - Fixed `harness_project_readiness.py` false positives: `TODO` / `작성 필요` now count as unfilled template slots only when they appear as a bullet start or a `key: TODO` value, so a real note that merely mentions "the TODO in Character.cpp" no longer fails the readiness gate (and therefore no longer fails `harness_verify_all.py`).
 - `harness_scan.py` tolerates a malformed or partially-written `.uproject` instead of crashing with a traceback, reporting it as `readable: false`; `harness_project_readiness.py` surfaces that as a clear error, while `{}` stays valid.

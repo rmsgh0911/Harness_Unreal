@@ -8,9 +8,11 @@ Parallel work, when a project needs it, is isolated with Git worktrees and branc
 
 ```powershell
 python Harness/scripts/tools/harness_context.py --request "<task>"
-python Harness/scripts/tools/harness_project_readiness.py
+python Harness/scripts/tools/harness_project_readiness.py --strict
 python Harness/scripts/tools/harness_verify_all.py
 ```
+
+Use `--strict` readiness only at the connection milestone (first install or Harness update); routine `harness_verify_all.py` already runs the non-strict readiness check.
 
 If the target Gitea repository has no Actions or registered runners, use the local gate before commit or push:
 

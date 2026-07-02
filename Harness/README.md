@@ -33,7 +33,7 @@ Most daily work should fit through this small command surface:
 ```powershell
 python Harness/scripts/tools/harness_context.py --request "<task description>"
 python Harness/scripts/tools/harness_cycle.py "Task Name" --task <task-id> --worker <agent>
-python Harness/scripts/tools/harness_project_readiness.py
+python Harness/scripts/tools/harness_project_readiness.py --strict
 python Harness/scripts/tools/harness_verify_all.py
 python Harness/scripts/tools/harness_local_gate.py
 python Harness/scripts/tools/harness_handoff.py --request "<handoff summary>"

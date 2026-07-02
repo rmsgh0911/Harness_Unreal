@@ -36,16 +36,17 @@
     "exact_count_requests_complete_requested_count": true,
     "do_not_repeat_same_attempt_without_new_evidence": true
   },
-  "worker_switching": {
-    "allowed": true,
+  "agent_handoff": {
+    "note": "The single-Harness model has no automatic worker switching; a human hands work to another agent at integration or handoff points.",
     "requires_human_assignment": true,
     "record_in_cycle_log": true,
+    "generate_brief_with": "python Harness/scripts/tools/harness_handoff.py --request \"<handoff summary>\"",
     "recommended_when": [
       "model_quota_exhausted",
       "context_too_large",
       "human_requested_switch"
     ],
-    "new_worker_reads_first": [
+    "new_agent_reads_first": [
       "HARNESS.md",
       "Harness/work/state.md",
       "Harness/work/next.md",
@@ -54,7 +55,7 @@
       "git status --short",
       "git diff"
     ],
-    "avoid_when": [
+    "avoid_mid_change_when": [
       "public_api_change",
       "blueprint_exposed_name_change",
       "build_cs_change",

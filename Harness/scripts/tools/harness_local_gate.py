@@ -41,16 +41,26 @@ def clean_python_caches(root: Path) -> dict:
 
 
 def run_command(root: Path, command: list[str]) -> dict:
-    completed = subprocess.run(
-        command,
-        cwd=root,
-        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-    )
+    # A finish gate must fail with a clear step, not a traceback, when a
+    # required executable (for example git) is missing from PATH.
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=root,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+    except (FileNotFoundError, OSError) as exc:
+        return {
+            "ok": False,
+            "returncode": -1,
+            "command": " ".join(command),
+            "output": f"command could not start: {exc}",
+        }
     output = "\n".join(part.strip() for part in [completed.stdout, completed.stderr] if part.strip())
     return {
         "ok": completed.returncode == 0,
