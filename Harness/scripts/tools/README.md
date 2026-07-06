@@ -48,6 +48,7 @@ Agents should remember this small command surface first:
 - `harness_project_readiness.py`: check first-install or post-update project connection quality.
 - `harness_verify_all.py`: run the standard finish gate.
 - `harness_local_gate.py`: run the local no-CI finish gate for solo or private Gitea work.
+- `harness_memory_review.py`: check whether finished work has compact memory candidates before staging.
 - `harness_handoff.py`: prepare a compact handoff for another worker or session.
 - `harness_update_plan.py`: update an older Harness install without overwriting project-owned data.
 
@@ -64,11 +65,13 @@ Other tools in this folder are supporting diagnostics, migration helpers, option
 - `harness_update_plan.py`: compares a new template with an older project, preserves exact project-owned paths, rejects escaping plan paths, adds only missing files with an explicit option, and stages changed template files for review.
 - `harness_knowledge.py`: searches retained docs, indexes, tasks, cycles, archives, state, and next files as bounded routing evidence.
 - `harness_memory.py`: maintains optional daily JSONL memory shards with UUID entries, review status changes, pruning diagnostics, and a rebuildable local SQLite search cache.
+- `harness_memory_review.py`: reviews changed paths and memory shard health before staging; suggests reusable memory candidate categories without writing files.
 - `harness_cycle.py`: creates cycle log entries; writes only with `--write`. Use `--task` and `--worker` for parallel work.
 - `harness_diff_guard.py`: checks changed files and Unreal risk signals.
 - `harness_field_check.py`: checks field-proven operating risks, suspicious doc text artifacts, nested Harness review copies, Unreal Python wrapper hints, and optional branch-ref alignment.
 - `harness_handoff.py`: creates a minimal handoff brief for another worker or session.
 - `harness_local_gate.py`: runs the no-CI local finish gate: tool tests, Harness Python cache cleanup, `harness_verify_all.py --skip-tool-tests`, optional strict release check, `git diff --check`, and `git diff --stat`.
+- `harness_local_gate.py` includes the read-only memory review step, so projects without server CI still see commit/push memory candidates before diff checks.
 - `harness_verify_all.py`: runs lightweight standard checks before finishing work; real project mode requires complete build configuration.
 - `harness_release_check.py`: checks template packaging hygiene, including generated files and symlinks, before copying or zipping.
 - `harness_release_pack.py`: previews or atomically writes a clean template ZIP; protected output paths and strict hygiene failures block writes.
@@ -94,6 +97,7 @@ Other tools in this folder are supporting diagnostics, migration helpers, option
 - Use `harness_iteration_status.py` before continuing long repeated work so cycle budgets, missing verification, and stop conditions stay visible.
 - Use `harness_knowledge.py --query "<request>"` after migrations or context handoffs to route into retained docs and cycle records without broad scans.
 - Use `harness_memory.py --query "<request>" --limit 5` for short reviewed lessons; treat results as routing hints, not final evidence.
+- Use `harness_memory_review.py` before staging when a task is being summarized, committed, or pushed; add memory only for reusable decisions, routing hints, or project rules.
 - Use `harness_verify_all.py` as the standard finish gate, then inspect `git diff --stat` to confirm scope.
 
 Examples:
@@ -121,6 +125,7 @@ python Harness/scripts/tools/harness_memory.py --promote 00000000-0000-4000-8000
 python Harness/scripts/tools/harness_memory.py --prune
 python Harness/scripts/tools/harness_memory.py --query "widget visible PIE" --limit 5
 python Harness/scripts/tools/harness_memory.py --rebuild
+python Harness/scripts/tools/harness_memory_review.py
 python Harness/scripts/tools/harness_cycle.py "Input fix" --changed "..." --verified "..." --remaining "..."
 python Harness/scripts/tools/harness_cycle.py "Parallel input fix" --task input-fix --worker Codex --changed "..." --verified "..."
 python Harness/scripts/tools/harness_cycle.py "Iteration 2" --task input-fix --max-cycles 5 --decision continue --success-criterion "Lock-on remains stable"

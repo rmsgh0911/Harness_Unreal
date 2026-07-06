@@ -247,11 +247,12 @@
     {
       "name": "harness_local_gate",
       "path": "Harness/scripts/tools/harness_local_gate.py",
-      "purpose": "Runs the local finish gate for solo or private Gitea projects without Actions or registered runners: tool tests, Harness cache cleanup, verify_all, optional strict release check, diff hygiene, and diff stat.",
+      "purpose": "Runs the local finish gate for solo or private Gitea projects without Actions or registered runners: tool tests, Harness cache cleanup, verify_all, optional strict release check, read-only memory review, diff hygiene, and diff stat.",
       "inputs": [
         "Harness/scripts/tools/tests/",
         "Harness/scripts/tools/harness_verify_all.py",
         "Harness/scripts/tools/harness_release_check.py with --release",
+        "Harness/scripts/tools/harness_memory_review.py",
         "git diff --check",
         "git diff --stat",
         "--release",
@@ -374,6 +375,23 @@
       "writes_files": "only_with_--init_or_--add_or_--rebuild",
       "safe_by_default": true,
       "verify": "python Harness/scripts/tools/harness_memory.py --query \"Harness\" --json"
+    },
+    {
+      "name": "harness_memory_review",
+      "path": "Harness/scripts/tools/harness_memory_review.py",
+      "purpose": "Reviews changed paths and optional memory shard health before staging, suggesting compact reusable memory candidate categories without writing files.",
+      "inputs": [
+        "git status --short",
+        "Harness/data/memory/*.jsonl",
+        "--changed-path"
+      ],
+      "outputs": [
+        "memory_review_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_memory_review.py --json --changed-path HARNESS.md"
     },
     {
       "name": "harness_migration_audit",

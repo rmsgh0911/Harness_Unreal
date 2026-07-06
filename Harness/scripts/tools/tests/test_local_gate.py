@@ -37,13 +37,15 @@ class LocalGateTests(HarnessBaseTestCase):
             commands.append(command)
             return {"ok": True, "returncode": 0, "command": " ".join(command), "output": ""}
 
-        with patch("harness_local_gate.run_command", side_effect=fake_run):
+        fake_memory_review = {"ok": True, "review_recommended": True, "suggestions": [{"candidate": "project rule", "reason": "agent operating rule changed", "example_path": "HARNESS.md"}]}
+
+        with patch("harness_local_gate.run_command", side_effect=fake_run), patch("harness_local_gate.build_memory_review", return_value=fake_memory_review):
             report = build_gate(self.root, release=True, skip_tests=False)
 
         self.assertTrue(report["ok"])
         self.assertEqual(
             [step["name"] for step in report["steps"]],
-            ["tool_tests", "clean_python_caches", "harness_verify_all", "strict_release_check", "diff_check", "diff_stat"],
+            ["tool_tests", "clean_python_caches", "harness_verify_all", "strict_release_check", "memory_review", "diff_check", "diff_stat"],
         )
         self.assertTrue(any("harness_verify_all.py" in " ".join(command) for command in commands))
         self.assertTrue(any("harness_release_check.py" in " ".join(command) for command in commands))

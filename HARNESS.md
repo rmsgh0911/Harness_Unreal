@@ -115,6 +115,9 @@ Recommended cycle entry:
 - `Harness/data/memory/*.jsonl` may store reviewed, compact memory entries as daily JSONL shards. Each entry uses a UUID so Git merges can keep both lines when branches add different memories.
 - `Harness/data/harness.sqlite` is a local search cache rebuilt from JSONL shards. It is ignored by Git and is never the source of truth.
 - Private repositories may commit reviewed daily JSONL shards even while `template_mode` is still true. Public template packages exclude real daily shards and SQLite cache files.
+- When the user asks to summarize work for commit or push, review the completed work for a durable routing hint, reusable project rule, or decision that would reduce future context loading. Add only a reviewed, compact memory entry when such a reusable item exists.
+- Use `python Harness/scripts/tools/harness_memory_review.py` before staging when you want a read-only check of changed paths and memory shard health; it suggests candidate categories but never writes memory.
+- Do not auto-log every command, temporary state, long output, credentials, or unverified guesses into memory.
 - Use `python Harness/scripts/tools/harness_memory.py --query "<request>" --limit 5` as a routing hint only. Confirm final claims against code, config, assets, logs, build output, docs, or verification results.
 - Use `--promote`, `--demote`, `--doctor`, and `--prune` to keep memory reviewed and compact. `--prune` only deletes candidates when `--write` is explicitly supplied.
 - Keep entries short: one title, one to three body sentences, tags, status, and optional source. Default queries should prefer `confirmed` entries; use `draft` only for unverified notes.
@@ -159,11 +162,12 @@ Recommended cycle entry:
 3. Refresh `Harness/Progress.md` when meaningful project behavior or a human decision changed. `Progress.md` is Korean by default; keep it to ~40 lines covering Current Status, Recent Completion, Needs Confirmation, and Next Work.
 4. Do not hand-edit `Harness/Progress_index.html` for routine progress changes; update `Harness/Progress.md`, then reload the viewer (double-click `Harness/Progress_view.cmd` or run `harness_progress_html.py --serve` for a live local view over HTTP).
 5. Update the active task file and consolidate durable facts into `state.md` or `next.md` only when appropriate.
-6. After Harness initialization or update, run `python Harness/scripts/tools/harness_project_readiness.py --strict` (routine runs are already covered non-strict inside `harness_verify_all.py`).
-7. Run `python Harness/scripts/tools/harness_verify_all.py`. If the repository has no server-side CI, run `python Harness/scripts/tools/harness_local_gate.py` before commit or push; it wraps the local finish gate and final diff checks.
-8. For requested branch-family or worktree syncs, confirm each involved checkout/worktree is clean enough for the operation and verify remote refs after push with `git ls-remote --heads origin <branches...>`.
-9. For C++ changes that affect actor visualization or widget behavior, add a `Remaining` note specifying what to confirm in PIE or the editor viewport. Do not claim visual correctness from a build pass alone.
-10. For Unreal Python scripts that place or update actors, confirm the script runs idempotently: a second run should produce the same actor count and state, not duplicates.
+6. Before staging for a requested commit or push, run or apply the logic of `python Harness/scripts/tools/harness_memory_review.py`. Review whether the completed work produced a reusable decision, routing hint, or project rule that belongs in `Harness/data/memory/*.jsonl`. Add only a compact reviewed entry; do not store command logs, temporary state, long output, credentials, or unverified guesses.
+7. After Harness initialization or update, run `python Harness/scripts/tools/harness_project_readiness.py --strict` (routine runs are already covered non-strict inside `harness_verify_all.py`).
+8. Run `python Harness/scripts/tools/harness_verify_all.py`. If the repository has no server-side CI, run `python Harness/scripts/tools/harness_local_gate.py` before commit or push; it wraps the local finish gate and final diff checks.
+9. For requested branch-family or worktree syncs, confirm each involved checkout/worktree is clean enough for the operation and verify remote refs after push with `git ls-remote --heads origin <branches...>`.
+10. For C++ changes that affect actor visualization or widget behavior, add a `Remaining` note specifying what to confirm in PIE or the editor viewport. Do not claim visual correctness from a build pass alone.
+11. For Unreal Python scripts that place or update actors, confirm the script runs idempotently: a second run should produce the same actor count and state, not duplicates.
 
 ## Git And Language
 

@@ -109,3 +109,27 @@ class MemoryTests(HarnessBaseTestCase):
         validation = validate_memory(self.root)
         self.assertFalse(validation["ok"])
         self.assertTrue(any("duplicate memory id" in item["error"] for item in validation["errors"]))
+    def test_memory_review_recommends_candidates_for_operating_rule_changes(self) -> None:
+        report = build_memory_review(
+            self.root,
+            changed_paths=[
+                "HARNESS.md",
+                "Harness/scripts/tools/harness_local_gate.py",
+                "Harness/docs/template/setup.md",
+            ],
+        )
+        candidates = {item["candidate"] for item in report["suggestions"]}
+        self.assertTrue(report["ok"])
+        self.assertTrue(report["review_recommended"])
+        self.assertIn("project rule", candidates)
+        self.assertIn("routing hint", candidates)
+        self.assertIn("durable decision", candidates)
+    def test_memory_review_fails_when_memory_shard_is_invalid(self) -> None:
+        memory = self.root / "Harness/data/memory"
+        memory.mkdir(parents=True, exist_ok=True)
+        (memory / "2026-07-08.jsonl").write_text("{not json}\n", encoding="utf-8")
+
+        report = build_memory_review(self.root, changed_paths=["HARNESS.md"])
+
+        self.assertFalse(report["ok"])
+        self.assertTrue(report["errors"])

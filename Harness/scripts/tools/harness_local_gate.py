@@ -12,6 +12,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 
 from harness_common import dump_json, find_project_root, harness_dir, rel
+from harness_memory_review import build_review as build_memory_review
 
 
 def clean_python_caches(root: Path) -> dict:
@@ -102,6 +103,7 @@ def build_gate(root: Path, release: bool = False, skip_tests: bool = False) -> d
         ]
         steps.append({"name": "strict_release_check", **run_command(root, release_command)})
 
+    steps.append({"name": "memory_review", **build_memory_review(root)})
     steps.append({"name": "diff_check", **run_command(root, ["git", "diff", "--check"])})
     steps.append({"name": "diff_stat", **run_command(root, ["git", "diff", "--stat"])})
 
@@ -125,7 +127,16 @@ def format_text(report: dict) -> str:
         status = "ok" if step.get("ok") else "failed"
         if step.get("skipped"):
             status = "skipped"
+        if step["name"] == "memory_review" and step.get("ok") and step.get("review_recommended"):
+            status = "review recommended"
         lines.append(f"- {step['name']}: {status}")
+    memory_steps = [step for step in report["steps"] if step["name"] == "memory_review" and step.get("review_recommended")]
+    if memory_steps:
+        lines.append("")
+        lines.append("Memory review:")
+        for item in memory_steps[0].get("suggestions", [])[:5]:
+            lines.append(f"- {item['candidate']}: {item['reason']} ({item['example_path']})")
+        lines.append("- Add only compact reviewed entries; skip command logs, temporary state, long output, credentials, and unverified guesses.")
     failed = [step for step in report["steps"] if not step.get("ok")]
     if failed:
         lines.append("")

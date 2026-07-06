@@ -26,7 +26,7 @@ When updating an older Harness install, run `harness_update_plan.py` from the ne
 
 After first install or Harness update, run `python Harness/scripts/tools/harness_project_readiness.py --strict` before declaring the project connected. Routine `harness_verify_all.py` runs this non-strict, so only hard connection/config errors block everyday work.
 
-Before the final response for project changes, check the smallest useful verification result, `git diff --stat`, and whether `Harness/Progress.md` needs a brief Korean update. If the target Gitea repository has no Actions or registered runners, use `python Harness/scripts/tools/harness_local_gate.py` as the local finish gate before commit or push.
+Before the final response for project changes, check the smallest useful verification result, `git diff --stat`, and whether `Harness/Progress.md` needs a brief Korean update. For requested commit or push closeout, review compact memory candidates with `python Harness/scripts/tools/harness_memory_review.py` before staging; `harness_local_gate.py` includes this check for no-CI projects. If the target Gitea repository has no Actions or registered runners, use `python Harness/scripts/tools/harness_local_gate.py` as the local finish gate before commit or push.
 
 ## Defaults
 
