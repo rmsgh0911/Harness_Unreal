@@ -42,12 +42,12 @@ def audit(root: Path) -> dict:
     update: list[str] = []
     cleanup: list[str] = []
     template_controlled = [
-        "run the new template's harness_update_plan.py before copying or replacing files",
+        "run the new template launcher's update command before copying or replacing files",
         "review and merge AGENTS.md, CLAUDE.md, HARNESS.md, Harness/README.md, and Harness/docs/template/ from the new template",
         "review and merge Harness/config/agents.json and Harness/config/cycle_policy.json",
         "review and merge standard Harness/scripts/ tools, build helpers, and Unreal helpers while preserving custom behavior",
         "review and merge Harness/work/tasks/task.example.md and template documentation examples",
-        "run harness_knowledge.py after migration to reuse retained docs, indexes, task/cycle history, and archives",
+        "run the launcher's knowledge command after migration to reuse retained docs, indexes, task/cycle history, and archives",
     ]
 
     if target_is_harness_dir:
@@ -90,11 +90,16 @@ def audit(root: Path) -> dict:
             [
                 "Harness/config/project.json",
                 "Harness/config/docs.json",
-                "Harness/docs/",
+                "Harness/config/generated_artifacts.json",
+                "Harness/config/local_rules.md",
+                "Harness/config/record_policy.json",
+                "Harness/config/sensitive_allowlist.json",
+                "Harness/config/template_receipt.json",
+                "Harness/docs/project/ and existing project docs",
                 "Harness/index/",
                 "Harness/work/",
                 "Harness/Progress.md",
-                "Harness/scripts/ custom changes",
+                "Harness/scripts/project/ and existing custom script changes",
             ]
         )
         if (harness / "data" / "memory").exists():

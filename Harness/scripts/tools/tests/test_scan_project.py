@@ -1,6 +1,7 @@
 """Regression tests split from the original test_structure_tools.py."""
 
 from _harness_test_base import *  # noqa: F401,F403
+from harness_common import launcher_command
 
 
 class ScanProjectTests(HarnessBaseTestCase):
@@ -77,8 +78,15 @@ class ScanProjectTests(HarnessBaseTestCase):
         self.assertEqual([], report["uprojects"][0]["modules"])
     def test_init_plan_includes_project_readiness_gate(self) -> None:
         from harness_init_plan import build_plan
+        (self.root / "Demo.uproject").write_text("{}\n", encoding="utf-8")
         plan = build_plan(self.root)
-        self.assertIn("python Harness/scripts/tools/harness_project_readiness.py", plan["verify"])
+        self.assertIn(launcher_command("readiness"), plan["verify"])
+        self.assertIn(launcher_command("verify"), plan["verify"])
+        self.assertIn(
+            launcher_command("unreal-script --script Harness/scripts/unreal/verify_project.py --run"),
+            plan["verify"],
+        )
+        self.assertFalse(any(command.startswith("python ") for command in plan["verify"]))
     def test_task_template_uses_provider_neutral_branch_placeholder(self) -> None:
         root = TOOLS_DIR.parents[2]
         task_example = (root / "Harness/work/tasks/task.example.md").read_text(encoding="utf-8")

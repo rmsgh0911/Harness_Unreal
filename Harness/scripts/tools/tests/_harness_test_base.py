@@ -35,7 +35,7 @@ from harness_release_pack import build_package, collect_files as collect_release
 from harness_state_check import build_report as build_state_report  # noqa: E402
 from harness_unreal_risk import classify_path, idempotency_hints, pie_only_hints  # noqa: E402
 from harness_doctor import run_doctor  # noqa: E402
-from harness_update_plan import apply_missing_files, build_update_plan, stage_review_files  # noqa: E402
+from harness_update_plan import accept_receipt, apply_missing_files, build_update_plan, stage_review_files  # noqa: E402
 from harness_verify_all import check_build_readiness, compile_python_files, required_checks_ok  # noqa: E402
 from harness_scan import scan  # noqa: E402
 from harness_project_fill import build_report as build_project_fill_report, deep_fill  # noqa: E402

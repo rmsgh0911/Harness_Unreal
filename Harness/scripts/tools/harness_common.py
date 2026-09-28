@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +18,14 @@ KOREAN_PARTICLE_SUFFIXES = (
     "으로부터", "에게서", "에서", "으로", "부터", "까지", "에게", "한테", "처럼", "보다",
     "과", "와", "을", "를", "은", "는", "이", "가", "에", "로", "의", "도", "만",
 )
+
+
+def launcher_command(arguments: str) -> str:
+    """Return a runnable Harness launcher command for the current platform."""
+    arguments = arguments.strip()
+    if os.name == "nt":
+        return f"& Harness\\harness.ps1 {arguments}".rstrip()
+    return f"sh Harness/harness.sh {arguments}".rstrip()
 
 
 def normalize_search_token(token: str) -> str:

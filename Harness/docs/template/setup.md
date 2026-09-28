@@ -13,7 +13,22 @@ Review and merge these repository files instead of blindly replacing project-spe
 - `.gitattributes`: preserve the Unreal `*.uasset` and `*.umap` Git LFS rules unless the team has an explicit alternative.
 - `.gitignore`: preserve project-specific ignore rules and add the Harness runtime exclusions.
 
-Do not copy `.git/`, `.claude/`, Python caches, generated handoffs, or real project cycle logs from the template repository.
+Do not copy `.git/`, `.claude/`, `Harness/.runtime/`, `Harness/temp/`, Python caches, generated handoffs, or real project cycle logs from the template repository. The managed runtime is local and ignored, the release checker rejects a present `Harness/temp/` tree, and the packager excludes both local trees defensively.
+
+Use `& Harness\harness.ps1 <command>` in Windows PowerShell or `sh Harness/harness.sh <command>` on POSIX for the stable command surface. The batch wrapper is a fixed-token convenience only: CMD reparses free-form metacharacters before a `.cmd` file can preserve them. Set `HARNESS_PYTHON` only when an explicit Python 3.10+ executable is required. Direct `python Harness/scripts/tools/*.py` calls remain supported for automation and diagnostics.
+
+## Bootstrap Without System Python
+
+When Python 3.10+ is not installed, run one explicit native-shell bootstrap:
+
+```powershell
+& Harness\harness.ps1 bootstrap
+& Harness\harness.ps1 bootstrap --status
+```
+
+On Linux or macOS, use `sh Harness/harness.sh bootstrap`. Normal Harness commands never start a network download automatically, and the Windows launcher disables Python Install Manager automatic installation while probing existing commands. The bootstrap reuses a valid runtime without consulting uv or the network. Otherwise it accepts an explicitly supplied **uv 0.12.18** through `HARNESS_UV`, reuses the prior pinned runtime-local uv, or downloads the pinned uv 0.12.18 installer; it never implicitly trusts PATH uv. The downloaded installer is SHA-256 verified before execution, and uv installs the current patched Python 3.12 build. The runtime is isolated by OS/architecture under `Harness/.runtime/`, excluded from Git and release packages, and not registered globally.
+
+For a closed network, set `HARNESS_UV` to an approved uv 0.12.18 executable and also provide the Python archive through a preseeded `UV_CACHE_DIR` / `HARNESS_UV_CACHE_DIR` or environment-based uv mirror such as `UV_PYTHON_DOWNLOADS_JSON_URL`. `UV_NO_CONFIG=1` deliberately ignores ambient uv configuration files, so mirror policy must be supplied through environment variables. The default online installer URL is not contacted when `HARNESS_UV` is explicitly set; a missing or wrong-version explicit uv fails closed. `HARNESS_RUNTIME_ROOT` can relocate a single platform's runtime, but it must not be a filesystem root, junction, or symlink and should point to an ignored local/cache location. If neither approved network access nor an offline Python source is available, use the documented manual-reading fallback; automated Harness commands cannot run without some Python runtime.
 
 ## Configure
 
@@ -27,59 +42,78 @@ Do not copy `.git/`, `.claude/`, Python caches, generated handoffs, or real proj
 8. Keep agent-facing Harness docs in English by default. Put Korean project status in `Harness/Progress.md`, and avoid long Korean logs that agents would repeatedly re-read.
 9. Use `Harness/data/memory/*.jsonl` only when the project wants a reviewed memory layer. Private Gitea projects may commit reviewed daily shards; public template packages should keep real shards empty or absent. SQLite cache files under `Harness/data/` are local and ignored.
 10. For parallel work, use separate worktrees and branches only when parallel isolation is needed. Create one `Harness/work/tasks/<task-id>.md` per task.
-11. Confirm Git LFS is installed and the `.gitattributes` rules match team policy before committing binary Unreal assets.
-12. Read `Harness/docs/AgentFieldGuide.md` and remove or adapt any guidance that does not fit the project's workflow.
+11. Review the read-only roles in `Harness/config/agents.json` and `Harness/agents/`. Keep the primary agent as integration owner; adapt provider-specific invocation outside the shared role contracts if needed.
+12. Confirm Git LFS is installed and the `.gitattributes` rules match team policy before committing binary Unreal assets.
+13. Read `Harness/docs/AgentFieldGuide.md` and remove or adapt any guidance that does not fit the project's workflow.
 
 ## Verify Setup
 
 ```powershell
-python Harness/scripts/tools/harness_context.py --request "initial setup"
-python Harness/scripts/tools/harness_init_plan.py
-python Harness/scripts/tools/harness_field_check.py
-python Harness/scripts/tools/harness_verify_all.py
+& Harness\harness.ps1 context --request "initial setup"
+& Harness\harness.ps1 init-plan
+& Harness\harness.ps1 field-check
+& Harness\harness.ps1 verify
 ```
 
-Use `harness_field_check.py --branches <branch-a> <branch-b>` only when the project intentionally maintains multiple branches that must be checked for remote alignment.
+Use the launcher's `field-check --branches <branch-a> <branch-b>` command only when the project intentionally maintains multiple branches that must be checked for remote alignment.
 
-Run `python Harness/scripts/tools/harness_project_readiness.py --strict` after filling project data. Do not treat the first connection as complete until strict readiness and `harness_verify_all.py` pass. `harness_verify_all.py` itself runs readiness without `--strict`, so routine work is blocked only by hard connection/config errors, while `--strict` also requires state, next, and project index to be free of template placeholders.
+Run `& Harness\harness.ps1 readiness --strict` after filling project data. Do not treat the first connection as complete until strict readiness and `verify` pass. The aggregate verifier itself runs readiness without `--strict`, so routine work is blocked only by hard connection/config errors, while `--strict` also requires state, next, and project index to be free of template placeholders.
 
-For CI setup, keep the template workflow as the Harness baseline and choose a runner mode from `Harness/docs/template/gitea-ci.md`. If the target Gitea server has no Actions or runners, run `python Harness/scripts/tools/harness_local_gate.py` before commit or push instead of treating CI as passed. For a real Unreal project, add the strongest practical project-specific tier from `Harness/docs/template/project-ci.md`; the reusable template CI does not replace an Editor build, commandlet, automation test, or PIE evidence. For the shortest agent checklist, use `Harness/docs/template/first-project-connect.md`.
+For CI setup, keep the template workflow as the Harness baseline and choose a runner mode from `Harness/docs/template/gitea-ci.md`. If the target Gitea server has no Actions or runners, run `& Harness\harness.ps1 local-gate` before commit or push instead of treating CI as passed. The local gate checks staged and unstaged changes separately and is read-only unless `--cleanup-caches` is supplied. For a real Unreal project, add the strongest practical project-specific tier from `Harness/docs/template/project-ci.md`; the reusable template CI does not replace an Editor build, commandlet, automation test, or PIE evidence. For the shortest agent checklist, use `Harness/docs/template/first-project-connect.md`.
 
 ## Update An Existing Harness Install
 
 Run the migration audit from the new template checkout before replacing files:
 
 ```powershell
-python C:\Path\To\NewHarnessTemplate\Harness\scripts\tools\harness_migration_audit.py --target C:\Path\To\Project
-python C:\Path\To\NewHarnessTemplate\Harness\scripts\tools\harness_update_plan.py --target C:\Path\To\Project
+& C:\Path\To\NewHarnessTemplate\Harness\harness.ps1 migration-audit --target C:\Path\To\Project
+& C:\Path\To\NewHarnessTemplate\Harness\harness.ps1 update --target C:\Path\To\Project
 ```
 
-An update is a reviewed migration, not a blind replacement. Preserve project-specific config, docs, indexes, work records, Progress, and custom scripts.
+If neither checkout has Python 3.10+, bootstrap the new template launcher explicitly before this audit. The managed runtime stays inside that template checkout and the update tools can then inspect the target without requiring global Python.
 
-Treat `project.json`, `docs.json`, project docs, indexes, work records, Progress, and custom script behavior as project-owned. Review and merge root instructions, shared policy config, standard tools, and templates from the new Harness version. Use the template checkout's `Harness/docs/template/changelog.md` to understand what changed between template versions, but do not use it as a substitute for target-project task or cycle records. When adopting the compact-document rules, preserve removed history in existing task/cycle records or an archive before replacing current state, next, or Progress content.
+An update is a reviewed migration, not a blind replacement. `Harness/template/manifest.json` is the ownership contract: preserve `project_owned`, review `managed_merge`, replace `template_owned` only when the installed baseline proves it is locally unchanged, and update generated receipts only after verification. Preserve project-specific config, docs, indexes, work records, Progress, and custom scripts.
 
-Completed task/cycle records can be preserved with `python Harness/scripts/tools/harness_archive.py --task <task-id> --archive`. Preview the command without `--archive` first.
+Treat `project.json`, `docs.json`, `generated_artifacts.json`, `local_rules.md`, `record_policy.json`, `sensitive_allowlist.json`, `docs/project/`, indexes, work records, Progress, `scripts/project/`, and custom script behavior as project-owned. Review and merge root instructions, shared policy config, standard tools, and templates from the new Harness version. Use the template checkout's `Harness/docs/template/changelog.md` to understand what changed between template versions, but do not use it as a substitute for target-project task or cycle records. When adopting the compact-document rules, preserve removed history in existing task/cycle records or an archive before replacing current state, next, or Progress content.
+
+For an active task whose final cycle records `stop_success` and concrete verification, use `& Harness\harness.ps1 close --task <task-id>` and add `--write` only after reviewing the preview. It updates task status and archives the task/cycle pair as one rollback-safe operation. The launcher's lower-level `archive` command remains available for records already marked completed and for old date-named cycles.
 
 Recommended reviewed update flow:
 
-1. Commit or back up the target project and run `harness_update_plan.py` from the new template.
+1. Commit or back up the target project and run the new template launcher's `update` command. Keep the template and target as separate, non-nested directory trees so an update cannot write back into its own source inventory.
 2. Add only absent template files with `--apply-missing`. This option requires an existing target `Harness/` directory and never overwrites an existing target file; use the normal initialization flow for a project without Harness.
 3. Copy changed shared/standard template files into an empty comparison folder outside both the template and target trees with `--stage-review C:\Path\To\HarnessReview`. Existing review files are protected unless `--overwrite-stage` is explicitly supplied; a failed staging operation rolls back its changes.
 4. Merge `AGENTS.md`, `CLAUDE.md`, `HARNESS.md`, shared config, and repository rules from the staged copy. Review standard tool replacements; keep project-specific behavior and unregistered custom tools.
 5. Do not replace `project.json`, `docs.json`, project docs, `Harness/index/`, `Harness/work/`, or `Harness/Progress.md`. Migrate their structure only when needed. Review `Harness/docs/template/` separately as template-owned documentation and adopt changes only when they are useful provenance. Template scaffolding files inside those directories (`work/README.md`, `work/archive/README.md`, `work/tasks/README.md`, `task.example.md`, `docs/README.md`, `index/README.md`, examples) are staged as merge-review candidates so their guidance can follow the template version.
-6. Search the retained material with `python Harness/scripts/tools/harness_knowledge.py --query "<current feature or issue>"` and refresh compact state/index files only from confirmed evidence.
-7. Run `harness_project_readiness.py --after-update --strict`, then `harness_verify_all.py`, inspect `git diff --stat`, and remove legacy split directories only after verification passes.
-8. If the old project accumulated useful agent lessons, generalize them into `Harness/docs/AgentFieldGuide.md` or a project doc. Do not copy real paths, branch names, credentials, or active work logs into the reusable template.
+6. After the native bootstrap and launcher files are merged into the target, run `& C:\Path\To\Project\Harness\harness.ps1 bootstrap` there if the target has no Python 3.10+ and project policy permits the explicit install. A runtime bootstrapped in the separate template checkout is intentionally not copied into the target.
+7. Search the retained material with `& C:\Path\To\Project\Harness\harness.ps1 knowledge --query "<current feature or issue>"` and refresh compact state/index files only from confirmed evidence.
+8. Run `& C:\Path\To\Project\Harness\harness.ps1 readiness --after-update --strict`, then the same target launcher's `verify` command, inspect `git diff --stat`, and remove legacy split directories only after verification passes.
+9. If the old project accumulated useful agent lessons, generalize them into `Harness/docs/AgentFieldGuide.md` or a project doc. Do not copy real paths, branch names, credentials, or active work logs into the reusable template.
+
+When `Harness/config/template_receipt.json` is absent, the planner reports an unknown baseline and keeps conservative two-way `merge_review` / `replace_review` decisions. A valid receipt records raw upstream hashes and enables `safe_replace`, `keep_local`, and `merge_review` three-way classifications. Text files may also report `newline_only`, but raw hashes remain authoritative and no file is silently normalized. `--apply-missing` may add `safe_add` files; `safe_replace` remains a staged review candidate rather than an automatic overwrite.
+
+After every template-owned or managed-merge action is resolved, rerun the plan. Then accept provenance in a separate invocation:
+
+```powershell
+& Harness\harness.ps1 update --target C:\Path\To\Project --accept-receipt
+```
+
+Receipt acceptance runs the target's standard verifier and refuses to write on failure or while review/apply actions remain. It records no timestamp as source identity and never invents an old baseline.
 
 Version-specific upgrade notes:
 
-- **CI runner modes**: if the target project runs on private Gitea, review `Harness/docs/template/gitea-ci.md` before replacing workflows. A server with no Actions or no registered runners should use `harness_local_gate.py`. Closed-network runners may need mirrored actions or preinstalled Python instead of the public `actions/*` sources.
-- **Project readiness gate**: `harness_verify_all.py` includes `harness_project_readiness.py` in standard (non-strict) mode, so only hard connection/config errors — blank required `project.json` fields, a missing or malformed `.uproject`, or an absent connection file — block routine completion. Lingering template placeholders in state, next, or project index are non-blocking warnings during routine work; run `harness_project_readiness.py --strict` at the connection milestone to require them to be filled.
+- **Managed Python bootstrap**: merge `bootstrap.ps1`, `bootstrap.sh`, both launchers, the `.gitignore` runtime exclusion, and release/local-gate exclusions as one unit. The bootstrap is explicit and networked by default; closed networks should supply approved `uv` and Python mirrors instead of weakening checksum or TLS validation.
+- **Read-only subagents**: `agents.json` version 3 registers `current-status` and `commit-explainer`, while `Harness/agents/` contains their provider-neutral contracts. `--apply-missing` can add absent prompt files, but merge-review `Harness/config/agents.json` so the Doctor sees the v3 delegation policy and both roles. Keep provider-specific adapters outside the shared contracts and preserve the primary agent as integration owner.
+- **CI runner modes**: if the target project runs on private Gitea, review `Harness/docs/template/gitea-ci.md` before replacing workflows. A server with no Actions or no registered runners should use the launcher's `local-gate` command. Closed-network runners may need mirrored actions or a preseeded managed runtime instead of the public `actions/*` sources.
+- **Project readiness gate**: the launcher's `verify` command includes `readiness` in standard (non-strict) mode, so only hard connection/config errors — blank required `project.json` fields, a missing or malformed `.uproject`, or an absent connection file — block routine completion. Lingering template placeholders in state, next, or project index are non-blocking warnings during routine work; run `readiness --strict` at the connection milestone to require them to be filled.
 - **Project Unreal CI attachment**: keep template CI portable, then add target-project jobs from `Harness/docs/template/project-ci.md` after engine paths, maps, plugins, and automation are known.
-- **Memory/data layer (`Harness/data/`)**: older installs have no `Harness/data/`. `--apply-missing` adds the scaffolding (`README.md`, `schema.sql`, `memory.example.jsonl`, empty `memory/`). Merge the new `.gitignore` entries **before the first commit** so local `Harness/data/*.sqlite*` caches are never committed; `harness_doctor.py` warns when `Harness/data/` exists without those exclusions. The layer is optional — validate it with `python Harness/scripts/tools/harness_memory.py --doctor` and leave the shards empty if the project does not want reviewed memory.
-- **Archive modes**: older `harness_archive.py` handles only `--task`. The updated tool also archives old date-named cycle files (`2026-06-17.md`, `claude-2026-05-08.md`) with `--before YYYY-MM --archive`, and `harness_state_check.py` warns while completed tasks remain unarchived. After applying the tool review, run a preview (`--before <this-month>`) to drain accumulated date cycles into monthly archive folders.
+- **Memory/data layer (`Harness/data/`)**: older installs have no `Harness/data/`. `--apply-missing` adds the scaffolding (`README.md`, `schema.sql`, `memory.example.jsonl`, empty `memory/`). Merge the new `.gitignore` entries **before the first commit** so local `Harness/data/*.sqlite*` caches are never committed; the `doctor` command warns when `Harness/data/` exists without those exclusions. The layer is optional — validate it with the launcher's `memory --doctor` command and leave the shards empty if the project does not want reviewed memory.
+- **Archive modes**: older `harness_archive.py` handles only `--task`. The updated launcher `archive` command also archives old date-named cycle files (`2026-06-17.md`, `claude-2026-05-08.md`) with `--before YYYY-MM --archive`, and launcher `state-check` warns while completed tasks remain unarchived. After applying the tool review, run an `archive --before <this-month>` preview to drain accumulated date cycles into monthly archive folders.
 - **Transitional doctor warnings**: between `--apply-missing` and finishing the staged review, newly added tool scripts are not yet registered in the old `tool_manifest.json`, so `harness_doctor.py` reports them as warnings. This is expected; it clears once the manifest review is applied. The plan output lists these cases under `Post-Apply Notes`.
-- **Progress viewer**: `Harness/Progress_index.html` fetches `Progress.md` live, so open it through `Harness/Progress_view.cmd` or `harness_progress_html.py --serve`; a plain `file://` open cannot fetch.
+- **Progress viewer**: `Harness/Progress_index.html` fetches `Progress.md` live, so open it through `Harness/Progress_view.cmd` or the launcher's `progress --serve` command; a plain `file://` open cannot fetch.
+- **Ownership and receipt**: new templates ship `Harness/template/manifest.json`, project extension roots, and `template_receipt.example.json`. Receipt-free projects remain usable in conservative mode. Preserve `local_rules.md`, `sensitive_allowlist.json`, `docs/project/`, `scripts/project/`, and any existing receipt while staging the new ownership-aware tools.
+- **Record policy and closeout**: `record_policy.json` is project-owned warning debt with stable IDs, mandatory reasons, and expiries. Keep its baseline empty unless a warning is intentionally time-bounded. The new `close` command validates the final cycle before changing status or archiving.
+- **Generated artifact provenance**: `generated_artifacts.json` is project-owned and starts empty. Register only durable evidence, using a generator/revision, project-relative source/output paths, matching input/artifact revisions, a SHA-256, scope, acceptance, and verification command. Launcher `verify` validates it, and strict release checking treats pending or stale registered evidence as a blocker.
 
 When migrating from the split worker layout:
 
@@ -93,7 +127,7 @@ When migrating from the split worker layout:
 After updating:
 
 ```powershell
-python Harness/scripts/tools/harness_verify_all.py
+& Harness\harness.ps1 verify
 ```
 
 Do not report the update complete until verification passes and `git diff --stat` shows only the intended migration.
@@ -103,9 +137,9 @@ Do not report the update complete until verification passes and `git diff --stat
 Before committing or pushing a project that uses this template:
 
 1. Run the smallest verification that proves the requested behavior.
-2. Run `python Harness/scripts/tools/harness_project_readiness.py --strict` after initialization or Harness updates (routine runs are covered non-strict inside `harness_verify_all.py`).
-3. Run `python Harness/scripts/tools/harness_verify_all.py`.
-4. Run `python Harness/scripts/tools/harness_field_check.py` for root, field-guide, and Unreal Python wrapper hints.
+2. Run `& Harness\harness.ps1 readiness --strict` after initialization or Harness updates (routine runs are covered non-strict inside `verify`).
+3. Run `& Harness\harness.ps1 verify`.
+4. Run the launcher's `field-check` command for root, field-guide, and Unreal Python wrapper hints.
 5. Inspect `git diff --stat` and make sure generated assets/docs are intentionally included.
 6. Keep `Harness/Progress.md` short; move detailed history into task/cycle records.
 7. For requested multi-branch or multi-worktree syncs, verify local checkout status first, push the intended branches, then confirm remote refs with `git ls-remote --heads origin <branches...>`.
@@ -115,9 +149,10 @@ Before committing or pushing a project that uses this template:
 Run the strict release check only in the template repository. Real projects normally contain task and cycle records, which intentionally fail strict template-release hygiene.
 
 ```powershell
-python Harness/scripts/tools/harness_verify_all.py
-python Harness/scripts/tools/harness_release_check.py --strict
-python Harness/scripts/tools/harness_release_pack.py --write
+& Harness\harness.ps1 manifest --write
+& Harness\harness.ps1 verify
+& Harness\harness.ps1 release-check --strict
+& Harness\harness.ps1 release-pack --write
 ```
 
-Package write mode repeats the strict check and blocks the ZIP when it fails. It writes through a temporary sibling file, rejects outputs under `Harness/` or over source files, and never follows template symlinks. Use `--force` only for exceptional hygiene diagnostics; it does not bypass output-path safety.
+Package write mode requires a current reviewed manifest, repeats the strict check, and blocks the ZIP when it fails. It uses fixed ZIP metadata, sorted uncompressed entries, and a temporary sibling file; rejects outputs under `Harness/` or over source files; and never follows template symlinks. Use `--force` only for exceptional non-manifest hygiene diagnostics; it does not bypass missing, stale, or invalid manifest data or output-path safety.

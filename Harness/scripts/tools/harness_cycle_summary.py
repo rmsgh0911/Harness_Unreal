@@ -13,17 +13,57 @@ from harness_common import cycles_dir, find_project_root, print_text_or_json, re
 
 
 VALID_DECISIONS = {"continue", "stop_success", "stop_blocked"}
+VALID_BUDGET_MODES = {"exact_count", "upper_bound"}
 PLACEHOLDER_VALUES = {"", "none", "record needed"}
+ARTIFACT_REQUIRED_KINDS = {"render", "interaction", "live_service"}
+EVIDENCE_GAP_STATUSES = {
+    "acceptance_failed",
+    "acceptance_unknown",
+    "missing_artifact",
+    "pending_acceptance",
+    "revision_mismatch",
+    "skipped",
+}
 
 
 def unique_recorded(values: list[str]) -> list[str]:
     return list(dict.fromkeys(value for value in values if value.casefold() not in PLACEHOLDER_VALUES))
 
 
+def evidence_status(section: dict) -> str:
+    if section.get("invalidated"):
+        return "invalidated"
+    input_revision = section.get("input_revision", "")
+    artifact_revision = section.get("artifact_revision", "")
+    if input_revision and artifact_revision and input_revision != artifact_revision:
+        return "revision_mismatch"
+    acceptance = section.get("acceptance", "")
+    if acceptance == "skipped":
+        return "skipped"
+    if acceptance == "failed":
+        return "acceptance_failed"
+    if acceptance == "pending":
+        return "pending_acceptance"
+    kinds = set(section.get("evidence_kinds", []))
+    artifacts = unique_recorded(section.get("artifacts", []))
+    if acceptance == "passed":
+        if kinds & ARTIFACT_REQUIRED_KINDS and not artifacts:
+            return "missing_artifact"
+        return "accepted"
+    if acceptance == "not_required":
+        return "not_required"
+    if kinds & ARTIFACT_REQUIRED_KINDS and not artifacts:
+        return "missing_artifact"
+    if kinds:
+        return "acceptance_unknown"
+    return "legacy_unknown"
+
+
 def analyze_iteration(sections: list[dict]) -> dict:
     numbered = [section for section in sections if section["cycle_number"] is not None]
     numbers = [section["cycle_number"] for section in numbered]
     budgets = {section["max_cycles"] for section in numbered if section["max_cycles"] is not None}
+    budget_modes = {section.get("budget_mode", "") for section in numbered if section.get("budget_mode")}
     warnings: list[str] = []
     if len(numbers) != len(set(numbers)):
         warnings.append("duplicate cycle numbers")
@@ -31,6 +71,11 @@ def analyze_iteration(sections: list[dict]) -> dict:
         warnings.append("cycle numbers are not a contiguous 1-based sequence")
     if len(budgets) > 1:
         warnings.append("cycle budget changed within one log")
+    if len(budget_modes) > 1:
+        warnings.append("cycle budget mode changed within one log")
+    invalid_budget_modes = sorted(budget_modes - VALID_BUDGET_MODES)
+    if invalid_budget_modes:
+        warnings.append("invalid budget modes: " + ", ".join(invalid_budget_modes))
     invalid_decisions = sorted({section["decision"] for section in numbered if section["decision"] and section["decision"] not in VALID_DECISIONS})
     if invalid_decisions:
         warnings.append("invalid decisions: " + ", ".join(invalid_decisions))
@@ -45,6 +90,7 @@ def analyze_iteration(sections: list[dict]) -> dict:
     return {
         "current_cycle": current,
         "max_cycles": budget,
+        "budget_mode": next(iter(budget_modes)) if len(budget_modes) == 1 else "",
         "latest_decision": numbered[-1]["decision"] if numbered else "",
         "warnings": warnings,
     }
@@ -55,7 +101,19 @@ def parse_cycle_file(path: Path) -> dict:
     sections: list[dict] = []
     current: dict | None = None
     current_key: str | None = None
-    labels = {"Changed": "changed", "Verified": "verified", "Remaining": "remaining", "Success Criteria": "success_criteria"}
+    labels = {
+        "Changed": "changed",
+        "Verified": "verified",
+        "Remaining": "remaining",
+        "Success Criteria": "success_criteria",
+        "Claim": "claims",
+        "Evidence Kind": "evidence_kinds",
+        "Evidence Command": "evidence_commands",
+        "Evidence Exit Code": "evidence_exit_codes",
+        "Artifact": "artifacts",
+        "Scope": "scopes",
+        "Supersedes": "supersedes",
+    }
     for line in text.splitlines():
         if line.startswith("## "):
             title = line[3:].strip()
@@ -65,11 +123,23 @@ def parse_cycle_file(path: Path) -> dict:
                 "worker": "",
                 "cycle_number": int(legacy_number.group(1)) if legacy_number else None,
                 "max_cycles": None,
+                "budget_mode": "",
                 "decision": "",
                 "success_criteria": [],
                 "changed": [],
                 "verified": [],
                 "remaining": [],
+                "claims": [],
+                "evidence_kinds": [],
+                "evidence_commands": [],
+                "evidence_exit_codes": [],
+                "artifacts": [],
+                "input_revision": "",
+                "artifact_revision": "",
+                "scopes": [],
+                "acceptance": "",
+                "supersedes": [],
+                "invalidated": False,
             }
             sections.append(current)
             current_key = None
@@ -89,6 +159,25 @@ def parse_cycle_file(path: Path) -> dict:
         if stripped.startswith("- Decision:"):
             current["decision"] = stripped.removeprefix("- Decision:").strip()
             continue
+        scalar_labels = {
+            "- Budget Mode:": "budget_mode",
+            "- Input Revision:": "input_revision",
+            "- Artifact Revision:": "artifact_revision",
+            "- Acceptance:": "acceptance",
+        }
+        scalar_matched = False
+        for prefix, key in scalar_labels.items():
+            if stripped.startswith(prefix):
+                current[key] = stripped.removeprefix(prefix).strip()
+                current_key = None
+                scalar_matched = True
+                break
+        if scalar_matched:
+            continue
+        if stripped.startswith("- Invalidated:"):
+            current["invalidated"] = stripped.removeprefix("- Invalidated:").strip().casefold() in {"true", "yes", "1"}
+            current_key = None
+            continue
         matched = False
         for label, key in labels.items():
             prefix = f"- {label}:"
@@ -99,6 +188,8 @@ def parse_cycle_file(path: Path) -> dict:
                 break
         if not matched and current_key and stripped.startswith("- "):
             current[current_key].append(stripped[2:].strip())
+    for section in sections:
+        section["evidence_status"] = evidence_status(section)
     return {"path": path, "sections": sections, "lines": len(text.splitlines()), "iteration": analyze_iteration(sections)}
 
 
@@ -119,12 +210,20 @@ def build_summary(root: Path, limit: int = 5) -> dict:
         "",
     )
     iteration_warnings: list[str] = []
+    evidence_gaps: list[dict] = []
     for item in parsed:
         iteration_warnings.extend(f"{rel(item['path'], root)}: {warning}" for warning in item["iteration"]["warnings"])
         for section in item["sections"]:
             total_sections += 1
             changed.extend(section["changed"])
             verified.extend(section["verified"])
+            if section.get("evidence_status") in EVIDENCE_GAP_STATUSES:
+                evidence_gaps.append({
+                    "path": rel(item["path"], root),
+                    "title": section["title"],
+                    "status": section["evidence_status"],
+                    "scopes": section.get("scopes", []),
+                })
         if item["sections"]:
             remaining.extend(item["sections"][-1]["remaining"])
     return {
@@ -134,6 +233,7 @@ def build_summary(root: Path, limit: int = 5) -> dict:
         "cycle_count": total_sections,
         "latest_decision": latest_decision,
         "iteration_warnings": iteration_warnings,
+        "evidence_gaps": evidence_gaps,
         "selected": [{"path": rel(item["path"], root), "sections": len(item["sections"]), "lines": item["lines"]} for item in parsed],
         "recent_changed": unique_recorded(changed)[-12:],
         "recent_verified": unique_recorded(verified)[-12:],
@@ -149,12 +249,19 @@ def format_text(summary: dict) -> str:
         f"- Parsed cycles: {summary['cycle_count']}",
         f"- Latest decision: {summary['latest_decision'] or 'not recorded'}",
         f"- Iteration warnings: {len(summary['iteration_warnings'])}",
+        f"- Evidence gaps: {len(summary['evidence_gaps'])}",
         "",
         "Selected:",
     ]
     lines.extend(f"- {item['path']}: {item['sections']} sections, {item['lines']} lines" for item in summary["selected"]) if summary["selected"] else lines.append("- none")
     if summary["iteration_warnings"]:
         lines.extend(["", "Iteration Warnings:", *(f"- {warning}" for warning in summary["iteration_warnings"])])
+    if summary["evidence_gaps"]:
+        lines.extend(["", "Evidence Gaps:"])
+        lines.extend(
+            f"- {item['path']} > {item['title']}: {item['status']}"
+            for item in summary["evidence_gaps"]
+        )
     for key, title in [("recent_changed", "Recent Changed"), ("recent_verified", "Recent Verified"), ("open_remaining", "Open Remaining")]:
         lines.extend(["", f"{title}:"])
         lines.extend(f"- {item}" for item in summary[key]) if summary[key] else lines.append("- none")

@@ -1,5 +1,8 @@
 """Regression tests split from the original test_structure_tools.py."""
 
+import os
+import subprocess
+
 from _harness_test_base import *  # noqa: F401,F403
 
 
@@ -43,7 +46,7 @@ class ProgressTests(HarnessBaseTestCase):
         self.assertIn('const SOURCE = "Progress.md";', html)
         self.assertIn('id="file-hint"', html)
         self.assertIn("Progress_view.cmd", html)
-        self.assertIn("harness_progress_html.py --serve", html)
+        self.assertIn("harness.ps1 progress --serve", html)
         self.assertNotIn("?묒꽦 ?꾩슂:", html)
     def test_progress_parses_last_updated_and_warns_when_missing(self) -> None:
         report = build_progress_report(self.root)
@@ -83,7 +86,37 @@ class ProgressTests(HarnessBaseTestCase):
         launcher = TOOLS_DIR.parents[2] / "Harness/Progress_view.cmd"
         self.assertTrue(launcher.exists())
         text = launcher.read_text(encoding="utf-8")
-        self.assertIn("harness_progress_html.py", text)
+        self.assertIn("harness.cmd", text)
+        self.assertIn(" progress ", text)
         self.assertIn("--serve", text)
+        self.assertNotIn("python ", text.casefold())
+
+    @unittest.skipUnless(os.name == "nt", "Windows managed-runtime viewer regression")
+    def test_progress_view_launcher_uses_managed_runtime(self) -> None:
+        launcher = TOOLS_DIR.parents[2] / "Harness/Progress_view.cmd"
+        runtime = self.root / "managed viewer runtime"
+        fake_python = runtime / "python/fake/python.cmd"
+        fake_python.parent.mkdir(parents=True)
+        fake_python.write_text(
+            '@echo off\r\nif "%~1"=="-c" exit /b 0\r\necho VIEWER_MANAGED_PYTHON %*\r\nexit /b 0\r\n',
+            encoding="utf-8",
+        )
+        (runtime / "python.path").write_text(f"{fake_python}\n", encoding="utf-8")
+        environment = dict(os.environ)
+        environment.pop("HARNESS_PYTHON", None)
+        environment["HARNESS_RUNTIME_ROOT"] = str(runtime)
+
+        completed = subprocess.run(
+            ["cmd.exe", "/d", "/c", str(launcher)],
+            cwd=launcher.parent.parent,
+            env=environment,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stderr.decode("utf-8", errors="replace"))
+        output = completed.stdout.decode("utf-8", errors="replace")
+        self.assertIn("VIEWER_MANAGED_PYTHON -X utf8 -B", output)
+        self.assertIn("harness_cli.py", output)
     def test_valid_progress_passes(self) -> None:
         self.assertTrue(build_progress_report(self.root)["ok"])

@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "purpose": "shared_harness_agent_routing",
   "shared_rules": "HARNESS.md",
   "supported_workers": {
@@ -10,6 +10,95 @@
     "claude": {
       "display_name": "Claude Code",
       "instruction_file": "CLAUDE.md"
+    }
+  },
+  "delegation_policy": {
+    "integration_owner": "primary_agent",
+    "default_access": "read_only",
+    "results_are_advisory": true,
+    "primary_owns_durable_records": true,
+    "pause_mutation_during_snapshot": true,
+    "write_capable_parallel_work_requires_worktree": true,
+    "common_forbidden_actions": [
+      "edit_files",
+      "write_durable_records",
+      "stage",
+      "unstage",
+      "commit",
+      "amend",
+      "push",
+      "tag",
+      "change_branches"
+    ]
+  },
+  "subagent_roles": {
+    "current-status": {
+      "display_name": "Current Status Curator",
+      "purpose": "Organize the current request, confirmed project state, working-tree scope, verification, risks, and next decisions without changing the project.",
+      "instruction_file": "Harness/agents/current-status.md",
+      "access": "read_only",
+      "evidence_profile": "current_status",
+      "activation": [
+        "explicit status request",
+        "long task resume or context recovery",
+        "before handoff or integration",
+        "checkpoint during three-or-more-cycle work"
+      ],
+      "output_sections": [
+        "Snapshot",
+        "Overall",
+        "Confirmed Facts",
+        "Progress",
+        "Working Tree",
+        "Verification",
+        "Risks and Unknowns",
+        "Decisions Needed",
+        "Recommended Next",
+        "Evidence"
+      ],
+      "forbidden_actions": [
+        "edit_files",
+        "write_durable_records",
+        "stage",
+        "unstage",
+        "commit",
+        "amend",
+        "push",
+        "tag",
+        "change_branches",
+        "declare_completion"
+      ]
+    },
+    "commit-explainer": {
+      "display_name": "Commit Explanation Writer",
+      "purpose": "Explain only the staged commit scope and draft an evidence-backed subject and body without changing Git or project files.",
+      "instruction_file": "Harness/agents/commit-explainer.md",
+      "access": "read_only",
+      "evidence_profile": "staged_commit",
+      "activation": [
+        "explicit commit request",
+        "explicit commit message or commit summary request"
+      ],
+      "output_sections": [
+        "Readiness",
+        "Staged Scope",
+        "Proposed Commit Message",
+        "Verification",
+        "Risks and Follow-up",
+        "Scope Boundary",
+        "Evidence"
+      ],
+      "forbidden_actions": [
+        "edit_files",
+        "write_durable_records",
+        "stage",
+        "unstage",
+        "commit",
+        "amend",
+        "push",
+        "tag",
+        "change_branches"
+      ]
     }
   },
   "parallel_work": {

@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "note": "Optional warning debt accepted for a limited time. Every entry requires a stable finding id, reason, and expiry date.",
+  "warning_baseline": []
+}

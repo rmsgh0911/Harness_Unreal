@@ -16,11 +16,11 @@ Memory can be used while `Harness/config/project.json` still has `template_mode:
 Recommended private-repo flow:
 
 ```powershell
-python Harness/scripts/tools/harness_memory_review.py
-python Harness/scripts/tools/harness_memory.py --add --title "..." --body "..." --tags unreal,workflow
-python Harness/scripts/tools/harness_memory.py --validate
-python Harness/scripts/tools/harness_memory.py --rebuild
-python Harness/scripts/tools/harness_memory.py --query "<request>" --limit 5
+& Harness\harness.ps1 memory-review
+& Harness\harness.ps1 memory --add --title "..." --body "..." --tags unreal,workflow
+& Harness\harness.ps1 memory --validate
+& Harness\harness.ps1 memory --rebuild
+& Harness\harness.ps1 memory --query "<request>" --limit 5
 ```
 
-Run `harness_memory_review.py` before staging a requested commit or push. It is read-only: it checks changed paths and memory shard health, then points at possible reusable decisions, routing hints, or project rules. Add an entry only when that candidate will reduce future context loading.
+Run the launcher's `memory-review` command before staging a requested commit or push. It is read-only: it checks changed paths and memory shard health, then points at possible reusable decisions, routing hints, or project rules. Add an entry only when that candidate will reduce future context loading.

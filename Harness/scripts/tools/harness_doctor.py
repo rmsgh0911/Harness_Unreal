@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
 sys.dont_write_bytecode = True
 
 from harness_common import cycles_dir, find_project_root, harness_dir, load_json, next_path, read_text, print_text_or_json, rel, state_path
+from harness_cli import COMMANDS as LAUNCHER_COMMANDS
+from harness_subagent import validate_registry as validate_subagent_registry
+
+
+WRITE_OPTION_PATTERN = re.compile(r"--[a-z0-9][a-z0-9-]*")
 
 
 def check(condition: bool, message: str, severity: str = "error") -> dict:
@@ -45,6 +51,12 @@ def run_doctor(root: Path) -> dict:
         root / "AGENTS.md",
         root / "CLAUDE.md",
         harness / "README.md",
+        harness / "bootstrap.ps1",
+        harness / "bootstrap.sh",
+        harness / "harness.cmd",
+        harness / "harness.ps1",
+        harness / "harness.sh",
+        harness / "agents" / "README.md",
         harness / "Progress_index.html",
         harness / "Progress_view.cmd",
         harness / "docs" / "template" / "setup.md",
@@ -94,6 +106,15 @@ def run_doctor(root: Path) -> dict:
             )
         )
 
+    if (harness / "bootstrap.ps1").exists() or (harness / "bootstrap.sh").exists():
+        gitignore_text = read_text(root / ".gitignore")
+        results.append(
+            check(
+                "Harness/.runtime/" in gitignore_text,
+                ".gitignore excludes the Harness managed Python runtime",
+            )
+        )
+
     ag_text = read_text(root / "AGENTS.md")
     cl_text = read_text(root / "CLAUDE.md")
     harness_text = read_text(root / "HARNESS.md")
@@ -106,6 +127,7 @@ def run_doctor(root: Path) -> dict:
         results.append(check(markdown_section(ag_text, "## Mandatory Startup") == markdown_section(cl_text, "## Mandatory Startup"), "AGENTS.md and CLAUDE.md keep the same mandatory startup workflow"))
     results.append(check(includes(setup_text, "## Configure"), "template setup doc explains configuration"))
     results.append(check(includes(setup_text, "worktrees"), "template setup doc explains parallel worktrees"))
+    results.append(check(includes(setup_text, "bootstrap"), "template setup doc explains Python-free bootstrap"))
     results.append(check(
         includes(harness_text, "exact requested count") and includes(harness_text, "upper-bound cycle budget"),
         "HARNESS.md explains exact and upper-bound cycle requests",
@@ -115,6 +137,7 @@ def run_doctor(root: Path) -> dict:
     results.append(check(includes(harness_text, "Harness/work/tasks/"), "HARNESS.md explains task records"))
     results.append(check(includes(harness_text, "worktrees"), "HARNESS.md explains worktree isolation"))
     results.append(check(includes(harness_text, "docs.json"), "HARNESS.md explains docs.json policy"))
+    results.append(check(includes(harness_text, "Read-Only Subagents"), "HARNESS.md explains read-only subagent roles"))
 
     json_paths = [
         harness / "config" / "project.json",
@@ -144,12 +167,24 @@ def run_doctor(root: Path) -> dict:
                     results.append(check(bool(instruction), f"agents.json worker has instruction file: {worker}"))
                     if instruction:
                         results.append(check((root / instruction).is_file(), f"agents.json instruction file exists: {instruction}"))
+            results.extend(validate_subagent_registry(root)["checks"])
         if path.name == "tool_manifest.json" and isinstance(data, dict):
             tools = data.get("tools", [])
             results.append(check(isinstance(tools, list), "tool_manifest.json has tools list"))
             names = [tool.get("name") for tool in tools if isinstance(tool, dict)]
             results.append(check(len(names) == len(set(names)), "tool_manifest.json tool names are unique"))
             declared_paths = {tool.get("path") for tool in tools if isinstance(tool, dict)}
+            standard_scripts = {
+                Path(path).name
+                for path in declared_paths
+                if isinstance(path, str) and path.endswith(".py") and not path.endswith("/harness_cli.py")
+            }
+            results.append(
+                check(
+                    standard_scripts == set(LAUNCHER_COMMANDS.values()),
+                    "registered standard tools and managed-runtime launcher aliases stay in sync",
+                )
+            )
             for index, tool in enumerate(tools, start=1):
                 name = tool.get("name", f"tool #{index}") if isinstance(tool, dict) else f"tool #{index}"
                 results.append(check(isinstance(tool, dict), f"manifest entry is object: {name}"))
@@ -162,6 +197,16 @@ def run_doctor(root: Path) -> dict:
                 results.append(check(str(declared_path).startswith("Harness/scripts/tools/"), f"manifest tool stays under tools: {name}"))
                 results.append(check(tool_path.exists(), f"manifest tool path exists: {declared_path or name}"))
                 results.append(check("writes_files" in tool, f"manifest tool declares writes_files: {name}"))
+                writes_files = tool.get("writes_files")
+                inputs = tool.get("inputs", [])
+                if isinstance(writes_files, str):
+                    for option in sorted(set(WRITE_OPTION_PATTERN.findall(writes_files))):
+                        results.append(
+                            check(
+                                isinstance(inputs, list) and option in inputs,
+                                f"manifest write option is listed in inputs: {name} {option}",
+                            )
+                        )
                 results.append(check(tool.get("safe_by_default") is True, f"manifest tool is safe by default: {name}"))
                 results.append(check(bool(tool.get("verify")), f"manifest tool has verify command: {name}"))
                 if tool.get("verify"):
@@ -231,6 +276,14 @@ def run_doctor(root: Path) -> dict:
             not generated_python_files,
             "Harness scripts contain no generated Python cache files",
             "warning",
+        )
+    )
+
+    progress_launcher = read_text(harness / "Progress_view.cmd").casefold()
+    results.append(
+        check(
+            "harness.cmd" in progress_launcher and " progress " in progress_launcher and "python " not in progress_launcher,
+            "Progress_view.cmd delegates through the managed-runtime launcher",
         )
     )
 

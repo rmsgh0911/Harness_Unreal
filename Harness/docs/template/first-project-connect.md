@@ -4,20 +4,26 @@ Use this checklist when an agent copies Harness into a real Unreal project for t
 
 ## Agent Flow
 
+If Python 3.10+ is unavailable, run the target's explicit native bootstrap before the first `context` command, only when project policy permits the install:
+
 ```powershell
-python Harness/scripts/tools/harness_context.py --request "connect Harness to this project"
-python Harness/scripts/tools/harness_project_fill.py --json
-python Harness/scripts/tools/harness_project_fill.py --write
-python Harness/scripts/tools/harness_project_readiness.py --strict
-python Harness/scripts/tools/harness_verify_all.py
+& Harness\harness.ps1 bootstrap
 ```
 
-Use `--strict` at this connection milestone so lingering template placeholders in state, next, and project index also block completion. Routine `harness_verify_all.py` runs readiness without `--strict`, so only hard connection/config errors (blank required fields, a missing or malformed `.uproject`) block everyday work.
+```powershell
+& Harness\harness.ps1 context --request "connect Harness to this project"
+& Harness\harness.ps1 project-fill --json
+& Harness\harness.ps1 project-fill --write
+& Harness\harness.ps1 readiness --strict
+& Harness\harness.ps1 verify
+```
+
+Use `--strict` at this connection milestone so lingering template placeholders in state, next, and project index also block completion. Routine launcher `verify` runs readiness without `--strict`, so only hard connection/config errors (blank required fields, a missing or malformed `.uproject`) block everyday work.
 
 If the target Gitea project has no Actions or registered runners, finish with:
 
 ```powershell
-python Harness/scripts/tools/harness_local_gate.py
+& Harness\harness.ps1 local-gate
 ```
 
 ## Connection Is Not Complete Until
@@ -32,10 +38,25 @@ python Harness/scripts/tools/harness_local_gate.py
 
 ## After Updating An Existing Project
 
+If the new template checkout has no usable Python 3.10+ runtime, bootstrap that checkout before invoking its update tool:
+
 ```powershell
-python C:\Path\To\NewHarnessTemplate\Harness\scripts\tools\harness_update_plan.py --target C:\Path\To\Project
-python Harness/scripts/tools/harness_project_readiness.py --after-update --strict
-python Harness/scripts/tools/harness_verify_all.py
+& C:\Path\To\NewHarnessTemplate\Harness\harness.ps1 bootstrap
 ```
 
-Use `harness_update_plan.py --stage-review` for changed shared files, then re-run readiness after the staged review is merged.
+```powershell
+& C:\Path\To\NewHarnessTemplate\Harness\harness.ps1 update --target C:\Path\To\Project
+```
+
+Use the new template launcher's `update --stage-review <dir>` command for changed shared files, then merge the reviewed native bootstrap/launcher files before invoking the target launcher. If the target has no Python 3.10+, run the following after that merge, only when project policy permits the explicit install; the separate template checkout's managed runtime is not copied:
+
+```powershell
+& C:\Path\To\Project\Harness\harness.ps1 bootstrap
+```
+
+Then finish through the target launcher:
+
+```powershell
+& C:\Path\To\Project\Harness\harness.ps1 readiness --after-update --strict
+& C:\Path\To\Project\Harness\harness.ps1 verify
+```

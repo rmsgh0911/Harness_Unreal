@@ -10,7 +10,7 @@ Pin the mandatory verification tier for each change type after connecting the pr
 - Config change: TODO (e.g., Tier 0 tool checks + affected runtime path)
 - UI / UMG / input change: TODO (e.g., Tier 3 PIE note required)
 - Content / asset change: TODO (e.g., manual editor check recorded)
-- CI workflow change: TODO (e.g., Ubuntu + Windows workflow green, or harness_local_gate.py evidence when no runners)
+- CI workflow change: TODO (e.g., Ubuntu + Windows workflow green, or launcher `local-gate` evidence when no runners)
 
 ## C++ Source Change
 
@@ -30,18 +30,18 @@ Minimum:
 
 Minimum:
 
-- Run `python -B -m unittest discover -s Harness/scripts/tools/tests -p "test_*.py"`.
-- Remove `__pycache__/` and `*.pyc` before strict template verification.
-- Run `python Harness/scripts/tools/harness_verify_all.py --skip-tool-tests` after the standalone test step.
+- Run `& Harness\harness.ps1 verify` (or `sh Harness/harness.sh verify` on POSIX).
+- Inspect `__pycache__/` and `*.pyc` before strict template verification; remove them explicitly with the launcher's `local-gate --cleanup-caches` command when needed.
+- Use `verify --skip-tool-tests` only after a separate test step has already run.
 - For Windows workflow changes, parse `Harness/scripts/build/build_verify.ps1` with the PowerShell parser.
 - For Gitea runner assumptions, check `Harness/docs/template/gitea-ci.md`.
-- If Actions or runners are unavailable, run `python Harness/scripts/tools/harness_local_gate.py` and record the missing CI limitation.
+- If Actions or runners are unavailable, run the launcher's `local-gate` command and record the missing CI limitation.
 
 ## Unreal Project CI Attachment
 
 Minimum:
 
-- Keep template-level CI green first: tool tests plus `harness_verify_all.py`.
+- Keep template-level CI green first with the launcher `verify` command.
 - In real projects, fill `Harness/config/project.json`, set `template_mode` to `false`, and add a target-project CI job for the strongest practical tier in `Harness/docs/template/project-ci.md`.
 - Prefer a Windows runner for Editor builds, PowerShell scripts, Windows path handling, and Unreal automation.
 - If CI cannot run Unreal, record the local build, commandlet, PIE, or manual evidence requirement in the task or cycle record.

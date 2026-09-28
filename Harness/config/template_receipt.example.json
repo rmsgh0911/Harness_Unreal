@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "template_version": "0.2.0",
+  "upstream": {
+    "repository": "https://github.com/rmsgh0911/Harness_Unreal",
+    "commit": "<verified-release-commit>"
+  },
+  "manifest_sha256": "<sha256-of-installed-manifest>",
+  "files": {
+    "HARNESS.md": {
+      "owner": "managed_merge",
+      "baseline_sha256": "<sha256-of-installed-upstream-file>"
+    }
+  }
+}

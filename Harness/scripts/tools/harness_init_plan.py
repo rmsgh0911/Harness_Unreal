@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import cycles_dir, find_project_root, harness_dir, load_json, next_path, path_exists_text, print_text_or_json, rel, state_path
+from harness_common import cycles_dir, find_project_root, harness_dir, launcher_command, load_json, next_path, path_exists_text, print_text_or_json, rel, state_path
 
 
 def build_plan(root: Path) -> dict:
@@ -73,16 +73,14 @@ def build_plan(root: Path) -> dict:
 
     verify.extend(
         [
-            "python Harness/scripts/tools/harness_python_check.py",
-            "python Harness/scripts/tools/harness_docs_check.py --json",
-            "python Harness/scripts/tools/harness_doctor.py",
-            "python Harness/scripts/tools/harness_scan.py --json",
-            "python Harness/scripts/tools/harness_project_fill.py --json",
-            "python Harness/scripts/tools/harness_project_readiness.py",
+            launcher_command("doctor"),
+            launcher_command("project-fill --json"),
+            launcher_command("readiness"),
+            launcher_command("verify"),
         ]
     )
     if project.get("uproject_file") or len(uprojects) == 1:
-        verify.append("python Harness/scripts/unreal/verify_project.py via UnrealEditor-Cmd")
+        verify.append(launcher_command("unreal-script --script Harness/scripts/unreal/verify_project.py --run"))
 
     return {
         "root": str(root),

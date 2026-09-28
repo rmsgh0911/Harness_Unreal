@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import dump_json, find_project_root, rel
+from harness_common import dump_json, find_project_root, launcher_command, rel
 from harness_memory import memory_doctor, validate_memory
 
 
@@ -125,7 +125,7 @@ def build_review(root: Path, changed_paths: list[str] | None = None) -> dict:
         "guidance": [
             "Add memory only for reusable decisions, durable routing hints, or project rules that reduce future context loading.",
             "Do not store command logs, temporary state, long output, credentials, or unverified guesses.",
-            "Use harness_memory.py --add for one compact reviewed entry when a suggestion is truly reusable.",
+            f"Use {launcher_command('memory --add')} for one compact reviewed entry when a suggestion is truly reusable.",
         ],
     }
 
@@ -163,7 +163,8 @@ def format_text(report: dict) -> str:
     lines.append("")
     lines.append("Guidance:")
     lines.extend(f"- {item}" for item in report["guidance"])
-    lines.append("- Example: python Harness/scripts/tools/harness_memory.py --add --title \"...\" --body \"...\" --tags harness,workflow --source HARNESS.md")
+    example = launcher_command('memory --add --title "..." --body "..." --tags harness,workflow --source HARNESS.md')
+    lines.append(f"- Example: {example}")
     return "\n".join(lines)
 
 

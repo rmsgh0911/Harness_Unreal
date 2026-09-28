@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import file_status, find_project_root, first_heading, harness_dir, index_dir, load_json, markdown_list_items, next_path, normalize_search_token, print_text_or_json, read_text, rel, state_path, task_cycle_path, task_path, today_cycle_path, validate_task_id
+from harness_common import file_status, find_project_root, first_heading, harness_dir, index_dir, launcher_command, load_json, markdown_list_items, next_path, normalize_search_token, print_text_or_json, read_text, rel, state_path, task_cycle_path, task_path, today_cycle_path, validate_task_id
 from harness_docs_check import evaluate_request
 
 KOREAN_CYCLE = "\uc0ac\uc774\ud074"
@@ -19,7 +19,9 @@ KOREAN_MAX = "\ucd5c\ub300"
 API_HINTS = ["api", "blueprint", "ufunction", "uproperty", "mqtt", "topic", "json", "payload", "route", "signature"]
 VERIFY_HINTS = ["verify", "verification", "build", "compile", "test", "pie", "\uac80\uc99d", "\ube4c\ub4dc", "\ucef4\ud30c\uc77c"]
 SOURCE_HINTS = ["source", "module", "class", "c++", "cpp", "header", "\uc18c\uc2a4", "\ubaa8\ub4c8", "\ud074\ub798\uc2a4"]
-UPDATE_HINTS = ["harness update", "harness upgrade", "migration", "migrate", "구버전", "업데이트", "마이그레이션"]
+HARNESS_UPDATE_CONTEXT_HINTS = ["harness", "harness_unreal", "하네스", "템플릿"]
+UPDATE_ACTION_HINTS = ["update", "upgrade", "migration", "migrate", "install", "구버전", "업데이트", "업그레이드", "마이그레이션", "이식", "설치", "갱신"]
+LOCAL_RULES_MARKER = "<!-- Add project rules below this line. Leave the scaffold otherwise unchanged. -->"
 TOKEN_PATTERN = re.compile(r"[a-zA-Z0-9_./+\-]{2,}|[\uac00-\ud7a3]{2,}")
 PATH_FIELD_PATTERN = re.compile(r"^-\s*Path:\s*`([^`]+)`\s*$", re.MULTILINE | re.IGNORECASE)
 VERIFY_FIELD_PATTERN = re.compile(r"^-\s*Verify:\s*(?:`([^`]+)`|(.+))$", re.MULTILINE | re.IGNORECASE)
@@ -31,6 +33,24 @@ REQUEST_STOP_WORDS = {
 
 def _request_has_any(request: str, hints: list[str]) -> bool:
     return any(_contains_hint(request, hint) for hint in hints)
+
+
+def _is_harness_update_request(request: str) -> bool:
+    return _request_has_any(request, HARNESS_UPDATE_CONTEXT_HINTS) and _request_has_any(request, UPDATE_ACTION_HINTS)
+
+
+def _has_active_local_rules(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    text = read_text(path)
+    if LOCAL_RULES_MARKER in text:
+        return bool(text.partition(LOCAL_RULES_MARKER)[2].strip())
+    meaningful = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip() and not line.lstrip().startswith(("#", "<!--"))
+    ]
+    return bool(meaningful)
 
 
 def _contains_hint(text: str, hint: str) -> bool:
@@ -155,6 +175,7 @@ def evaluate_cycle_request(request: str, policy: dict) -> dict:
         r"max(?:imum)?\s*(\d+)\s*(?:times|cycles?)",
         r"(\d+)\s*cycles?",
         rf"(\d+)\s*{KOREAN_CYCLE}",
+        r"(\d+)\s*회(?:차)?(?=\s|$)",
     ]:
         match = re.search(pattern, lowered, flags=re.IGNORECASE)
         if match:
@@ -202,14 +223,18 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
     # and the layout/command README only before the project is connected.
     # This keeps the context briefing token-light for routine connected work.
     first_reads = []
-    if cycle_request_eval["is_cycle_work"] or _request_has_any(request, UPDATE_HINTS):
+    harness_update_request = _is_harness_update_request(request)
+    if cycle_request_eval["is_cycle_work"] or harness_update_request:
         first_reads.append("HARNESS.md")
     project_connected = bool(project.get("project_name")) and not project.get("template_mode", False)
     if not project_connected:
         first_reads.append("Harness/README.md")
     setup_doc = harness / "docs" / "template" / "setup.md"
-    if _request_has_any(request, UPDATE_HINTS) and setup_doc.exists():
+    if harness_update_request and setup_doc.exists():
         first_reads.append(rel(setup_doc, root))
+    local_rules = harness / "config" / "local_rules.md"
+    if _has_active_local_rules(local_rules):
+        first_reads.append(rel(local_rules, root))
     if state_matches:
         first_reads.append("Harness/work/state.md")
     if selected_next_items:
@@ -225,7 +250,8 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
     if request.strip():
         from harness_knowledge import build_knowledge
 
-        existing_knowledge = build_knowledge(root, query=request, limit=12)
+        preferred_paths = [path for path in (active_task, active_cycle) if path is not None]
+        existing_knowledge = build_knowledge(root, query=request, limit=12, preferred_paths=preferred_paths)
         existing_knowledge["matches"] = [
             item for item in existing_knowledge["matches"] if item["kind"] not in {"snapshot", "index"}
         ][:3]
@@ -259,6 +285,7 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
         "Harness/work/state.md": file_status(state_path(root)),
         "Harness/work/next.md": file_status(next_path(root)),
         "Harness/index/project_index.md": file_status(index_dir(root) / "project_index.md"),
+        "Harness/config/local_rules.md": file_status(harness / "config" / "local_rules.md"),
     }
     if active_task:
         files[rel(active_task, root)] = file_status(active_task)
@@ -279,7 +306,7 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
     uprojects = sorted(path.name for path in root.glob("*.uproject"))
     tools = [tool for tool in manifest.get("tools", []) if isinstance(tool, dict)]
     iteration_status = None
-    if cycle_request_eval["is_cycle_work"]:
+    if cycle_request_eval["is_cycle_work"] or (active_cycle is not None and active_cycle.exists()):
         from harness_iteration_status import build_status as build_iteration_status
 
         iteration_status = build_iteration_status(root, request=request, task=task)
@@ -306,10 +333,14 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
             "iteration_status": iteration_status,
         },
         "project_docs": {"doc_roots": docs.get("doc_roots", []), "entry_points": docs.get("entry_points", []), "request_eval": evaluate_request(request, docs)},
+        "local_rules": {"path": "Harness/config/local_rules.md", "active": _has_active_local_rules(harness / "config" / "local_rules.md")},
         "project_index": {"recommended_first_reads": index_reads, "matched_sections": index_matches, "read_policy": "routing_hints_only"},
         "existing_knowledge": existing_knowledge,
         "tools": {"registered_count": len(tools), "registered": [tool.get("name", "") for tool in tools], "manifest": file_status(harness / "scripts" / "tools" / "tool_manifest.json")},
-        "verification_commands": [tool["verify"] for tool in tools if tool.get("context_check") and tool.get("verify")],
+        # The manifest keeps low-level direct-Python self-checks for CI and
+        # diagnostics. Agent-facing context must remain runnable when only the
+        # project-local managed Python exists, so expose the aggregate launcher.
+        "verification_commands": [launcher_command("verify")],
         "warnings": warnings,
         "recommended_first_reads": first_reads,
     }
@@ -328,17 +359,19 @@ def format_text(context: dict) -> str:
     if not context["project"]["template_mode"]:
         lines.append(f"- CI mode: {ci_mode or 'undeclared (set ci.mode in Harness/config/project.json)'}")
         if ci_mode == "no_actions_or_runners":
-            lines.append("- Finish gate: python Harness/scripts/tools/harness_local_gate.py (no server CI)")
+            lines.append(f"- Finish gate: {launcher_command('local-gate')} (no server CI)")
     if context["warnings"]:
         lines.append("- Warnings: " + "; ".join(context["warnings"]))
     cycle_request = context["cycle_policy"]["request_eval"]
-    if cycle_request["is_cycle_work"]:
-        iteration_status = context["cycle_policy"].get("iteration_status") or {}
+    iteration_status = context["cycle_policy"].get("iteration_status") or {}
+    if cycle_request["is_cycle_work"] or iteration_status:
+        budget = iteration_status.get("budget", cycle_request["max_cycles"])
+        budget_mode = iteration_status.get("budget_mode", cycle_request["budget_mode"])
         lines.extend([
             "",
             "Iteration:",
-            f"- Budget: {cycle_request['max_cycles']} cycles ({cycle_request['budget_mode']})",
-            f"- Progress: {iteration_status.get('completed_cycles', 0)}/{iteration_status.get('budget', cycle_request['max_cycles'])}",
+            f"- Budget: {budget} cycles ({budget_mode})",
+            f"- Progress: {iteration_status.get('completed_cycles', 0)}/{budget}",
             f"- Continue recommended: {iteration_status.get('continue_recommended', True)}",
             "- Loop: change or evidence -> minimal verification -> self-review -> decision -> record",
         ])
@@ -357,7 +390,8 @@ def format_text(context: dict) -> str:
     if context["existing_knowledge"]["matches"]:
         lines.extend(["", "Existing knowledge:"])
         lines.extend(
-            f"- [{item['kind']}] {item['path']}:{item['line']} > {item['section']}"
+            f"- [{item['kind']}/{item.get('status', 'current')}] {item['path']}:{item['line']} > {item['section']}"
+            + (f" -> {item['replacement']}" if item.get("replacement") else "")
             for item in context["existing_knowledge"]["matches"]
         )
     memory_matches = context["existing_knowledge"].get("memory_matches", [])

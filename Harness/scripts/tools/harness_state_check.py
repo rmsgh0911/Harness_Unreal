@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import cycles_dir, dump_json, find_project_root, harness_dir, load_json, next_path, read_text, rel, state_path, tasks_dir
+from harness_common import cycles_dir, dump_json, find_project_root, harness_dir, launcher_command, load_json, next_path, read_text, rel, state_path, tasks_dir
 
 
 HISTORY_HINTS = [
@@ -40,6 +40,98 @@ OLD_PATH_HINTS = [
     "Harness/scripts/build_verify.ps1",
     "Harness/scripts/build_verify.cmd",
 ]
+FINDING_CATEGORIES = [
+    ("longer_than_soft_limit", "document.soft_limit"),
+    ("longer_than_hard_limit", "document.hard_limit"),
+    ("unresolved_placeholders", "document.placeholders"),
+    ("old_script_paths", "document.old_paths"),
+    ("appears to contain work-log", "state.work_log"),
+    ("unexpected current-state sections", "state.unexpected_sections"),
+    ("missing recommended sections", "state.missing_sections"),
+    ("Last consolidated is", "state.stale_consolidation"),
+    ("completed checklist items", "next.completed_items"),
+    ("history-like headings", "next.history_headings"),
+    ("too many active project items", "next.item_count"),
+    ("large cycle files", "cycles.large_files"),
+    ("many cycle files", "cycles.file_count"),
+    ("large cycle history", "cycles.total_lines"),
+    ("completed task records", "tasks.completed_records"),
+    ("large task files", "tasks.large_files"),
+    ("many task files", "tasks.file_count"),
+    ("duplicate current-document bullet", "current.duplicate_fact"),
+    ("mojibake", "current.encoding"),
+]
+
+
+def stable_finding_id(item: dict) -> str:
+    path_key = re.sub(r"[^a-z0-9]+", ".", item.get("path", "unknown").casefold()).strip(".")
+    message = item.get("message", "")
+    category = next((value for hint, value in FINDING_CATEGORIES if hint in message), "other")
+    return f"{path_key}:{category}"
+
+
+def load_record_policy(root: Path) -> dict:
+    path = harness_dir(root) / "config" / "record_policy.json"
+    result = {"path": rel(path, root), "exists": path.exists(), "entries": {}, "errors": []}
+    if not path.exists():
+        return result
+    try:
+        value = load_json(path, {})
+    except (OSError, ValueError) as exc:
+        result["errors"].append(f"record policy is unreadable: {exc}")
+        return result
+    if not isinstance(value, dict) or value.get("schema_version") != 1:
+        result["errors"].append("record policy must be an object with schema_version 1")
+        return result
+    baseline = value.get("warning_baseline", [])
+    if not isinstance(baseline, list):
+        result["errors"].append("record policy warning_baseline must be a list")
+        return result
+    for index, entry in enumerate(baseline):
+        if not isinstance(entry, dict):
+            result["errors"].append(f"warning_baseline[{index}] must be an object")
+            continue
+        finding_id = str(entry.get("id", "")).strip()
+        reason = str(entry.get("reason", "")).strip()
+        expires = str(entry.get("expires", "")).strip()
+        if not finding_id or not reason or not expires:
+            result["errors"].append(f"warning_baseline[{index}] requires id, reason, and expires")
+            continue
+        try:
+            expiry = datetime.strptime(expires, "%Y-%m-%d").date()
+        except ValueError:
+            result["errors"].append(f"warning_baseline[{index}] expires must use YYYY-MM-DD")
+            continue
+        if finding_id in result["entries"]:
+            result["errors"].append(f"duplicate warning baseline id: {finding_id}")
+            continue
+        result["entries"][finding_id] = {"reason": reason, "expires": expires, "expired": expiry < date.today()}
+    return result
+
+
+def classify_warning_debt(findings: list[dict], policy: dict) -> dict:
+    active_ids: set[str] = set()
+    for item in findings:
+        item["id"] = stable_finding_id(item)
+        if item.get("level") != "warning":
+            item["debt_status"] = "not_applicable"
+            continue
+        active_ids.add(item["id"])
+        baseline = policy["entries"].get(item["id"])
+        if not baseline:
+            item["debt_status"] = "new"
+        elif baseline["expired"]:
+            item["debt_status"] = "expired"
+            item["baseline"] = baseline
+        else:
+            item["debt_status"] = "baseline"
+            item["baseline"] = baseline
+    return {
+        "new": sorted(item["id"] for item in findings if item.get("debt_status") == "new"),
+        "expired": sorted(item["id"] for item in findings if item.get("debt_status") == "expired"),
+        "baseline": sorted(item["id"] for item in findings if item.get("debt_status") == "baseline"),
+        "resolved": sorted(set(policy["entries"]) - active_ids),
+    }
 
 
 def line_count(text: str) -> int:
@@ -203,7 +295,7 @@ def task_summary(root: Path) -> dict:
     }
 
 
-def build_report(root: Path) -> dict:
+def build_report(root: Path, strict: bool = False) -> dict:
     template_unconfigured = is_template_unconfigured(root)
     docs = [
         check_file(root, "Harness/work/state.md", soft_limit=80, hard_limit=220, allow_placeholders=template_unconfigured),
@@ -234,7 +326,7 @@ def build_report(root: Path) -> dict:
         findings.append({"level": "warning", "path": next_doc["path"], "line": next_doc["history_heading_lines"][0], "message": "history-like headings should move to task/cycle records or an archive: " + ", ".join(next_doc["history_headings"])})
     if next_doc["active_item_count"] > 5:
         findings.append({"level": "warning", "path": next_doc["path"], "message": f"too many active project items: {next_doc['active_item_count']} > 5"})
-    archive_hint = "archive old date cycles: python Harness/scripts/tools/harness_archive.py --before YYYY-MM --archive"
+    archive_hint = f"archive old date cycles: {launcher_command('archive --before YYYY-MM --archive')}"
     if cycles["large_files"]:
         findings.append({"level": "info", "path": "Harness/work/cycles/", "message": f"large cycle files: {len(cycles['large_files'])}"})
     if cycles["file_count"] > 45:
@@ -245,7 +337,7 @@ def build_report(root: Path) -> dict:
         findings.append({
             "level": "warning",
             "path": "Harness/work/tasks/",
-            "message": "completed task records should be archived (python Harness/scripts/tools/harness_archive.py --task <id> --archive): "
+            "message": f"completed task records should be archived ({launcher_command('archive --task <id> --archive')}): "
             + ", ".join(tasks["completed_tasks"]),
         })
     if tasks["large_files"]:
@@ -253,15 +345,23 @@ def build_report(root: Path) -> dict:
     if tasks["file_count"] > 50:
         findings.append({"level": "info", "path": "Harness/work/tasks/", "message": f"many task files: {tasks['file_count']}"})
     findings.extend(current_doc_quality(root))
+    policy = load_record_policy(root)
+    for error in policy["errors"]:
+        findings.append({"level": "error", "path": policy["path"], "message": error})
+    warning_debt = classify_warning_debt(findings, policy)
+    blocking_debt = bool(warning_debt["new"] or warning_debt["expired"])
     return {
         "root": str(root),
-        "ok": not any(item["level"] == "error" for item in findings),
+        "ok": not any(item["level"] == "error" for item in findings) and not (strict and blocking_debt),
+        "strict": strict,
         "template_unconfigured": template_unconfigured,
         "docs": docs,
         "state": state,
         "next": next_doc,
         "cycles": cycles,
         "tasks": tasks,
+        "record_policy": {"path": policy["path"], "exists": policy["exists"], "errors": policy["errors"]},
+        "warning_debt": warning_debt,
         "findings": findings,
     }
 
@@ -271,6 +371,7 @@ def format_text(report: dict) -> str:
         "Harness State Check",
         f"- Root: {report['root']}",
         f"- Status: {'ok' if report['ok'] else 'needs attention'}",
+        f"- Strict warning debt: {'on' if report['strict'] else 'off'}",
         f"- Work cycle files: {report['cycles']['file_count']}",
         f"- Work cycle total lines: {report['cycles']['total_lines']}",
         f"- Task files: {report['tasks']['file_count']}",
@@ -283,18 +384,24 @@ def format_text(report: dict) -> str:
     if report["findings"]:
         lines.append("")
         lines.append("Findings:")
-        lines.extend(f"- [{item['level']}] {item['path']}{':' + str(item['line']) if item.get('line') else ''}: {item['message']}" for item in report["findings"])
+        lines.extend(
+            f"- [{item['level']}/{item.get('debt_status', 'not_applicable')}] {item['id']} {item['path']}{':' + str(item['line']) if item.get('line') else ''}: {item['message']}"
+            for item in report["findings"]
+        )
+    if report["warning_debt"]["resolved"]:
+        lines.extend(["", "Resolved baseline IDs:", *(f"- {item}" for item in report["warning_debt"]["resolved"])])
     return "\n".join(lines)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Check Harness state, next, and cycle documents for bloat, stale paths, and misplaced history.")
     parser.add_argument("--target", type=Path, default=None, help="Target project root. Defaults to nearest Harness root.")
+    parser.add_argument("--strict", action="store_true", help="Fail on warning IDs that are new or whose baseline entry expired.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     args = parser.parse_args()
 
     root = args.target.resolve() if args.target else find_project_root()
-    report = build_report(root)
+    report = build_report(root, strict=args.strict)
     if args.json:
         print(dump_json(report))
     else:

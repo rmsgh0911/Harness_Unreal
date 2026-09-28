@@ -16,7 +16,7 @@ Agents read docs on demand when requested or when code, config, assets, and logs
 
 ## Project Usage
 
-- Add confirmed project documents under `Harness/docs/`.
+- Add new confirmed project documents under the project-owned `Harness/docs/project/` directory. Existing project docs elsewhere under `Harness/docs/` remain supported during migration.
 - Register external document roots in `Harness/config/docs.json`.
 - Read docs on demand when the user references specs, designs, checklists, scenarios, validation criteria, or when implementation intent is unclear.
 - Keep long retrospectives out of `Progress.md`; summarize durable lessons here or in task/cycle records.

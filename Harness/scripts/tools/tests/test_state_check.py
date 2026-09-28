@@ -30,7 +30,8 @@ class StateCheckTests(HarnessBaseTestCase):
         self.assertEqual(1, len(matches))
         self.assertIn("done-task", matches[0]["message"])
         self.assertNotIn("active-task", matches[0]["message"])
-        self.assertIn("harness_archive.py --task", matches[0]["message"])
+        self.assertIn("archive --task", matches[0]["message"])
+        self.assertNotIn("python Harness/scripts/tools", matches[0]["message"])
     def test_state_check_warns_about_stale_consolidation_and_long_state(self) -> None:
         lines = ["# State", "", "Last consolidated: 2000-01-01", "", "## Project", "- Demo", "", "## Current State"]
         lines.extend(f"- Confirmed fact {number}" for number in range(75))
@@ -45,3 +46,52 @@ class StateCheckTests(HarnessBaseTestCase):
         (self.root / "Harness/work/next.md").write_text(f"# Next\n\n## Active Work\n{items}\n", encoding="utf-8")
         findings = build_state_report(self.root)["findings"]
         self.assertTrue(any("too many active project items" in item["message"] for item in findings))
+
+    def test_warning_debt_ids_are_stable_and_strict_blocks_new_warning(self) -> None:
+        path = self.root / "Harness/work/next.md"
+        path.write_text("# Next\n\n## Active Work\n- [x] One old item\n", encoding="utf-8")
+        first = build_state_report(self.root, strict=True)
+        finding = next(item for item in first["findings"] if "completed checklist" in item["message"])
+        self.assertEqual("new", finding["debt_status"])
+        self.assertFalse(first["ok"])
+        path.write_text("# Next\n\n\n## Active Work\n- [x] Two old items\n", encoding="utf-8")
+        second = build_state_report(self.root, strict=True)
+        changed_line = next(item for item in second["findings"] if "completed checklist" in item["message"])
+        self.assertEqual(finding["id"], changed_line["id"])
+
+    def test_unexpired_warning_baseline_is_visible_but_not_strict_blocking(self) -> None:
+        (self.root / "Harness/work/next.md").write_text("# Next\n\n## Active Work\n- [x] Old item\n", encoding="utf-8")
+        finding = next(item for item in build_state_report(self.root)["findings"] if "completed checklist" in item["message"])
+        (self.root / "Harness/config/record_policy.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "warning_baseline": [
+                        {"id": finding["id"], "reason": "migration cleanup", "expires": "2099-12-31"}
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        report = build_state_report(self.root, strict=True)
+        accepted = next(item for item in report["findings"] if item["id"] == finding["id"])
+        self.assertTrue(report["ok"])
+        self.assertEqual("baseline", accepted["debt_status"])
+
+    def test_expired_warning_baseline_blocks_strict_mode(self) -> None:
+        (self.root / "Harness/work/next.md").write_text("# Next\n\n## Active Work\n- [x] Old item\n", encoding="utf-8")
+        finding = next(item for item in build_state_report(self.root)["findings"] if "completed checklist" in item["message"])
+        (self.root / "Harness/config/record_policy.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "warning_baseline": [
+                        {"id": finding["id"], "reason": "expired migration cleanup", "expires": "2000-01-01"}
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        report = build_state_report(self.root, strict=True)
+        self.assertFalse(report["ok"])
+        self.assertIn(finding["id"], report["warning_debt"]["expired"])

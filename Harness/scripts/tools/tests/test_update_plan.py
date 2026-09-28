@@ -1,9 +1,129 @@
 """Regression tests split from the original test_structure_tools.py."""
 
+import hashlib
+
 from _harness_test_base import *  # noqa: F401,F403
 
 
 class UpdatePlanTests(HarnessBaseTestCase):
+    @staticmethod
+    def _sha(text: str) -> str:
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    def _write_contract(self, template: Path, release_files: list[str]) -> None:
+        manifest = template / "Harness/template/manifest.json"
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "schema_version": 2,
+            "ownership_schema_version": 1,
+            "template_version": "test-v2",
+            "source": {"repository": "example.invalid/template", "commit": "abc123"},
+            "ownership_rules": [
+                {"owner": "managed_merge", "patterns": ["HARNESS.md"]},
+                {"owner": "project_owned", "patterns": ["Harness/config/project.json"]},
+                {"owner": "template_owned", "patterns": ["**"]},
+            ],
+            "release_files": sorted(set(release_files) | {"Harness/template/manifest.json"}),
+            "template_file_hashes": {},
+        }
+        manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+    def test_update_plan_reports_newline_only_without_normalizing_raw_hashes(self) -> None:
+        template = self.root / "newline-template"
+        target = self.root / "newline-target"
+        for base in [template, target]:
+            (base / "Harness/scripts/tools").mkdir(parents=True)
+            (base / "HARNESS.md").write_text("same\n", encoding="utf-8")
+        source = template / "Harness/scripts/tools/line.py"
+        destination = target / "Harness/scripts/tools/line.py"
+        source.write_bytes(b"ONE = 1\nTWO = 2\n")
+        destination.write_bytes(b"ONE = 1\r\nTWO = 2\r\n")
+        (template / "Harness/scripts/tools/blob.bin").write_bytes(b"a\r\nb")
+        (target / "Harness/scripts/tools/blob.bin").write_bytes(b"a\nb")
+
+        plan = build_update_plan(template, target)
+        actions = {item["path"]: item for item in plan["actions"]}
+
+        self.assertEqual("newline_only", actions["Harness/scripts/tools/line.py"]["difference"])
+        self.assertNotEqual(actions["Harness/scripts/tools/line.py"]["local_hash"], actions["Harness/scripts/tools/line.py"]["new_hash"])
+        self.assertEqual("content", actions["Harness/scripts/tools/blob.bin"]["difference"])
+
+    def test_receipt_enables_three_way_update_classification(self) -> None:
+        template = self.root / "receipt-template"
+        target = self.root / "receipt-target"
+        paths = {
+            "Harness/scripts/tools/upstream.py": ("new upstream\n", "old\n", "old\n"),
+            "Harness/scripts/tools/local.py": ("old\n", "local edit\n", "old\n"),
+            "Harness/scripts/tools/both.py": ("new upstream\n", "local edit\n", "old\n"),
+        }
+        for base in [template, target]:
+            (base / "Harness/scripts/tools").mkdir(parents=True)
+            (base / "Harness/config").mkdir(parents=True)
+            (base / "HARNESS.md").write_bytes(b"same\n")
+        for relative, (upstream, local, _) in paths.items():
+            (template / relative).write_bytes(upstream.encode("utf-8"))
+            (target / relative).write_bytes(local.encode("utf-8"))
+        self._write_contract(template, ["HARNESS.md", *paths])
+        receipt = {
+            "schema_version": 1,
+            "template_version": "old",
+            "files": {
+                relative: {"owner": "template_owned", "baseline_sha256": self._sha(base)}
+                for relative, (_, _, base) in paths.items()
+            },
+        }
+        (target / "Harness/config/template_receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
+
+        plan = build_update_plan(template, target)
+        actions = {item["path"]: item for item in plan["actions"]}
+
+        self.assertEqual("valid", plan["receipt"]["status"])
+        self.assertEqual("safe_replace", actions["Harness/scripts/tools/upstream.py"]["action"])
+        self.assertEqual("keep_local", actions["Harness/scripts/tools/local.py"]["action"])
+        self.assertEqual("merge_review", actions["Harness/scripts/tools/both.py"]["action"])
+        self.assertEqual("known", actions["Harness/scripts/tools/both.py"]["baseline_status"])
+
+    def test_malformed_receipt_falls_back_to_conservative_review(self) -> None:
+        template = self.root / "bad-receipt-template"
+        target = self.root / "bad-receipt-target"
+        for base in [template, target]:
+            (base / "Harness/scripts/tools").mkdir(parents=True)
+            (base / "Harness/config").mkdir(parents=True)
+            (base / "HARNESS.md").write_text("same\n", encoding="utf-8")
+        (template / "Harness/scripts/tools/standard.py").write_text("new\n", encoding="utf-8")
+        (target / "Harness/scripts/tools/standard.py").write_text("local\n", encoding="utf-8")
+        (target / "Harness/config/template_receipt.json").write_text("{not json", encoding="utf-8")
+
+        plan = build_update_plan(template, target)
+        action = next(item for item in plan["actions"] if item["path"].endswith("standard.py"))
+
+        self.assertEqual("invalid", plan["receipt"]["status"])
+        self.assertEqual("replace_review", action["action"])
+        self.assertEqual("unknown", action["baseline_status"])
+
+    def test_receipt_acceptance_requires_resolved_plan_and_successful_verification(self) -> None:
+        template = self.root / "accept-template"
+        target = self.root / "accept-target"
+        for base in [template, target]:
+            (base / "Harness/scripts/tools").mkdir(parents=True)
+            (base / "Harness/config").mkdir(parents=True)
+            (base / "HARNESS.md").write_text("same\n", encoding="utf-8")
+            (base / "Harness/scripts/tools/core.py").write_text("same\n", encoding="utf-8")
+        self._write_contract(template, ["HARNESS.md", "Harness/scripts/tools/core.py"])
+        (target / "Harness/template").mkdir(parents=True)
+        (target / "Harness/template/manifest.json").write_bytes((template / "Harness/template/manifest.json").read_bytes())
+        plan = build_update_plan(template, target)
+
+        with self.assertRaises(RuntimeError):
+            accept_receipt(template, target, plan, verifier=lambda _: False)
+        self.assertFalse((target / "Harness/config/template_receipt.json").exists())
+
+        written = accept_receipt(template, target, plan, verifier=lambda _: True)
+        receipt = json.loads((target / written).read_text(encoding="utf-8"))
+        self.assertEqual(1, receipt["schema_version"])
+        self.assertIn("Harness/scripts/tools/core.py", receipt["files"])
+        self.assertNotIn("Harness/config/project.json", receipt["files"])
+
     def test_migration_audit_accepts_direct_harness_directory(self) -> None:
         report = migration_audit(self.root / "Harness")
         self.assertTrue(report["ok"])
@@ -107,6 +227,21 @@ class UpdatePlanTests(HarnessBaseTestCase):
         missing_template = self.root / "missing-template"
         with self.assertRaises(ValueError):
             build_update_plan(missing_template, self.root)
+
+    def test_update_plan_and_writes_reject_nested_template_target_roots(self) -> None:
+        template = self.root / "template"
+        nested_target = template / "nested-target"
+        (template / "Harness").mkdir(parents=True)
+        (template / "HARNESS.md").write_text("template\n", encoding="utf-8")
+        (nested_target / "Harness").mkdir(parents=True)
+        plan = {"actions": []}
+
+        with self.assertRaisesRegex(ValueError, "non-nested"):
+            build_update_plan(template, nested_target)
+        with self.assertRaisesRegex(ValueError, "non-nested"):
+            apply_missing_files(template, nested_target, plan)
+        with self.assertRaisesRegex(ValueError, "non-nested"):
+            accept_receipt(template, nested_target, plan, verifier=lambda _: True)
     def test_update_plan_stages_scaffolding_and_emits_post_apply_notes(self) -> None:
         template = self.root / "new-template"
         target = self.root / "old-project"

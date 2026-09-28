@@ -1,6 +1,6 @@
 # Work Archive
 
-Completed task and cycle records may be moved into monthly folders with `harness_archive.py`.
+Completed task and cycle records may be moved into monthly folders with the launcher's `archive` command.
 
 The command is read-only by default and has two modes:
 

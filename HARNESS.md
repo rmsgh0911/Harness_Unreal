@@ -6,33 +6,46 @@ This file defines the default operating rules for agents working with this Unrea
 
 - All agents use the same `Harness/` layout and rules.
 - Projects may use one normal checkout or multiple Git worktrees. Do not create worktrees unless parallel work needs isolation.
-- Parallel work, when used, must use separate Git worktrees and branches.
+- Parallel work that may write files or Git state must use separate Git worktrees and branches.
+- Registered read-only subagents may inspect the primary checkout only while the primary agent pauses mutation and treats the checkout as one frozen snapshot.
 - A worktree contains its own copy of `Harness/work/`, so agents do not need separate `Harness/Codex/` or `Harness/Claude/` directories.
 - Use one primary agent per task and checkout/worktree.
 - Never use `state.md` or `next.md` as an append-only agent activity log.
+
+## Read-Only Subagents
+
+Harness keeps the primary agent as the sole integration owner while allowing two provider-neutral, read-only helper roles registered in `Harness/config/agents.json`:
+
+- `current-status` organizes the current request, confirmed state, completed/in-progress/remaining work, staged/unstaged/untracked scope, verification, risks, and next decisions. Use it for an explicit status request, a long-task resume, a handoff/integration checkpoint, or a checkpoint during three-or-more-cycle work, not for every small task.
+- `commit-explainer` explains only the staged diff and drafts an evidence-backed commit subject/body. Use it only after the user explicitly requests a commit or commit-message preparation. A message-only request does not authorize staging or committing. With no staged change it must return `not_ready`; unstaged and untracked work are exclusion warnings, never commit scope.
+
+Build a runtime-neutral delegation packet with `& Harness\harness.ps1 subagent --role <role> --request "<request>"` in Windows PowerShell (or `sh Harness/harness.sh ...` on POSIX). The command is read-only and does not spawn an agent; pass its prompt to the runtime's subagent mechanism. If no such mechanism exists, the primary agent may follow the same role contract directly.
+
+Both roles are advisory. They may read narrowly relevant files named by the packet, but Git, context, and memory evidence must come through a fresh bounded packet requested from the primary agent; helpers do not bypass it with raw commands. They may not edit, update durable Harness records, stage, commit, amend, push, tag, change branches, or declare completion. Pause primary-agent mutation while a role captures its snapshot. The primary agent verifies material claims, integrates results, updates `state.md` / `next.md` / `Progress.md`, and owns the final decision. If a helper needs to write, stop that role and return the action to the primary agent; normal task/worktree rules then apply.
 
 ## Core Loop
 
 Default flow: `implement -> minimal verification -> self-review -> record`.
 
 1. Read the root `README.md` when present and the short operating rules in `Harness/README.md`.
-2. Run `python Harness/scripts/tools/harness_context.py --request "<task>"` when Python is available.
-3. Read only the state, next, task, cycle, or index sections recommended by the context briefing. If the command cannot run, read `Harness/work/state.md`, `Harness/work/next.md`, and `Harness/index/project_index.md` manually.
+2. Run `& Harness\harness.ps1 context --request "<task>"` in Windows PowerShell or `sh Harness/harness.sh context --request "<task>"` on POSIX. Do not route free-form values through the Windows batch wrapper because CMD reparses metacharacters before the script can preserve them. Direct Python tool paths remain supported fallbacks. If Python is missing and project policy permits the explicit network/bootstrap operation, run the launcher's `bootstrap` command once; normal commands disable Python Install Manager automatic installation and never download a runtime implicitly.
+3. Read only the state, next, task, cycle, or index sections recommended by the context briefing. If the command cannot run and no approved bootstrap or offline Python source is available, read `Harness/work/state.md`, `Harness/work/next.md`, and `Harness/index/project_index.md` manually.
 4. Use `Harness/index/` only as a routing hint, then verify assumptions against actual code, config, assets, logs, or build output.
 5. Read project docs only when requested or when success criteria are unclear.
 6. Implement the smallest useful change and run the smallest useful verification.
 7. Self-review changed files and record only durable information.
 
-Do not broadly scan the repository, run external reviewers, or use multi-agent mode unless the user asks.
+Do not broadly scan the repository or use external reviewers, write-capable helpers, or unrestricted multi-agent mode unless the user asks. The two registered read-only roles may be used only at the checkpoints above.
 
 ## Field-Proven Operating Habits
 
 - Verify the real project root before deep search. If a checkout contains only Harness/template files, stop and locate the actual Unreal project before concluding that code or assets are missing.
 - Treat Harness indexes and prior notes as routing hints only. Confirm behavior against source, config, assets, generated JSON, logs, screenshots, build output, or Unreal commandlet output.
 - When a bug is reported from UI, design, runtime, or another agent's note, first identify the mechanism that could produce the symptom. Prefer a narrow mechanism-correct fix over a visual or string-only patch.
-- For Unreal Python, run scripts through `harness_unreal_script.py --script <file> --run` unless the script is explicitly plain CPython. A script that imports `unreal` is not verified by running `python script.py`.
+- For Unreal Python, run scripts through the launcher's `unreal-script --script <file> --run` command unless the script is explicitly plain CPython. A script that imports `unreal` is not verified by running `python script.py`.
 - For UI and Blueprint/UMG work, verify the layers separately when possible: generated asset/tree structure, named widget exposure, runtime data binding, rendered layout, and interaction/event wiring.
 - For generated level or asset data, make population scripts idempotent. Remove or reconcile prior generated rows/actors before appending new ones, and verify exact expected IDs or counts.
+- For a generated report, screenshot, export, asset, or other evidence that supports a durable claim, register its project-relative output and source paths, generator and generator revision, timezone-aware generation time, matching input/artifact revision, SHA-256, evidence kind, acceptance scope/result, and verification command in `Harness/config/generated_artifacts.json`. Run `Harness/harness.cmd artifacts`; do not treat a stale hash, mismatched revision, or missing output as valid evidence.
 - If a command reports an environment warning or known baseline issue, separate that signal from the requested change. Record the residual risk instead of hiding or over-fixing it.
 - **PIE vs editor distinction**: When a user reports that a dashboard, widget, or UI panel is "not visible," first check whether the relevant actor uses `BeginPlay` or `OnConstruction`. `BeginPlay`-based actors require PIE; confirming "not visible" in the editor viewport is not a bug.
 - **Asset path versioning**: Level generation scripts may reference asset paths that have been renamed or versioned. Always verify the exact asset path against the Content Browser or `EditorAssetLibrary.does_asset_exist()` before running a placement script.
@@ -43,16 +56,16 @@ Do not broadly scan the repository, run external reviewers, or use multi-agent m
 - Create one task file per parallel branch under `Harness/work/tasks/<task-id>.md`.
 - Task files should record `Owner`, `Branch`, `Worktree`, `Started`, `Updated`, `Status`, scope, success criteria, and remaining work.
 - Prefer task-scoped cycle files under `Harness/work/cycles/<task-id>.md`.
-- Run `harness_cycle.py --task <task-id> --worker <agent>` when recording parallel work.
+- Run the launcher's `cycle --task <task-id> --worker <agent>` command when recording parallel work.
 - `Harness/work/state.md` contains only the latest confirmed project facts.
 - `Harness/work/next.md` contains only unresolved project-level work and decisions.
 - Keep `state.md` near 80 lines or fewer and limited to Project, Current State, Latest Verification, and Risks.
 - Keep `next.md` to the 3-5 highest-priority active project items. Remove completed work immediately; move optional ideas to a project backlog document when needed.
 - Update `state.md`, `next.md`, and `Progress.md` at integration, handoff, or merge-ready points instead of after every small edit.
 - During parallel branch work, the integrator owns consolidation into `state.md`, `next.md`, and `Progress.md`; other branches keep branch-specific details in task and cycle files.
-- Stamp `Progress.md` with `**Last updated:** YYYY-MM-DD HH:MM:SS +09:00` (seconds and timezone) on every update. When merging worktrees, resolve a `Progress.md` conflict by keeping the block with the newest `Last updated` rather than merging bullets line by line.
-- Archive completed task/cycle pairs with `harness_archive.py --task <task-id> --archive` when history becomes noisy. Archive old date-named cycle files with `harness_archive.py --before YYYY-MM --archive`. Both modes preview by default and preserve lookup entries in `Harness/work/archive/index.md`.
-- Archive a task as soon as its record reaches a completed status; `harness_state_check.py` warns while completed tasks remain in `Harness/work/tasks/`.
+- Stamp `Progress.md` with `**Last updated:** YYYY-MM-DD HH:MM:SS +09:00` (seconds and timezone) on every update. During a worktree merge, use the timestamps to identify newer edits, then reconcile supported facts bullet by bullet. Preserve unrelated pending acceptance and do not discard an older block solely because its timestamp is earlier.
+- After a final `stop_success` cycle with concrete verification, preview the launcher's `close --task <task-id>` command and use `--write` to mark the task completed and archive the task/cycle pair as one rollback-safe operation. Use the low-level launcher `archive` command only for an already-completed task or old date-named cycles.
+- Archive a task as soon as its record reaches a completed status; launcher `state-check` warns while completed tasks remain in `Harness/work/tasks/`. Its warning IDs are stable; use `Harness/config/record_policy.json` only for reasoned, expiring baseline debt, and run `state-check --strict` when new warning debt must block completion.
 - A short `Last consolidated` and `Consolidated by` header is allowed in `state.md` and `next.md`; per-edit timestamps belong in task or cycle files.
 - Do not duplicate the same detail across task files, cycles, state, next, and Progress.
 
@@ -61,11 +74,13 @@ Do not broadly scan the repository, run external reviewers, or use multi-agent m
 - A cycle means `implement or improve -> minimal verification -> self-review -> short record -> decide whether to continue`.
 - Before the first cycle, state the success criteria and requested cycle budget. Treat `N cycles` / `N times` as an exact requested count; treat `up to N`, `maximum N`, or similar wording as an upper bound.
 - Every cycle must add a meaningful change or new evidence and end with one decision: `continue`, `stop_success`, or `stop_blocked`.
-- For task-scoped or three-plus-cycle work, run `harness_iteration_status.py --request "<request>" --task <task-id>` before the next cycle. Do not continue past a stop recommendation without new evidence or a corrected record.
+- For task-scoped or three-plus-cycle work, run the launcher's `iteration-status --request "<request>" --task <task-id>` command before the next cycle. Do not continue past a stop recommendation without new evidence or a corrected record.
 - An upper-bound cycle budget may stop early when success criteria are met. An exact-count cycle budget should continue until the requested count is complete unless a stop condition triggers.
 - Do not repeat the same failed attempt without new evidence.
 - Stop and report when the same issue repeats twice, a build fails twice for the same reason, the diff becomes unexpectedly large, or a public API / Blueprint risk appears.
-- Keep repeated-work records machine-readable: success criteria, cycle number, verification result, remaining work, and one decision (`continue`, `stop_success`, or `stop_blocked`).
+- Keep repeated-work records machine-readable: success criteria, cycle number and budget mode (`exact_count` or `upper_bound`), verification result, remaining work, and one decision (`continue`, `stop_success`, or `stop_blocked`).
+- Separate implementation claims from acceptance evidence. For rendered UI, interaction, or live-service behavior, record the evidence kind, artifact, tested input revision, acceptance scope, and result; automation completion alone is not user acceptance.
+- Preserve invalidated evidence as history and point a correction at it with `Supersedes`. Knowledge search treats invalidated or superseded sections as routing context, not current truth.
 
 Recommended task file:
 
@@ -106,7 +121,7 @@ Recommended cycle entry:
 - `Harness/index/` is a compact Project Understanding Layer, not the source of truth.
 - Keep `state.md` compact; put project structure and routing notes in `Harness/index/`.
 - `Harness/Progress.md` is a short Korean human-facing dashboard, not a work log. Keep only Current Status, Recent Completion, Needs Confirmation, and Next Work, with at most three core bullets per section and about 40 lines total.
-- `Harness/Progress_index.html` is a tracked convenience viewer that loads `Harness/Progress.md` at view time. Browsers block local `fetch()` over `file://`, so open it live by double-clicking `Harness/Progress_view.cmd` or running `python Harness/scripts/tools/harness_progress_html.py --serve`. Do not hand-edit the HTML during routine progress updates; update `Harness/Progress.md` instead.
+- `Harness/Progress_index.html` is a tracked convenience viewer that loads `Harness/Progress.md` at view time. Browsers block local `fetch()` over `file://`, so open it live by double-clicking `Harness/Progress_view.cmd` or running the launcher's `progress --serve` command. Do not hand-edit the HTML during routine progress updates; update `Harness/Progress.md` instead.
 - Keep agent-facing Harness docs in English by default. Limit Korean text to short human-facing files such as `Harness/Progress.md` unless project requirements need otherwise.
 - If Korean text appears garbled in a Windows console, do not treat that output as file corruption. Re-read the file with an explicit UTF-8 path, for example Python `Path.read_text(encoding="utf-8")`, before drawing conclusions.
 
@@ -116,20 +131,22 @@ Recommended cycle entry:
 - `Harness/data/harness.sqlite` is a local search cache rebuilt from JSONL shards. It is ignored by Git and is never the source of truth.
 - Private repositories may commit reviewed daily JSONL shards even while `template_mode` is still true. Public template packages exclude real daily shards and SQLite cache files.
 - When the user asks to summarize work for commit or push, review the completed work for a durable routing hint, reusable project rule, or decision that would reduce future context loading. Add only a reviewed, compact memory entry when such a reusable item exists.
-- Use `python Harness/scripts/tools/harness_memory_review.py` before staging when you want a read-only check of changed paths and memory shard health; it suggests candidate categories but never writes memory.
+- Use the launcher's `memory-review` command before staging when you want a read-only check of changed paths and memory shard health; it suggests candidate categories but never writes memory.
 - Do not auto-log every command, temporary state, long output, credentials, or unverified guesses into memory.
-- Use `python Harness/scripts/tools/harness_memory.py --query "<request>" --limit 5` as a routing hint only. Confirm final claims against code, config, assets, logs, build output, docs, or verification results.
+- Use the launcher's `memory --query "<request>" --limit 5` command as a routing hint only. Confirm final claims against code, config, assets, logs, build output, docs, or verification results.
 - Use `--promote`, `--demote`, `--doctor`, and `--prune` to keep memory reviewed and compact. `--prune` only deletes candidates when `--write` is explicitly supplied.
 - Keep entries short: one title, one to three body sentences, tags, status, and optional source. Default queries should prefer `confirmed` entries; use `draft` only for unverified notes.
 
 ## Harness Updates
 
 - Read `Harness/docs/template/setup.md` before installing, migrating, or updating Harness.
+- Use `Harness/template/manifest.json` as the ownership contract. Never overwrite `project_owned` paths; review `managed_merge` paths; refresh template hashes only as an explicit release action.
+- Keep project/site additions in `Harness/config/local_rules.md`, `Harness/docs/project/`, and `Harness/scripts/project/` so they survive template updates without entering the core tool registry.
 - Treat updates as reviewed migrations, not blind replacement.
 - Preserve project-specific config, docs, index, work records, Progress, and custom scripts.
-- Run the new template's `harness_update_plan.py --target <project>` before copying. `--apply-missing` may add absent files but never overwrites; `--stage-review <dir>` transactionally places changed template files outside both the template and target trees for review.
-- After initial install or update, run `harness_project_readiness.py --strict`; a real project is not connected until project.json, state, next, and project index are filled from actual evidence. Routine `harness_verify_all.py` runs this check non-strict, so only hard connection/config errors block everyday work while unfilled placeholders stay warnings.
-- After migration, run `harness_knowledge.py --query "<current request>"` so retained docs, task/cycle history, archives, and indexes remain discoverable without broad scans.
+- Run the new template launcher's `update --target <project>` command before copying. `--apply-missing` may add absent files but never overwrites; `--stage-review <dir>` transactionally places changed template files outside both the template and target trees for review.
+- After initial install or update, run the target launcher's `readiness --strict` command; a real project is not connected until project.json, state, next, and project index are filled from actual evidence. The launcher's routine `verify` command runs this check non-strict, so only hard connection/config errors block everyday work while unfilled placeholders stay warnings.
+- After migration, run the target launcher's `knowledge --query "<current request>"` command so retained docs, task/cycle history, archives, and indexes remain discoverable without broad scans.
 - When migrating from split `Harness/Codex/` and `Harness/Claude/` layouts, merge durable records into the single Harness and preserve conflicting task history as separate task files.
 - Do not delete the source template folder from a project until the migrated Harness verifies successfully and `git diff --stat` shows only the intended migration.
 
@@ -140,7 +157,7 @@ Recommended cycle entry:
 - Tools should be read-only by default; writes require explicit options such as `--write`, `--apply`, or `--update`.
 - Put project-specific values in `Harness/config/project.json` or command-line arguments.
 - Update `Harness/scripts/tools/tool_manifest.json` and run the smallest useful verification for changed tools.
-- Periodically run `harness_tool_usage.py` to find low-reference tools; prefer consolidating or removing rarely-wired tools over adding near-duplicates.
+- Periodically run the launcher's `tool-usage` command to find low-reference tools; prefer consolidating or removing rarely-wired tools over adding near-duplicates.
 - Prefer adding a small check to an existing finish gate before creating a broad new workflow. Field-proven checks that catch repeated mistakes belong in `harness_field_check.py` or another read-only tool.
 
 ## Unreal Cautions
@@ -153,18 +170,18 @@ Recommended cycle entry:
 - For Git LFS assets, confirm `.gitattributes` and include newly generated docs/assets only when they are part of the requested deliverable. Binary uasset/umap LFS uploads can be 100–300 MB per push; budget time accordingly.
 - **Non-ASCII project paths**: If the project directory contains Korean or other non-ASCII characters, UBT's git blame parser may crash. Apply `git config core.quotePath false` once in the repository (stored in `.git/config`) and record it in `Harness/work/state.md` under Risks. Remind users to re-apply after a fresh clone.
 - **UMG widget visibility**: `AddToViewport()` inside `BeginPlay()` is PIE-only. Widgets added this way are never visible in the editor viewport. Use `OnConstruction()` or `PostEditChangeProperty()` for editor-visible debug overlays. Document which actors require PIE to see their output.
-- **Worktree checkout constraint**: A branch checked out in a worktree cannot be checked out from another tree. Use `git -C <worktree-path> reset --hard <target>` to sync a worktree branch without a fresh checkout.
+- **Worktree checkout constraint**: A branch checked out in a worktree cannot be checked out from another tree. Inspect that worktree's status, branch, HEAD, and target commit first. When the worktree is clean and the target is a verified descendant, sync inside it with `git -C <worktree-path> merge --ff-only <verified-commit>`. If it is dirty or diverged, stop for a merge/rebase decision; do not auto-stash, hard-reset, or rewrite history.
 
 ## Finish Checklist
 
 1. Verify the requested behavior with the smallest useful command or manual check.
 2. Inspect `git diff --stat` and confirm the scope matches the request. Do not stage `.umap` files changed only by editor navigation (camera/selection state) unless the level content genuinely changed.
 3. Refresh `Harness/Progress.md` when meaningful project behavior or a human decision changed. `Progress.md` is Korean by default; keep it to ~40 lines covering Current Status, Recent Completion, Needs Confirmation, and Next Work.
-4. Do not hand-edit `Harness/Progress_index.html` for routine progress changes; update `Harness/Progress.md`, then reload the viewer (double-click `Harness/Progress_view.cmd` or run `harness_progress_html.py --serve` for a live local view over HTTP).
+4. Do not hand-edit `Harness/Progress_index.html` for routine progress changes; update `Harness/Progress.md`, then reload the viewer (double-click `Harness/Progress_view.cmd` or run the launcher's `progress --serve` command for a live local view over HTTP).
 5. Update the active task file and consolidate durable facts into `state.md` or `next.md` only when appropriate.
-6. Before staging for a requested commit or push, run or apply the logic of `python Harness/scripts/tools/harness_memory_review.py`. Review whether the completed work produced a reusable decision, routing hint, or project rule that belongs in `Harness/data/memory/*.jsonl`. Add only a compact reviewed entry; do not store command logs, temporary state, long output, credentials, or unverified guesses.
-7. After Harness initialization or update, run `python Harness/scripts/tools/harness_project_readiness.py --strict` (routine runs are already covered non-strict inside `harness_verify_all.py`).
-8. Run `python Harness/scripts/tools/harness_verify_all.py`. If the repository has no server-side CI, run `python Harness/scripts/tools/harness_local_gate.py` before commit or push; it wraps the local finish gate and final diff checks.
+6. Before staging for a requested commit or push, run or apply the logic of the launcher's `memory-review` command. Review whether the completed work produced a reusable decision, routing hint, or project rule that belongs in `Harness/data/memory/*.jsonl`. Add only a compact reviewed entry; do not store command logs, temporary state, long output, credentials, or unverified guesses.
+7. After Harness initialization or update, run `& Harness\harness.ps1 readiness --strict` (routine runs are already covered non-strict inside `verify`).
+8. Run `& Harness\harness.ps1 verify`. If the repository has no server-side CI, run `& Harness\harness.ps1 local-gate` before commit or push; it wraps the local finish gate and final diff checks.
 9. For requested branch-family or worktree syncs, confirm each involved checkout/worktree is clean enough for the operation and verify remote refs after push with `git ls-remote --heads origin <branches...>`.
 10. For C++ changes that affect actor visualization or widget behavior, add a `Remaining` note specifying what to confirm in PIE or the editor viewport. Do not claim visual correctness from a build pass alone.
 11. For Unreal Python scripts that place or update actors, confirm the script runs idempotently: a second run should produce the same actor count and state, not duplicates.

@@ -57,7 +57,8 @@ class FieldCheckTests(HarnessBaseTestCase):
         report = build_field_report(self.root)
         self.assertTrue(report["ok"])
         self.assertEqual(1, report["unreal_scripts"]["unreal_import_count"])
-        self.assertTrue(any("harness_unreal_script.py" in item.get("command", "") for item in report["notes"]))
+        self.assertTrue(any("unreal-script" in item.get("command", "") for item in report["notes"]))
+        self.assertFalse(any(item.get("command", "").startswith("python ") for item in report["notes"]))
     def test_field_check_requires_field_guide(self) -> None:
         (self.root / "Harness/config/project.json").write_text('{"template_mode": true}\n', encoding="utf-8")
         report = build_field_report(self.root)

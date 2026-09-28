@@ -100,7 +100,7 @@ def build_report(root: Path) -> dict:
             "Keep Progress.md as a current dashboard, not an append-only work log.",
             "Use only 현재 상태, 최근 완료, 확인 필요, and 다음 작업, with at most three bullets each.",
             "Refresh existing bullets in place and move detailed history to Harness/work/tasks/, Harness/work/cycles/, or an archive.",
-            "Stamp `**Last updated:** YYYY-MM-DD HH:MM:SS +09:00` so a worktree merge conflict is resolved by keeping the newest block.",
+            "Stamp `**Last updated:** YYYY-MM-DD HH:MM:SS +09:00` to identify newer edits during a worktree merge, then reconcile supported facts and pending acceptance instead of discarding a whole block.",
         ],
     }
 

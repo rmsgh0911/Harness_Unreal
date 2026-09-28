@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import dump_json, find_project_root, harness_dir, load_json, read_text, rel
+from harness_common import dump_json, find_project_root, harness_dir, launcher_command, load_json, read_text, rel
 
 
 REF_HEADS_PREFIX = "refs/heads/"
@@ -125,7 +125,7 @@ def _unreal_script_report(root: Path) -> dict:
             scripts.append({
                 "path": rel(path, root),
                 "imports_unreal": imports_unreal,
-                "run_with": f"python Harness/scripts/tools/harness_unreal_script.py --script {rel(path, root)} --run"
+                "run_with": launcher_command(f'unreal-script --script "{rel(path, root)}" --run')
                 if imports_unreal else "python",
             })
     return {

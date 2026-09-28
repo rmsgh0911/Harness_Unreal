@@ -165,7 +165,7 @@ def render_html(source_path: str, generated_at: str) -> str:
         <span>Double-click <code>Progress_view.cmd</code> (next to this file), or run:</span>
       </div>
       <div class="cmd-row">
-        <code id="serve-cmd">python Harness/scripts/tools/harness_progress_html.py --serve</code>
+        <code id="serve-cmd">&amp; Harness\\harness.ps1 progress --serve</code>
         <button type="button" id="copy-cmd">Copy</button>
       </div>
       <p>Or click <strong>Open Progress.md</strong> above to load it once from disk.</p>

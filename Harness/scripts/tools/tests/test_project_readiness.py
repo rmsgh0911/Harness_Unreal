@@ -124,3 +124,26 @@ class ProjectReadinessTests(HarnessBaseTestCase):
         report = build_project_readiness_report(self.root)
         self.assertFalse(report["ok"])
         self.assertTrue(any("valid JSON" in item["message"] and item["path"] == "Demo.uproject" for item in report["findings"]))
+
+    def test_after_update_distinguishes_missing_malformed_and_stale_receipt(self) -> None:
+        self._connect_project()
+        (self.root / "Harness/work/next.md").write_text("# Next\n\n## Active Work\n- Confirm feature.\n", encoding="utf-8")
+        manifest_path = self.root / "Harness/template/manifest.json"
+        manifest_path.parent.mkdir(parents=True)
+        manifest_path.write_text(json.dumps({"template_version": "v2"}), encoding="utf-8")
+        receipt_path = self.root / "Harness/config/template_receipt.json"
+
+        missing = build_project_readiness_report(self.root, after_update=True)
+        self.assertTrue(any("receipt is missing" in item["message"] for item in missing["findings"]))
+
+        receipt_path.write_text("{bad json", encoding="utf-8")
+        malformed = build_project_readiness_report(self.root, after_update=True)
+        self.assertTrue(any("receipt is malformed" in item["message"] for item in malformed["findings"]))
+
+        receipt_path.write_text(json.dumps({"schema_version": 1, "template_version": "v1", "files": {}}), encoding="utf-8")
+        stale = build_project_readiness_report(self.root, after_update=True)
+        self.assertTrue(any("version differs" in item["message"] for item in stale["findings"]))
+
+        receipt_path.write_text(json.dumps({"schema_version": 1, "template_version": "v2", "files": {}}), encoding="utf-8")
+        current = build_project_readiness_report(self.root, after_update=True)
+        self.assertFalse(any("template receipt" in item["message"] for item in current["findings"]))

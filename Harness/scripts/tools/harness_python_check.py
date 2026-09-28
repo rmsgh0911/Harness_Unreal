@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -28,6 +29,7 @@ def run_version(command: list[str]) -> dict:
             text=True,
             encoding="utf-8",
             timeout=10,
+            env={**os.environ, "PYTHON_MANAGER_AUTOMATIC_INSTALL": "0"},
         )
     except (OSError, subprocess.SubprocessError) as exc:
         return {"command": " ".join(command), "found": True, "ok": False, "version": "", "path": executable, "error": str(exc)}
@@ -107,7 +109,7 @@ def build_report(root: Path) -> dict:
         "usable_command": usable[0]["command"] if usable else "",
         "candidates": candidates,
         "unreal_python": unreal_python_hint(root),
-        "install_hint": "Install Python 3.10+ manually from python.org or with: winget install Python.Python.3.12",
+        "install_hint": "Run the explicit Harness launcher bootstrap, install Python 3.10+ manually, or set HARNESS_PYTHON.",
     }
 
 

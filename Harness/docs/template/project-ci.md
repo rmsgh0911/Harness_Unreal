@@ -11,8 +11,7 @@ Use the strongest tier that the target project can run reliably.
 Run this in the template repository and in every target project:
 
 ```powershell
-python -B -m unittest discover -s Harness/scripts/tools/tests -p "test_*.py"
-python Harness/scripts/tools/harness_verify_all.py
+& Harness\harness.ps1 verify
 ```
 
 This catches Harness structure, docs, indexes, progress format, Python syntax, release hygiene, and standard tool regressions. It does not prove Unreal gameplay behavior.
@@ -22,8 +21,8 @@ This catches Harness structure, docs, indexes, progress format, Python syntax, r
 Use this in a real project after `Harness/config/project.json` is filled and `template_mode` is `false`:
 
 ```powershell
-python Harness/scripts/tools/harness_context.py --request "project CI"
-python Harness/scripts/tools/harness_unreal_script.py --script Harness/scripts/unreal/verify_project.py
+& Harness\harness.ps1 context --request "project CI"
+& Harness\harness.ps1 unreal-script --script Harness/scripts/unreal/verify_project.py
 powershell -ExecutionPolicy Bypass -File Harness/scripts/build/build_verify.ps1 -Mode Editor
 ```
 
@@ -34,7 +33,7 @@ This tier proves that Harness can locate the project and that the configured edi
 Add a project-owned smoke script or commandlet when the project has stable maps, required plugins, or generated data:
 
 ```powershell
-python Harness/scripts/tools/harness_unreal_script.py --script Harness/scripts/unreal/verify_project.py --run
+& Harness\harness.ps1 unreal-script --script Harness/scripts/unreal/verify_project.py --run
 ```
 
 Record the exact map, commandlet, or generated JSON evidence in the task or cycle record. Keep one-off exploratory scripts out of permanent CI unless they become stable project checks.

@@ -1,9 +1,16 @@
 """Regression tests split from the original test_structure_tools.py."""
 
 from _harness_test_base import *  # noqa: F401,F403
+from harness_common import launcher_command
 
 
 class ContextTests(HarnessBaseTestCase):
+    def test_context_returns_managed_runtime_safe_verification_command(self) -> None:
+        context = build_context(self.root, request="verify launcher contract")
+
+        self.assertEqual([launcher_command("verify")], context["verification_commands"])
+        self.assertFalse(any(command.startswith("python ") for command in context["verification_commands"]))
+
     def test_context_all_next_preserves_file_order(self) -> None:
         context = build_context(self.root, request="unrelated request", all_next=True)
         self.assertEqual(
@@ -40,7 +47,7 @@ class ContextTests(HarnessBaseTestCase):
         self.assertEqual("no_actions_or_runners", context["project"]["ci_mode"])
         text = format_text(context)
         self.assertIn("CI mode: no_actions_or_runners", text)
-        self.assertIn("harness_local_gate.py", text)
+        self.assertIn(launcher_command("local-gate"), text)
         (self.root / "Harness/config/project.json").write_text(
             '{"template_mode": false, "project_name": "Demo", "uproject_file": "Demo.uproject"}\n',
             encoding="utf-8",
@@ -81,6 +88,24 @@ class ContextTests(HarnessBaseTestCase):
             ["Repair dashboard input routing.", "Verify terrain export bounds."],
             context["next_items"],
         )
+
+    def test_task_context_surfaces_recorded_iteration_for_plain_resume_request(self) -> None:
+        tasks = self.root / "Harness/work/tasks"
+        cycles = self.root / "Harness/work/cycles"
+        tasks.mkdir(exist_ok=True)
+        cycles.mkdir(exist_ok=True)
+        (tasks / "resume.md").write_text("# Task: resume\n\n- Status: active\n", encoding="utf-8")
+        (cycles / "resume.md").write_text(
+            "## 10:00 One\n- Cycle: 1/4\n- Budget Mode: exact_count\n- Decision: continue\n"
+            "- Changed: baseline\n- Verified: unit test\n- Remaining: next\n",
+            encoding="utf-8",
+        )
+
+        context = build_context(self.root, request="resume current task", task="resume", use_memory=False)
+
+        iteration = context["cycle_policy"]["iteration_status"]
+        self.assertEqual(4, iteration["budget"])
+        self.assertEqual("exact_count", iteration["budget_mode"])
     def test_cycle_request_distinguishes_exact_and_upper_bound_budgets(self) -> None:
         exact = evaluate_cycle_request("10 cycles", {"default_max_cycles": 1, "cycle_count_rules": {"phrases": []}})
         upper = evaluate_cycle_request("up to 10 cycles", {"default_max_cycles": 1, "cycle_count_rules": {"phrases": []}})
@@ -97,7 +122,31 @@ class ContextTests(HarnessBaseTestCase):
         context = build_context(self.root, request="older Harness update")
         self.assertIn("Harness/docs/template/setup.md", context["recommended_first_reads"])
         self.assertFalse(context["cycle_policy"]["request_eval"]["is_cycle_work"])
+    def test_korean_harness_update_routes_but_generic_gameplay_update_does_not(self) -> None:
+        (self.root / "Harness/docs/template").mkdir(parents=True, exist_ok=True)
+        (self.root / "Harness/docs/template/setup.md").write_text("# Install\n", encoding="utf-8")
+
+        harness_update = build_context(self.root, request="Harness 구조를 업그레이드하고 기존 프로젝트에 이식해줘")
+        gameplay_update = build_context(self.root, request="게임플레이 밸런스 업데이트해줘")
+
+        self.assertIn("Harness/docs/template/setup.md", harness_update["recommended_first_reads"])
+        self.assertNotIn("Harness/docs/template/setup.md", gameplay_update["recommended_first_reads"])
+
+    def test_context_routes_only_active_local_rules(self) -> None:
+        rules = self.root / "Harness/config/local_rules.md"
+        marker = "<!-- Add project rules below this line. Leave the scaffold otherwise unchanged. -->"
+        rules.write_text(f"# Local Rules\n\n{marker}\n", encoding="utf-8")
+        inactive = build_context(self.root, request="Fix dashboard input")
+        self.assertNotIn("Harness/config/local_rules.md", inactive["recommended_first_reads"])
+
+        rules.write_text(f"# Local Rules\n\n{marker}\n\n- Use the site mirror.\n", encoding="utf-8")
+        active = build_context(self.root, request="Fix dashboard input")
+        self.assertIn("Harness/config/local_rules.md", active["recommended_first_reads"])
     def test_korean_loop_word_does_not_trigger_iteration_mode(self) -> None:
         policy = {"default_max_cycles": 1, "cycle_count_rules": {"phrases": ["cycle", "cycles", "반복"]}}
         self.assertFalse(evaluate_cycle_request("반복문 오류 수정", policy)["is_cycle_work"])
         self.assertTrue(evaluate_cycle_request("검증을 반복해줘", policy)["is_cycle_work"])
+        exact = evaluate_cycle_request("전체적으로 10회 돌면서 개선점을 확인하자", policy)
+        self.assertTrue(exact["is_cycle_work"])
+        self.assertEqual("exact_count", exact["budget_mode"])
+        self.assertEqual(10, exact["requested_exact_count"])

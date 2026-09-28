@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import dump_json, find_project_root, harness_dir, load_json, read_text, rel
+from harness_common import dump_json, find_project_root, harness_dir, launcher_command, load_json, read_text, rel
 from harness_scan import scan
 
 
@@ -134,6 +134,34 @@ def build_report(root: Path, after_update: bool = False, strict: bool = False) -
             setup_doc = root / "Harness/docs/template/setup.md"
             if not setup_doc.exists():
                 add_finding(findings, "warning", "Harness/docs/template/setup.md", "template setup guide is missing after update")
+            manifest_path = root / "Harness/template/manifest.json"
+            receipt_path = root / "Harness/config/template_receipt.json"
+            if manifest_path.exists():
+                try:
+                    manifest = load_json(manifest_path, {}) or {}
+                except (OSError, ValueError, TypeError):
+                    manifest = {}
+                if not receipt_path.exists():
+                    add_finding(
+                        findings,
+                        "warning",
+                        "Harness/config/template_receipt.json",
+                        "template receipt is missing after update; update planning will use an unknown conservative baseline until a verified receipt is accepted",
+                    )
+                else:
+                    try:
+                        receipt = load_json(receipt_path, {}) or {}
+                    except (OSError, ValueError, TypeError):
+                        receipt = {}
+                    if not isinstance(receipt, dict) or receipt.get("schema_version") != 1 or not isinstance(receipt.get("files"), dict):
+                        add_finding(findings, "warning", "Harness/config/template_receipt.json", "template receipt is malformed")
+                    elif isinstance(manifest, dict) and receipt.get("template_version") != manifest.get("template_version"):
+                        add_finding(
+                            findings,
+                            "warning",
+                            "Harness/config/template_receipt.json",
+                            "template receipt version differs from the installed manifest; migration may be incomplete",
+                        )
 
     errors = [item for item in findings if item["level"] == "error"]
     warnings = [item for item in findings if item["level"] == "warning"]
@@ -156,10 +184,10 @@ def build_report(root: Path, after_update: bool = False, strict: bool = False) -
             "game_targets": scan_report["source"]["game_targets"],
         },
         "guidance": [
-            "Run harness_project_fill.py --write first when project.json fields are blank.",
-            "Run harness_project_readiness.py --strict at the connection milestone (after init or Harness update) to also block lingering placeholders.",
-            "harness_verify_all.py runs this check non-strict, so only hard connection/config errors block routine work.",
-            "Run harness_local_gate.py when the target Gitea project has no Actions or registered runners.",
+            f"Run {launcher_command('project-fill --write')} first when project.json fields are blank.",
+            f"Run {launcher_command('readiness --strict')} at the connection milestone (after init or Harness update) to also block lingering placeholders.",
+            f"{launcher_command('verify')} runs this check non-strict, so only hard connection/config errors block routine work.",
+            f"Run {launcher_command('local-gate')} when the target Gitea project has no Actions or registered runners.",
         ],
     }
 

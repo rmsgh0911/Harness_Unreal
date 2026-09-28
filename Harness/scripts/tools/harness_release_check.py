@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import os
 import re
 import sys
 from pathlib import Path
@@ -11,6 +12,9 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 
 from harness_common import dump_json, find_project_root, harness_dir, load_json, read_text, rel
+from harness_sensitive_check import build_report as build_sensitive_report
+from harness_artifact_check import build_report as build_artifact_report
+from harness_template_manifest import MANIFEST_RELATIVE, build_report as build_manifest_report
 
 
 TEXT_SUFFIXES = {".md", ".json", ".py", ".ps1", ".cmd", ".toml", ".sh"}
@@ -20,13 +24,68 @@ DUPLICATED_WORK_PATHS = ("Harness/work/work/",)
 _PROJECT_DOC_PATH_PATTERN = re.compile(
     r"(?P<quote>[\"'])Harness[\\/]docs[\\/](?P<folder>[^/\\\"']+)[\\/][^\"']*(?P=quote)"
 )
-GENERIC_TEMPLATE_DOC_FOLDERS = {"examples", "template"}
+GENERIC_TEMPLATE_DOC_FOLDERS = {"examples", "project", "template"}
 PROGRESS_VIEWER_PATTERN = re.compile(r'<meta\s+name="harness-progress-viewer"\s+content="dynamic-source">')
 PROGRESS_SOURCE_PATTERN = re.compile(r'<meta\s+name="harness-progress-source"\s+content="Harness/Progress.md">')
 # Imported reference Harness copies from real projects (mirrors the .gitignore
 # pattern). They sit next to the template for migration analysis only and must
 # not affect template-release hygiene.
 REFERENCE_COPY_PATTERN = "Harness_*"
+WORKSPACE_ONLY_ROOTS = (
+    ("Harness", "temp"),
+)
+LOCAL_RUNTIME_ROOTS = (
+    ("Harness", ".runtime"),
+)
+IGNORED_DIRECTORY_NAMES = {".git", ".claude", "Binaries", "Intermediate", "Saved", "DerivedDataCache"}
+
+
+def _is_workspace_only(path: Path, root: Path) -> bool:
+    try:
+        parts = path.relative_to(root).parts
+    except ValueError:
+        return False
+    return any(parts[: len(prefix)] == prefix for prefix in WORKSPACE_ONLY_ROOTS)
+
+
+def _is_local_runtime(path: Path, root: Path) -> bool:
+    try:
+        parts = path.relative_to(root).parts
+    except ValueError:
+        return False
+    return any(parts[: len(prefix)] == prefix for prefix in LOCAL_RUNTIME_ROOTS)
+
+
+def _is_reference_copy(path: Path, root: Path) -> bool:
+    try:
+        parts = path.relative_to(root).parts
+    except ValueError:
+        return False
+    return any(part != "Harness" and fnmatch.fnmatch(part, REFERENCE_COPY_PATTERN) for part in parts)
+
+
+def _iter_audit_paths(root: Path):
+    """Walk release-relevant paths without descending into local runtime/cache trees."""
+    for current, dir_names, file_names in os.walk(root, topdown=True, followlinks=False):
+        current_path = Path(current)
+        retained_dirs: list[str] = []
+        for name in dir_names:
+            path = current_path / name
+            if (
+                _is_workspace_only(path, root)
+                or _is_local_runtime(path, root)
+                or name in IGNORED_DIRECTORY_NAMES
+                or _is_reference_copy(path, root)
+            ):
+                continue
+            if not path.is_symlink():
+                retained_dirs.append(name)
+            yield path
+        dir_names[:] = retained_dirs
+        for name in file_names:
+            path = current_path / name
+            if not _is_workspace_only(path, root) and not _is_local_runtime(path, root) and not _is_reference_copy(path, root):
+                yield path
 
 
 def _has_utf8_bom(path: Path) -> bool:
@@ -41,9 +100,46 @@ def build_report(root: Path, strict: bool = False) -> dict:
     errors: list[dict] = []
     warnings: list[dict] = []
 
+    sensitive = build_sensitive_report(root, strict=False)
+    for finding in sensitive["findings"]:
+        item = {
+            "path": finding["path"],
+            "message": f"sensitive_{finding['rule_id']}:line_{finding['line']}",
+        }
+        (errors if finding["severity"] == "error" else warnings).append(item)
+
+    artifacts = build_artifact_report(root, strict=True)
+    errors.extend(
+        {"path": artifacts["registry"], "message": f"generated_artifact_{item['id']}:{item['field']}:{item['message']}"}
+        for item in artifacts["errors"]
+    )
+    warnings.extend(
+        {"path": artifacts["registry"], "message": f"generated_artifact_{item['id']}:{item['field']}:{item['message']}"}
+        for item in artifacts["warnings"]
+    )
+
+    for prefix in WORKSPACE_ONLY_ROOTS:
+        workspace_path = root.joinpath(*prefix)
+        if workspace_path.exists() or workspace_path.is_symlink():
+            files = sum(1 for path in workspace_path.rglob("*") if path.is_file() or path.is_symlink())
+            errors.append({
+                "path": "/".join(prefix) + "/",
+                "message": f"workspace_only_tree_present:{files}",
+            })
+
+    manifest_path = root / MANIFEST_RELATIVE
+    if manifest_path.exists():
+        manifest_report = build_manifest_report(root)
+        errors.extend(
+            {"path": item["path"], "message": f"template_manifest_{item['message']}"}
+            for item in manifest_report["issues"]
+        )
+
+    audit_paths = sorted(_iter_audit_paths(root))
     generated = [
-        *sorted(harness.rglob("__pycache__")),
-        *sorted(harness.rglob("*.pyc")),
+        path
+        for path in audit_paths
+        if harness in path.parents and (path.name == "__pycache__" or path.suffix.casefold() == ".pyc")
     ]
     for path in generated:
         errors.append({"path": rel(path, root), "message": "generated_python_cache"})
@@ -55,11 +151,7 @@ def build_report(root: Path, strict: bool = False) -> dict:
         if old_path.exists():
             errors.append({"path": rel(old_path, root), "message": "legacy_split_or_old_layout_path"})
 
-    for path in sorted(root.rglob("*")):
-        if any(part in {".git", ".claude", "Binaries", "Intermediate", "Saved", "DerivedDataCache"} for part in path.parts):
-            continue
-        if any(part != "Harness" and fnmatch.fnmatch(part, REFERENCE_COPY_PATTERN) for part in path.parts):
-            continue
+    for path in audit_paths:
         if path.is_symlink():
             errors.append({"path": rel(path, root), "message": "template_symlink_not_allowed"})
             continue

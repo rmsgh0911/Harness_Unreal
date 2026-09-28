@@ -28,9 +28,90 @@
       "verify": "python Harness/scripts/tools/harness_docs_check.py --json"
     },
     {
+      "name": "harness_sensitive_check",
+      "path": "Harness/scripts/tools/harness_sensitive_check.py",
+      "purpose": "Scans long-lived Harness text for high-confidence credentials and ambiguous assignments without returning matched values.",
+      "inputs": [
+        "AGENTS.md, CLAUDE.md, HARNESS.md, README.md",
+        "Harness/config/sensitive_allowlist.json",
+        "Harness/config, docs, index, work, and reviewed memory text",
+        "--strict"
+      ],
+      "outputs": [
+        "redacted_sensitive_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "context_check": true,
+      "verify": "python Harness/scripts/tools/harness_sensitive_check.py --json"
+    },
+    {
+      "name": "harness_artifact_check",
+      "path": "Harness/scripts/tools/harness_artifact_check.py",
+      "purpose": "Validates project-owned generated-artifact provenance, safe paths, matching revisions, output SHA-256 integrity, evidence scope, and acceptance without modifying files.",
+      "inputs": [
+        "Harness/config/generated_artifacts.json",
+        "registered source and output paths",
+        "--strict"
+      ],
+      "outputs": [
+        "generated_artifact_report",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_artifact_check.py --json"
+    },
+    {
+      "name": "harness_cli",
+      "path": "Harness/scripts/tools/harness_cli.py",
+      "purpose": "Routes every registered standard tool through PowerShell and POSIX managed-runtime aliases, keeps the batch wrapper to fixed-token convenience calls, and provides an explicit managed-Python bootstrap while normal commands disable implicit Python Install Manager downloads.",
+      "inputs": [
+        "Harness/bootstrap.ps1",
+        "Harness/bootstrap.sh",
+        "Harness/harness.cmd",
+        "Harness/harness.ps1",
+        "Harness/harness.sh",
+        "HARNESS_PYTHON",
+        "HARNESS_UV",
+        "HARNESS_RUNTIME_ROOT",
+        "HARNESS_UV_CACHE_DIR",
+        "UV_CACHE_DIR",
+        "PYTHON_MANAGER_AUTOMATIC_INSTALL",
+        "subcommand arguments"
+      ],
+      "outputs": [
+        "delegated tool output",
+        "delegated exit code",
+        "platform-local Harness/.runtime only with explicit launcher bootstrap"
+      ],
+      "writes_files": "only_when_the_selected_subcommand_writes_or_explicit_launcher_bootstrap_is_requested",
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_cli.py --help"
+    },
+    {
+      "name": "harness_template_manifest",
+      "path": "Harness/scripts/tools/harness_template_manifest.py",
+      "purpose": "Builds and verifies the deterministic release inventory, file hashes, and template/project ownership rules.",
+      "inputs": [
+        "Harness/template/manifest.json",
+        "releasable template files",
+        "--write"
+      ],
+      "outputs": [
+        "manifest_status",
+        "atomically refreshed manifest only with --write",
+        "json"
+      ],
+      "writes_files": "only_with_--write",
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_template_manifest.py --json"
+    },
+    {
       "name": "harness_context",
       "path": "Harness/scripts/tools/harness_context.py",
-      "purpose": "Prints a short task-start briefing with request-related next items and index sections; --all-next exposes the full active list.",
+      "purpose": "Prints a short task-start briefing with scoped Korean/English Harness-update routing, active local rules, request-related next items, and priority-aware knowledge hints.",
       "inputs": [
         "HARNESS.md",
         "Harness/work/state.md",
@@ -39,6 +120,7 @@
         "Harness/work/cycles/<task-id>.md",
         "Harness/config/project.json",
         "Harness/config/docs.json",
+        "Harness/config/local_rules.md",
         "Harness/config/cycle_policy.json",
         "Harness/scripts/tools/tool_manifest.json",
         "--request",
@@ -118,7 +200,7 @@
     {
       "name": "harness_iteration_status",
       "path": "Harness/scripts/tools/harness_iteration_status.py",
-      "purpose": "Reports cycle progress, remaining budget, missing verification, repeated unresolved work, and stop recommendations without changing files.",
+      "purpose": "Reports cycle progress, remaining budget, missing verification or evidence acceptance, repeated unresolved work, and stop recommendations without changing files.",
       "inputs": [
         "--request",
         "--task",
@@ -134,9 +216,29 @@
       "verify": "python Harness/scripts/tools/harness_iteration_status.py --request \"up to 3 cycles\" --json"
     },
     {
+      "name": "harness_work",
+      "path": "Harness/scripts/tools/harness_work.py",
+      "purpose": "Previews verified task closeout and, only with --write, marks the task completed and archives its task/cycle pair with rollback on failure.",
+      "inputs": [
+        "--task",
+        "--month",
+        "--write",
+        "Harness/work/tasks/<task-id>.md",
+        "Harness/work/cycles/<task-id>.md"
+      ],
+      "outputs": [
+        "closeout_plan",
+        "monthly archive and index only with --write",
+        "json"
+      ],
+      "writes_files": "only_with_--write",
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_work.py --help"
+    },
+    {
       "name": "harness_cycle",
       "path": "Harness/scripts/tools/harness_cycle.py",
-      "purpose": "Creates and validates a structured cycle entry as a dry run and appends it only with explicit --write. Use --task and --worker for conflict-resistant parallel records.",
+      "purpose": "Creates and validates a structured cycle entry with optional claims, evidence, revisions, artifacts, acceptance, invalidation, and supersession; appends only with explicit --write.",
       "inputs": [
         "title",
         "--changed",
@@ -144,11 +246,24 @@
         "--remaining",
         "--cycle-number",
         "--max-cycles",
+        "--budget-mode",
         "--decision",
         "--success-criterion",
+        "--claim",
+        "--evidence-kind",
+        "--evidence-command",
+        "--evidence-exit-code",
+        "--artifact",
+        "--input-revision",
+        "--artifact-revision",
+        "--scope",
+        "--acceptance",
+        "--supersedes",
+        "--invalidated",
         "--date",
         "--task",
-        "--worker"
+        "--worker",
+        "--write"
       ],
       "outputs": [
         "cycle_log_entry"
@@ -213,7 +328,8 @@
         "Harness/work/next.md",
         "Harness/work/tasks/<task-id>.md",
         "Harness/work/cycles/<task-id>.md",
-        "--request"
+        "--request",
+        "--write"
       ],
       "outputs": [
         "handoff_markdown"
@@ -223,15 +339,41 @@
       "verify": "python Harness/scripts/tools/harness_handoff.py --request \"verification\""
     },
     {
+      "name": "harness_subagent",
+      "path": "Harness/scripts/tools/harness_subagent.py",
+      "purpose": "Validates provider-neutral read-only helper roles and emits bounded current-status or staged-commit delegation packets without spawning an agent or writing files.",
+      "inputs": [
+        "Harness/config/agents.json",
+        "Harness/agents/*.md",
+        "harness_context",
+        "harness_diff_guard",
+        "git status and diff metadata",
+        "--role",
+        "--request",
+        "--task",
+        "--verification",
+        "--include-staged-patch",
+        "--max-patch-chars"
+      ],
+      "outputs": [
+        "subagent_delegation_packet",
+        "json"
+      ],
+      "writes_files": false,
+      "safe_by_default": true,
+      "verify": "python Harness/scripts/tools/harness_subagent.py --role current-status --json"
+    },
+    {
       "name": "harness_verify_all",
       "path": "Harness/scripts/tools/harness_verify_all.py",
-      "purpose": "Runs standard end-of-task checks: doctor, JSON parsing, Python compile, tool regression fixtures, scan, diff guard, field check, index check, progress dashboard check, state check, docs policy, required project build readiness, and strict release hygiene in template mode.",
+      "purpose": "Runs standard end-of-task checks including generated-artifact provenance, sensitive data, project/build readiness, tool tests, and strict release hygiene in template mode.",
       "inputs": [
         "harness_doctor",
         "harness_context",
         "harness_scan",
         "harness_diff_guard",
         "harness_field_check",
+        "harness_artifact_check",
         "Harness/config/*.json",
         "Harness/scripts/**/*.py",
         "--skip-tool-tests"
@@ -247,33 +389,39 @@
     {
       "name": "harness_local_gate",
       "path": "Harness/scripts/tools/harness_local_gate.py",
-      "purpose": "Runs the local finish gate for solo or private Gitea projects without Actions or registered runners: tool tests, Harness cache cleanup, verify_all, optional strict release check, read-only memory review, diff hygiene, and diff stat.",
+      "purpose": "Runs the read-only-by-default local finish gate for solo or private Gitea projects without runners: tool tests, Harness cache inventory, verify_all, optional strict release check, read-only memory review, repository/conflict/untracked checks, and separate staged/unstaged diff hygiene and stats. Cache cleanup is explicit and containment checked.",
       "inputs": [
         "Harness/scripts/tools/tests/",
         "Harness/scripts/tools/harness_verify_all.py",
         "Harness/scripts/tools/harness_release_check.py with --release",
         "Harness/scripts/tools/harness_memory_review.py",
         "git diff --check",
+        "git diff --cached --check",
         "git diff --stat",
+        "git diff --cached --stat",
+        "git status --porcelain=v1",
+        "git ls-files -u",
         "--release",
-        "--skip-tests"
+        "--skip-tests",
+        "--cleanup-caches"
       ],
       "outputs": [
         "local_gate_report",
         "json"
       ],
-      "writes_files": "removes_Harness_python_caches_only",
+      "writes_files": "only_with_--cleanup-caches_removes_containment_checked_Harness_python_caches",
       "safe_by_default": true,
       "verify": "python Harness/scripts/tools/harness_local_gate.py --json --skip-tests"
     },
     {
       "name": "harness_release_check",
       "path": "Harness/scripts/tools/harness_release_check.py",
-      "purpose": "Checks template-release hygiene such as generated caches, symlinks, old work-layout paths, BOM markers, duplicated work paths, leaked project paths, and real work records.",
+      "purpose": "Checks template-release hygiene including generated-artifact provenance, sensitive data, caches, symlinks, old layouts, leaked paths, and real work records.",
       "inputs": [
         "Harness/",
         "root text files",
         "Harness/work/cycles/",
+        "Harness/config/generated_artifacts.json",
         "--strict"
       ],
       "outputs": [
@@ -287,7 +435,7 @@
     {
       "name": "harness_release_pack",
       "path": "Harness/scripts/tools/harness_release_pack.py",
-      "purpose": "Previews or atomically writes a clean Harness template ZIP while excluding local files, symlinks, caches, generated handoffs, and real work records; protected output paths and strict hygiene failures block writes unless only the hygiene failure is explicitly forced.",
+      "purpose": "Previews or atomically writes a byte-reproducible clean Harness template ZIP from a required reviewed manifest while excluding local files, symlinks, caches, generated handoffs, and real work records; missing, stale, or invalid manifest data and protected output paths always block writes, while --force can bypass only non-manifest hygiene failures.",
       "inputs": [
         "README.md",
         "AGENTS.md",
@@ -311,31 +459,36 @@
     {
       "name": "harness_update_plan",
       "path": "Harness/scripts/tools/harness_update_plan.py",
-      "purpose": "Compares a new Harness template with an older target, preserves exact project-owned paths, rejects escaping plan paths, copies only missing files explicitly, and transactionally stages changed files outside both trees with rollback on failure.",
+      "purpose": "Uses manifest ownership and an optional install receipt for conservative two-way or hash-based three-way update planning, while preserving project data and transactional review staging.",
       "inputs": [
         "--template",
         "--target",
         "--apply-missing",
         "--stage-review",
-        "--overwrite-stage"
+        "--overwrite-stage",
+        "--accept-receipt",
+        "Harness/template/manifest.json",
+        "Harness/config/template_receipt.json"
       ],
       "outputs": [
         "classified_update_plan",
         "missing files only with --apply-missing",
-        "review copy only with --stage-review"
+        "review copy only with --stage-review",
+        "verified install receipt only with --accept-receipt"
       ],
-      "writes_files": "only_with_--apply-missing_or_--stage-review",
+      "writes_files": "only_with_--apply-missing_--stage-review_or_--accept-receipt",
       "safe_by_default": true,
       "verify": "python Harness/scripts/tools/harness_update_plan.py --target . --json"
     },
     {
       "name": "harness_knowledge",
       "path": "Harness/scripts/tools/harness_knowledge.py",
-      "purpose": "Searches retained Harness docs, indexes, snapshots, tasks, cycles, and archives as bounded request-related routing evidence.",
+      "purpose": "Searches retained Harness material with explicit/current paths first, marks invalidated or superseded sections, then reports omitted scope when bounds truncate discovery.",
       "inputs": [
         "--query",
         "--limit",
         "--max-files",
+        "--path",
         "Harness/config/docs.json",
         "Harness/docs/",
         "Harness/index/",
@@ -344,6 +497,7 @@
       "outputs": [
         "knowledge_inventory",
         "ranked_existing_material",
+        "omitted_scope_and_broader_query_hint",
         "json"
       ],
       "writes_files": false,
@@ -364,6 +518,7 @@
         "--prune",
         "--query",
         "--rebuild",
+        "--write",
         "Harness/data/memory/*.jsonl",
         "Harness/data/harness.sqlite"
       ],
@@ -372,7 +527,7 @@
         "ranked_memory_results",
         "sqlite_cache"
       ],
-      "writes_files": "only_with_--init_or_--add_or_--rebuild",
+      "writes_files": "only_with_--init_--add_--rebuild_--promote_--demote_or_--prune_--write",
       "safe_by_default": true,
       "verify": "python Harness/scripts/tools/harness_memory.py --query \"Harness\" --json"
     },
@@ -423,6 +578,8 @@
       "purpose": "Checks whether state.md, next.md, tasks, and cycles are compact, current, and free of completed or misplaced history.",
       "inputs": [
         "--target",
+        "--strict",
+        "Harness/config/record_policy.json",
         "Harness/work/state.md",
         "Harness/work/next.md",
         "Harness/README.md",
@@ -645,7 +802,7 @@
         "command",
         "json"
       ],
-      "writes_files": "only_when_target_unreal_script_writes",
+      "writes_files": "only_with_--run_when_target_unreal_script_writes",
       "safe_by_default": true,
       "verify": "python Harness/scripts/tools/harness_unreal_script.py --json"
     },

@@ -1,6 +1,7 @@
 """Regression tests split from the original test_structure_tools.py."""
 
 from _harness_test_base import *  # noqa: F401,F403
+from harness_cycle_summary import evidence_status
 
 
 class CycleTests(HarnessBaseTestCase):
@@ -13,12 +14,68 @@ class CycleTests(HarnessBaseTestCase):
             worker="Codex",
             cycle_number=3,
             max_cycles=10,
+            budget_mode="exact_count",
             decision="continue",
             success_criteria=["repeatable verification"],
         )
         self.assertIn("- Cycle: 3/10", entry)
+        self.assertIn("- Budget Mode: exact_count", entry)
         self.assertIn("- Decision: continue", entry)
         self.assertIn("- Success Criteria: repeatable verification", entry)
+    def test_cycle_entry_round_trips_optional_evidence_metadata(self) -> None:
+        entry = build_entry(
+            "Render acceptance",
+            ["changed"],
+            ["verified"],
+            ["none"],
+            cycle_number=1,
+            max_cycles=2,
+            budget_mode="upper_bound",
+            decision="continue",
+            claims=["Dashboard matches the approved reference"],
+            evidence_kinds=["render"],
+            evidence_commands=["capture dashboard"],
+            evidence_exit_codes=["0"],
+            artifacts=["Saved/Acceptance/dashboard.png"],
+            input_revision="input-a",
+            artifact_revision="input-a",
+            scopes=["dashboard layout"],
+            acceptance="passed",
+            supersedes=["Harness/work/cycles/old.md#Old Render"],
+        )
+        path = self.root / "Harness/work/cycles/evidence.md"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(entry, encoding="utf-8")
+
+        section = parse_cycle_file(path)["sections"][0]
+
+        self.assertEqual(["render"], section["evidence_kinds"])
+        self.assertEqual("upper_bound", section["budget_mode"])
+        self.assertEqual("accepted", section["evidence_status"])
+        self.assertEqual("input-a", section["artifact_revision"])
+        self.assertEqual(["Harness/work/cycles/old.md#Old Render"], section["supersedes"])
+
+    def test_evidence_status_distinguishes_missing_mismatch_and_skipped(self) -> None:
+        base = {"invalidated": False, "evidence_kinds": ["render"], "artifacts": [], "input_revision": "a", "artifact_revision": ""}
+        self.assertEqual("missing_artifact", evidence_status({**base, "acceptance": "passed"}))
+        self.assertEqual(
+            "revision_mismatch",
+            evidence_status({**base, "artifacts": ["capture.png"], "artifact_revision": "b", "acceptance": "passed"}),
+        )
+        self.assertEqual("skipped", evidence_status({**base, "acceptance": "skipped"}))
+
+    def test_stop_success_rejects_unaccepted_render_scope(self) -> None:
+        path = self.root / "Harness/work/cycles/evidence.md"
+        errors = validate_iteration_entry(
+            path,
+            cycle_number=1,
+            max_cycles=1,
+            decision="stop_success",
+            evidence_kinds=["render"],
+            artifacts=[],
+            acceptance="pending",
+        )
+        self.assertTrue(any("requires passed" in error for error in errors))
     def test_cycle_record_query_does_not_trigger_iteration_mode(self) -> None:
         policy = {"default_max_cycles": 1, "cycle_count_rules": {"phrases": ["cycle", "cycles", "반복"]}}
         self.assertFalse(evaluate_cycle_request("search existing cycle log records", policy)["is_cycle_work"])
@@ -27,13 +84,14 @@ class CycleTests(HarnessBaseTestCase):
         path = self.root / "Harness/work/cycles/iteration.md"
         path.parent.mkdir(exist_ok=True)
         path.write_text(
-            "## 10:00 Iteration\n\n- Worker: Codex\n- Cycle: 3/10\n- Decision: continue\n"
+            "## 10:00 Iteration\n\n- Worker: Codex\n- Cycle: 3/10\n- Budget Mode: exact_count\n- Decision: continue\n"
             "- Success Criteria: repeatable verification\n- Changed: tool\n- Verified: unit test\n- Remaining: docs\n",
             encoding="utf-8",
         )
         section = parse_cycle_file(path)["sections"][0]
         self.assertEqual(3, section["cycle_number"])
         self.assertEqual(10, section["max_cycles"])
+        self.assertEqual("exact_count", section["budget_mode"])
         self.assertEqual("continue", section["decision"])
         self.assertEqual(["repeatable verification"], section["success_criteria"])
     def test_cycle_summary_reports_invalid_iteration_sequence(self) -> None:
@@ -98,3 +156,17 @@ class CycleTests(HarnessBaseTestCase):
         self.assertTrue(report["repeated_remaining"])
         self.assertIn("same_remaining_repeated_twice", report["stop_reasons"])
         self.assertFalse(report["continue_recommended"])
+
+    def test_iteration_status_uses_recorded_budget_mode_for_plain_status_request(self) -> None:
+        path = self.root / "Harness/work/cycles/repeat.md"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(
+            "## 10:00 One\n- Cycle: 1/3\n- Budget Mode: upper_bound\n- Decision: continue\n"
+            "- Changed: attempt\n- Verified: test\n- Remaining: next\n",
+            encoding="utf-8",
+        )
+
+        report = build_iteration_status(self.root, request="status checkpoint", task="repeat")
+
+        self.assertEqual(3, report["budget"])
+        self.assertEqual("upper_bound", report["budget_mode"])

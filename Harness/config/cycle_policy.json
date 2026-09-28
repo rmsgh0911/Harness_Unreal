@@ -72,8 +72,10 @@
     "cycle_log_is_short": true,
     "cycle_log_contains": [
       "cycle_number_and_budget_when_repeated",
+      "budget_mode_when_repeated",
       "decision_when_repeated",
       "success_criteria_when_repeated",
+      "claim_and_evidence_metadata_when_acceptance_matters",
       "changed",
       "verified",
       "remaining"
@@ -82,6 +84,16 @@
     "state_keeps_only_latest_confirmed_facts": true,
     "next_keeps_only_unresolved_work": true,
     "avoid_duplicate_state_next_cycles": true
+  },
+  "closeout": {
+    "preview_command": "Harness/harness.cmd close --task <task-id>",
+    "write_requires": [
+      "latest_cycle_decision_is_stop_success",
+      "latest_cycle_has_concrete_verification",
+      "latest_cycle_has_no_unresolved_evidence_gap"
+    ],
+    "status_and_archive_are_transactional": true,
+    "warning_debt_policy": "Harness/config/record_policy.json"
   },
   "tool_policy": {
     "agent_may_add_tools": true,

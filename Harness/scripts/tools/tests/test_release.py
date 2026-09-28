@@ -1,14 +1,48 @@
 """Regression tests split from the original test_structure_tools.py."""
 
+import os
+import zipfile
+
 from _harness_test_base import *  # noqa: F401,F403
+from harness_template_manifest import write_manifest
 
 
 class ReleaseTests(HarnessBaseTestCase):
+    def test_release_surfaces_invalid_generated_artifact_provenance(self) -> None:
+        (self.root / "Harness/config/generated_artifacts.json").write_text(
+            json.dumps({"schema_version": 1, "artifacts": [{"id": "broken"}]}),
+            encoding="utf-8",
+        )
+        report = build_release_report(self.root, strict=True)
+        self.assertTrue(any(item["message"].startswith("generated_artifact_broken:") for item in report["errors"]))
+
+    def test_release_excludes_and_rejects_workspace_temp_tree(self) -> None:
+        temporary = self.root / "Harness/temp/review/private-proposal.md"
+        temporary.parent.mkdir(parents=True)
+        temporary.write_text("project-only review material\n", encoding="utf-8")
+
+        packaged = {path.relative_to(self.root).as_posix() for path in collect_release_files(self.root)}
+        report = build_release_report(self.root)
+
+        self.assertNotIn("Harness/temp/review/private-proposal.md", packaged)
+        self.assertFalse(report["ok"])
+        self.assertIn(
+            {"path": "Harness/temp/", "message": "workspace_only_tree_present:1"},
+            report["errors"],
+        )
+
     def test_release_allows_generic_doc_glob_in_tool_manifest(self) -> None:
         manifest = self.root / "Harness/scripts/tools/tool_manifest.json"
         manifest.write_text('{"inputs": ["Harness/docs/**/*.md"]}\n', encoding="utf-8")
         report = build_release_report(self.root, strict=True)
         self.assertFalse(any(item["path"].endswith("tool_manifest.json") for item in report["errors"]))
+    def test_release_allows_standard_project_doc_root_in_tools(self) -> None:
+        script = self.root / "Harness/scripts/tools/project_docs.py"
+        script.write_text('PATH = "Harness/docs/project/**/*.md"\n', encoding="utf-8")
+
+        report = build_release_report(self.root)
+
+        self.assertFalse(any(item["path"].endswith("project_docs.py") for item in report["errors"]))
     def test_release_check_ignores_imported_reference_harness_copies(self) -> None:
         reference = self.root / "Harness_Customer-work1/work/cycles"
         reference.mkdir(parents=True)
@@ -72,6 +106,7 @@ class ReleaseTests(HarnessBaseTestCase):
         script = self.root / "Harness/scripts/tools/leak.py"
         leaked_path = "Harness/docs/" + "_Private/design.md"
         script.write_text(f'PATH = "{leaked_path}"\n', encoding="utf-8")
+        write_manifest(self.root)
         output = self.root / "release.zip"
         report = build_package(self.root, output, write=True)
         self.assertFalse(report["ok"])
@@ -80,11 +115,86 @@ class ReleaseTests(HarnessBaseTestCase):
         forced = build_package(self.root, output, write=True, force=True)
         self.assertTrue(forced["ok"])
         self.assertTrue(output.exists())
+    def test_release_pack_force_cannot_bypass_stale_manifest(self) -> None:
+        write_manifest(self.root)
+        unexpected = self.root / "Harness/docs/unreviewed.md"
+        unexpected.parent.mkdir(parents=True, exist_ok=True)
+        unexpected.write_text("not accepted yet\n", encoding="utf-8")
+        output = self.root / "release.zip"
+
+        report = build_package(self.root, output, write=True, force=True)
+
+        self.assertFalse(report["ok"])
+        self.assertTrue(report["blocked"])
+        self.assertFalse(output.exists())
+        self.assertTrue(
+            any(item["message"] == "template_manifest_release_inventory_stale" for item in report["unforceable_errors"]),
+            report,
+        )
+    def test_release_pack_requires_manifest_even_when_forced(self) -> None:
+        output = self.root / "release.zip"
+
+        report = build_package(self.root, output, write=True, force=True)
+
+        self.assertFalse(report["ok"])
+        self.assertTrue(report["blocked"])
+        self.assertFalse(output.exists())
+        self.assertIn(
+            {
+                "path": "Harness/template/manifest.json",
+                "message": "template_manifest_required_for_release_pack",
+            },
+            report["unforceable_errors"],
+        )
+    def test_release_pack_force_cannot_bypass_malformed_manifest(self) -> None:
+        manifest = self.root / "Harness/template/manifest.json"
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text("{not json\n", encoding="utf-8")
+        output = self.root / "release.zip"
+
+        report = build_package(self.root, output, write=True, force=True)
+
+        self.assertFalse(report["ok"])
+        self.assertTrue(report["blocked"])
+        self.assertFalse(output.exists())
+        self.assertTrue(
+            any(item["message"] == "template_manifest_manifest_unreadable" for item in report["unforceable_errors"]),
+            report,
+        )
+    def test_release_pack_is_reproducible_across_source_mtime_changes(self) -> None:
+        first = self.root / "first.zip"
+        second = self.root / "second.zip"
+        source = self.root / "HARNESS.md"
+        write_manifest(self.root)
+
+        first_report = build_package(self.root, first, write=True)
+        os.utime(source, (1_600_000_000, 1_600_000_000))
+        second_report = build_package(self.root, second, write=True)
+
+        self.assertTrue(first_report["ok"], first_report)
+        self.assertTrue(second_report["ok"], second_report)
+        self.assertEqual(first.read_bytes(), second.read_bytes())
+        with zipfile.ZipFile(first) as archive:
+            entries = archive.infolist()
+        self.assertEqual(sorted(entry.filename.casefold() for entry in entries), [entry.filename.casefold() for entry in entries])
+        self.assertTrue(all(entry.date_time == (1980, 1, 1, 0, 0, 0) for entry in entries))
+        self.assertTrue(all(entry.compress_type == zipfile.ZIP_STORED for entry in entries))
     def test_release_pack_excludes_memory_cache_and_daily_shards(self) -> None:
         self.assertFalse(should_include_release_file(self.root / "Harness/data/harness.sqlite", self.root))
         self.assertFalse(should_include_release_file(self.root / "Harness/data/harness.sqlite-wal", self.root))
         self.assertFalse(should_include_release_file(self.root / "Harness/data/memory/2026-07-01.jsonl", self.root))
         self.assertTrue(should_include_release_file(self.root / "Harness/data/memory/.gitkeep", self.root))
+    def test_release_ignores_project_local_managed_python_runtime(self) -> None:
+        runtime_cache = self.root / "Harness/.runtime/linux-x86_64/python/lib/__pycache__"
+        runtime_cache.mkdir(parents=True)
+        runtime_pyc = runtime_cache / "runtime.pyc"
+        runtime_pyc.write_bytes(b"managed runtime")
+
+        packaged = {path.relative_to(self.root).as_posix() for path in collect_release_files(self.root)}
+        report = build_release_report(self.root, strict=True)
+
+        self.assertNotIn(runtime_pyc.relative_to(self.root).as_posix(), packaged)
+        self.assertFalse(any(item["message"] == "generated_python_cache" for item in report["errors"]))
     def test_release_pack_excludes_symlink_candidates(self) -> None:
         candidate = self.root / "Harness/linked.md"
         with patch.object(Path, "is_symlink", return_value=True):
@@ -92,13 +202,15 @@ class ReleaseTests(HarnessBaseTestCase):
     def test_release_pack_preserves_existing_zip_when_write_fails(self) -> None:
         output = self.root / "existing.zip"
         output.write_bytes(b"existing package")
-        with patch("harness_release_pack.zipfile.ZipFile.write", side_effect=OSError("simulated zip failure")):
+        write_manifest(self.root)
+        with patch("harness_release_pack.zipfile.ZipFile.writestr", side_effect=OSError("simulated zip failure")):
             with self.assertRaises(OSError):
                 build_package(self.root, output, write=True)
         self.assertEqual(b"existing package", output.read_bytes())
     def test_release_pack_refuses_to_overwrite_template_source(self) -> None:
         harness_file = self.root / "HARNESS.md"
         original = harness_file.read_bytes()
+        write_manifest(self.root)
         report = build_package(self.root, harness_file, write=True)
         self.assertFalse(report["ok"])
         self.assertIn("output_must_use_zip_extension", report["output_errors"])

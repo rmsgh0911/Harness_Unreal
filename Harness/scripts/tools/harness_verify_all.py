@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import dump_json, find_project_root, harness_dir, load_json, rel
+from harness_common import dump_json, find_project_root, harness_dir, launcher_command, load_json, rel
 from harness_context import build_context
 from harness_diff_guard import build_report as build_diff_report
 from harness_doctor import run_doctor
@@ -24,6 +24,8 @@ from harness_scan import scan
 from harness_release_check import build_report as build_release_report
 from harness_field_check import build_report as build_field_report
 from harness_project_readiness import build_report as build_project_readiness_report
+from harness_sensitive_check import build_report as build_sensitive_report
+from harness_artifact_check import build_report as build_artifact_report
 
 
 def required_checks_ok(*checks: dict) -> bool:
@@ -102,6 +104,9 @@ def check_build_readiness(root: Path) -> dict:
             "command": "Harness/scripts/build/build_verify.cmd -Mode Editor",
             "missing": [],
             "status": "template_mode",
+            "readiness": "template_mode",
+            "execution": "not_run",
+            "executed": False,
         }
     build = project.get("build", {}) if isinstance(project, dict) else {}
     missing: list[str] = []
@@ -117,6 +122,9 @@ def check_build_readiness(root: Path) -> dict:
         "command": "Harness/scripts/build/build_verify.cmd -Mode Editor",
         "missing": missing,
         "status": "ready" if not missing and build_cmd.exists() else "skipped_or_incomplete",
+        "readiness": "ready" if not missing and build_cmd.exists() else "incomplete",
+        "execution": "not_run",
+        "executed": False,
     }
 
 
@@ -130,6 +138,8 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
     state_check = build_state_report(root)
     docs_check = build_docs_report(root)
     field_check = build_field_report(root)
+    sensitive_check = build_sensitive_report(root)
+    artifact_check = build_artifact_report(root)
     project_readiness = build_project_readiness_report(root)
     json_check = check_json_files(root)
     compile_check = compile_python_files(root) if compile_python else {"ok": True, "checked": [], "failures": [], "skipped": True}
@@ -149,6 +159,8 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
         doctor,
         docs_check,
         field_check,
+        sensitive_check,
+        artifact_check,
         project_readiness,
         json_check,
         compile_check,
@@ -189,8 +201,12 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
             "state_check": "ok" if state_check["ok"] else "failed",
             "docs_check": "ok" if docs_check["ok"] else "failed",
             "field_check": "ok" if field_check["ok"] else "failed",
+            "sensitive_check": "ok" if sensitive_check["ok"] else "failed",
+            "artifact_check": "ok" if artifact_check["ok"] else "failed",
             "project_readiness": "ok" if project_readiness["ok"] else "failed",
             "build": build_readiness["status"],
+            "build_readiness": build_readiness["readiness"],
+            "build_execution": build_readiness["execution"],
             "release_hygiene": "ok" if release_hygiene["ok"] else "failed",
         },
         "context_warnings": context.get("warnings", []),
@@ -228,6 +244,18 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
             "warnings": field_check["warnings"],
             "notes": len(field_check["notes"]),
         },
+        "sensitive_check": {
+            "files": sensitive_check["summary"]["files"],
+            "errors": sensitive_check["summary"]["errors"],
+            "warnings": sensitive_check["summary"]["warnings"],
+            "findings": sensitive_check["findings"],
+        },
+        "artifact_check": {
+            "status": artifact_check["status"],
+            "entries": artifact_check["summary"]["entries"],
+            "errors": artifact_check["summary"]["errors"],
+            "warnings": artifact_check["summary"]["warnings"],
+        },
         "project_readiness": {
             "status": project_readiness["status"],
             "errors": project_readiness["summary"]["errors"],
@@ -260,8 +288,11 @@ def format_text(report: dict) -> str:
         f"- State check (state/next/cycles length and format): {report['summary']['state_check']}",
         f"- Docs policy: {report['summary']['docs_check']}",
         f"- Field check: {report['summary']['field_check']}",
+        f"- Sensitive data: {report['summary']['sensitive_check']}",
+        f"- Generated artifacts: {report['summary']['artifact_check']}",
         f"- Project readiness: {report['summary']['project_readiness']}",
-        f"- Build: {report['summary']['build']}",
+        f"- Build readiness: {report['summary']['build_readiness']}",
+        f"- Build execution: {report['summary']['build_execution']}",
         f"- Template release hygiene: {report['summary']['release_hygiene']}",
     ]
     if report["context_warnings"]:
@@ -276,6 +307,17 @@ def format_text(report: dict) -> str:
         lines.append("")
         lines.append("Field warnings:")
         lines.extend(f"- {item['path']}: {item['message']}" for item in report["field_check"]["warnings"])
+    if report["sensitive_check"]["findings"]:
+        lines.append("")
+        lines.append("Sensitive findings (matched values are intentionally omitted):")
+        lines.extend(
+            f"- {item['path']}:{item['line']}: {item['rule_id']} ({item['severity']})"
+            for item in report["sensitive_check"]["findings"]
+        )
+    if report["artifact_check"]["errors"] or report["artifact_check"]["warnings"]:
+        lines.append("")
+        lines.append("Generated artifact provenance:")
+        lines.append(f"- {report['artifact_check']['errors']} error(s), {report['artifact_check']['warnings']} warning(s)")
     if report["project_readiness"]["errors"] or report["project_readiness"]["warnings"]:
         lines.append("")
         lines.append("Project readiness:")
@@ -283,7 +325,7 @@ def format_text(report: dict) -> str:
             lines.append(f"- {report['project_readiness']['errors']} blocking connection/config error(s)")
         if report["project_readiness"]["warnings"]:
             lines.append(f"- {report['project_readiness']['warnings']} non-blocking freshness warning(s)")
-        lines.append("- Run python Harness/scripts/tools/harness_project_readiness.py --strict for the full connection gate.")
+        lines.append(f"- Run {launcher_command('readiness --strict')} for the full connection gate.")
     return "\n".join(lines)
 
 

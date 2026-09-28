@@ -91,6 +91,8 @@ DerivedDataCache/*
 
 # Harness generated runtime files
 Harness/handoff.md
+Harness/temp/
+Harness/.runtime/
 __pycache__/
 *.pyc
 .pytest_cache/

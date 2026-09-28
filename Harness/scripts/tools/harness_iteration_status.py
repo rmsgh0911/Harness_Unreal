@@ -10,7 +10,7 @@ sys.dont_write_bytecode = True
 
 from harness_common import dump_json, find_project_root, load_json, rel, task_cycle_path, today_cycle_path, validate_task_id
 from harness_context import evaluate_cycle_request
-from harness_cycle_summary import parse_cycle_file
+from harness_cycle_summary import EVIDENCE_GAP_STATUSES, parse_cycle_file
 
 
 def _remaining_signature(section: dict) -> tuple[str, ...]:
@@ -27,6 +27,9 @@ def build_status(root: Path, request: str = "", task: str = "") -> dict:
     latest = sections[-1] if sections else None
     recorded_budget = next((section["max_cycles"] for section in reversed(sections) if section.get("max_cycles")), None)
     budget = recorded_budget or request_eval["max_cycles"]
+    recorded_budget_mode = parsed.get("iteration", {}).get("budget_mode", "")
+    request_budget_mode = request_eval["budget_mode"] if request_eval["is_cycle_work"] else ""
+    budget_mode = recorded_budget_mode or request_budget_mode or ("recorded_unspecified" if recorded_budget else request_eval["budget_mode"])
     repeated_remaining = False
     if len(sections) >= 2:
         latest_signature = _remaining_signature(sections[-1])
@@ -35,6 +38,7 @@ def build_status(root: Path, request: str = "", task: str = "") -> dict:
         1 for section in sections
         if not [value for value in section.get("verified", []) if value not in {"", "record needed"}]
     )
+    evidence_gaps = sum(1 for section in sections if section.get("evidence_status") in EVIDENCE_GAP_STATUSES)
     stop_reasons: list[str] = []
     if latest and latest.get("decision") in {"stop_success", "stop_blocked"}:
         stop_reasons.append(f"latest_decision:{latest['decision']}")
@@ -42,6 +46,8 @@ def build_status(root: Path, request: str = "", task: str = "") -> dict:
         stop_reasons.append("cycle_budget_exhausted")
     if repeated_remaining:
         stop_reasons.append("same_remaining_repeated_twice")
+    if recorded_budget_mode and request_budget_mode and recorded_budget_mode != request_budget_mode:
+        stop_reasons.append(f"budget_mode_conflict:{recorded_budget_mode}!={request_budget_mode}")
     stop_reasons.extend(f"invalid_cycle_log:{warning}" for warning in parsed["iteration"]["warnings"])
     return {
         "root": str(root),
@@ -50,12 +56,13 @@ def build_status(root: Path, request: str = "", task: str = "") -> dict:
         "cycle_file_exists": path.exists(),
         "completed_cycles": len(sections),
         "budget": budget,
-        "budget_mode": request_eval["budget_mode"],
+        "budget_mode": budget_mode,
         "remaining_cycles": max(budget - len(sections), 0) if budget else None,
         "next_cycle": len(sections) + 1,
         "latest_decision": latest.get("decision", "") if latest else "",
         "repeated_remaining": repeated_remaining,
         "verification_gaps": verification_gaps,
+        "evidence_gaps": evidence_gaps,
         "cycle_log_warnings": parsed["iteration"]["warnings"],
         "stop_reasons": stop_reasons,
         "continue_recommended": not stop_reasons,
@@ -69,9 +76,11 @@ def format_text(report: dict) -> str:
         f"- Task: {report['task'] or 'daily cycle'}",
         f"- Cycle file: {report['cycle_path']}",
         f"- Progress: {report['completed_cycles']}/{report['budget']}",
+        f"- Budget mode: {report['budget_mode']}",
         f"- Remaining budget: {report['remaining_cycles']}",
         f"- Latest decision: {report['latest_decision'] or 'not recorded'}",
         f"- Verification gaps: {report['verification_gaps']}",
+        f"- Evidence/acceptance gaps: {report['evidence_gaps']}",
         f"- Continue recommended: {report['continue_recommended']}",
     ]
     if report["stop_reasons"]:
