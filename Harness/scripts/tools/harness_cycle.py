@@ -10,7 +10,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 
 from harness_common import cycles_dir, dump_json, find_project_root, parse_date_text, read_text, rel, today_cycle_path, validate_task_id, write_text
-from harness_cycle_summary import VALID_BUDGET_MODES, parse_cycle_file
+from harness_cycle_summary import EVIDENCE_GAP_STATUSES, VALID_BUDGET_MODES, evidence_status, parse_cycle_file
 
 
 EVIDENCE_KINDS = {"structure", "runtime", "render", "interaction", "live_service"}
@@ -137,6 +137,7 @@ def validate_iteration_entry(
     artifact_revision: str = "",
     acceptance: str = "",
     invalidated: bool = False,
+    evidence_exit_codes: list[str] | None = None,
 ) -> list[str]:
     if cycle_number is None:
         return []
@@ -162,6 +163,14 @@ def validate_iteration_entry(
     if max_cycles is not None and cycle_number == max_cycles and decision == "continue":
         errors.append("the final budgeted cycle must use stop_success or stop_blocked")
     errors.extend(validate_evidence(evidence_kinds, artifacts, input_revision, artifact_revision, acceptance, decision, invalidated))
+    status = evidence_status({
+        "evidence_kinds": evidence_kinds or [], "artifacts": artifacts or [],
+        "input_revision": input_revision, "artifact_revision": artifact_revision,
+        "acceptance": acceptance, "invalidated": invalidated,
+        "evidence_exit_codes": evidence_exit_codes or [],
+    })
+    if status == "invalid_exit_code" or (decision == "stop_success" and status in EVIDENCE_GAP_STATUSES):
+        errors.append(f"unresolved evidence status: {status}")
     return errors
 
 
@@ -238,6 +247,7 @@ def main() -> None:
         artifact_revision=args.artifact_revision,
         acceptance=args.acceptance,
         invalidated=args.invalidated,
+        evidence_exit_codes=args.evidence_exit_code,
     )
     if iteration_errors:
         parser.error("; ".join(iteration_errors))

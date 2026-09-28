@@ -45,6 +45,7 @@ If the new template checkout has no usable Python 3.10+ runtime, bootstrap that 
 ```
 
 ```powershell
+& C:\Path\To\NewHarnessTemplate\Harness\harness.ps1 migration-audit --target C:\Path\To\Project
 & C:\Path\To\NewHarnessTemplate\Harness\harness.ps1 update --target C:\Path\To\Project
 ```
 
@@ -54,9 +55,13 @@ Use the new template launcher's `update --stage-review <dir>` command for change
 & C:\Path\To\Project\Harness\harness.ps1 bootstrap
 ```
 
-Then finish through the target launcher:
+Then verify the connected target, accept its reviewed receipt from the separate new template, and only then run the after-update milestone check:
 
 ```powershell
-& C:\Path\To\Project\Harness\harness.ps1 readiness --after-update --strict
+& C:\Path\To\Project\Harness\harness.ps1 readiness --strict
 & C:\Path\To\Project\Harness\harness.ps1 verify
+& C:\Path\To\NewHarnessTemplate\Harness\harness.ps1 update --target C:\Path\To\Project --accept-receipt
+& C:\Path\To\Project\Harness\harness.ps1 readiness --after-update --strict
 ```
+
+If manual merges retain project additions, pass `--resolutions <review.json>` when accepting the receipt. Follow the hash-bound review format in `setup.md`; unresolved changes must never be acknowledged without review.

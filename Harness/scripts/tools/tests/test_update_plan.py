@@ -6,6 +6,59 @@ from _harness_test_base import *  # noqa: F401,F403
 
 
 class UpdatePlanTests(HarnessBaseTestCase):
+    def test_receipt_rejects_malformed_resolution_objects(self) -> None:
+        template, target = self.root / "template", self.root / "target"
+        for base in [template, target]:
+            (base / "Harness").mkdir(parents=True)
+            (base / "HARNESS.md").write_bytes(b"same\n")
+        for value in [[], "", False]:
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "must be an object"):
+                accept_receipt(template, target, {}, verifier=lambda _: True, resolutions=value)
+
+    def test_receipt_rejects_an_escaping_config_directory(self) -> None:
+        template, target, outside = self.root / "template", self.root / "target", self.root / "outside"
+        for base in [template, target]:
+            (base / "Harness").mkdir(parents=True)
+            (base / "HARNESS.md").write_bytes(b"same\n")
+        outside.mkdir()
+        link = target / "Harness/config"
+        try:
+            link.symlink_to(outside, target_is_directory=True)
+        except OSError as exc:
+            self.skipTest(f"symlink privileges unavailable: {exc}")
+        try:
+            with self.assertRaisesRegex(ValueError, "escapes its root"):
+                accept_receipt(template, target, {}, verifier=lambda _: True)
+            self.assertEqual([], list(outside.iterdir()))
+        finally:
+            link.unlink()
+    def test_reviewed_manual_merge_can_accept_receipt_only_for_matching_hashes(self) -> None:
+        template, target = self.root / "review-template", self.root / "review-target"
+        for base in [template, target]:
+            (base / "Harness/config").mkdir(parents=True)
+            (base / "HARNESS.md").write_bytes(b"# Policy\n")
+        self._write_contract(template, ["HARNESS.md"])
+        (target / "Harness/template").mkdir(parents=True)
+        (target / "Harness/template/manifest.json").write_bytes((template / "Harness/template/manifest.json").read_bytes())
+        (target / "HARNESS.md").write_bytes(b"# Policy\nProject rule retained.\n")
+        plan = build_update_plan(template, target)
+        action = next(item for item in plan["actions"] if item["path"] == "HARNESS.md")
+        resolutions = {"HARNESS.md": {"local_sha256": action["local_hash"], "upstream_sha256": action["new_hash"], "reason": "Reviewed policy merge preserving project rule"}}
+        with self.assertRaises(ValueError):
+            accept_receipt(template, target, plan, verifier=lambda _: True)
+        with self.assertRaises(ValueError):
+            accept_receipt(template, target, plan, resolutions={"HARNESS.md": {**resolutions["HARNESS.md"], "local_sha256": "0" * 64}}, verifier=lambda _: True)
+        accept_receipt(template, target, plan, resolutions=resolutions, verifier=lambda _: True)
+        refreshed = build_update_plan(template, target)
+        self.assertEqual("keep_local", next(item for item in refreshed["actions"] if item["path"] == "HARNESS.md")["action"])
+        original_receipt = (target / "Harness/config/template_receipt.json").read_bytes()
+        def mutate_during_verification(_):
+            (target / "HARNESS.md").write_bytes(b"changed after review\n")
+            return True
+        with self.assertRaises(ValueError):
+            accept_receipt(template, target, refreshed, verifier=mutate_during_verification)
+        self.assertEqual(original_receipt, (target / "Harness/config/template_receipt.json").read_bytes())
+
     @staticmethod
     def _sha(text: str) -> str:
         return hashlib.sha256(text.encode("utf-8")).hexdigest()

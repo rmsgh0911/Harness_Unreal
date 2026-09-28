@@ -12,4 +12,6 @@
 
 All agents use this single configuration. Worktree branches may change project-specific values only when the branch genuinely requires them.
 
+Each generated-artifact entry should include `source_sha256`, an object mapping every file in `source_paths` (forward-slash project-relative paths) to its raw SHA-256 at capture time. The checker detects later source changes or deletions even when the output and declared revisions are unchanged. Legacy entries without hashes remain readable with explicit freshness warnings and fail `artifacts --strict`; recapture or verify the evidence before adding current hashes. A malformed hash map is an error. Hash file inputs individually instead of registering directories.
+
 Subagent prompts live under `Harness/agents/`. Their results are advisory; the primary agent owns edits, durable records, verification decisions, and Git mutations.

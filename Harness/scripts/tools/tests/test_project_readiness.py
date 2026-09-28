@@ -4,6 +4,24 @@ from _harness_test_base import *  # noqa: F401,F403
 
 
 class ProjectReadinessTests(HarnessBaseTestCase):
+    def test_strict_connection_requires_filled_verification_tiers(self) -> None:
+        self._connect_project()
+        config_path = self.root / "Harness/config/project.json"
+        project = json.loads(config_path.read_text(encoding="utf-8"))
+        project["ci"] = {"mode": "no_actions_or_runners"}
+        config_path.write_text(json.dumps(project), encoding="utf-8")
+        path = self.root / "Harness/index/verification_map.md"
+        filled = path.read_text(encoding="utf-8")
+        for placeholder in ["TODO (e.g., editor build)", "N/A", "N/A -", "N/A - TODO", "N/A: TBD", "N/A (<reason>)", "Not applicable — 작성 필요"]:
+            with self.subTest(placeholder=placeholder):
+                path.write_text(filled.replace("Editor build", placeholder), encoding="utf-8")
+                self.assertTrue(build_project_readiness_report(self.root)["ok"])
+                self.assertFalse(build_project_readiness_report(self.root, strict=True)["ok"])
+        path.write_text(filled.replace("Editor build", "N/A - Blueprint-only project"), encoding="utf-8")
+        self.assertTrue(build_project_readiness_report(self.root, strict=True)["ok"])
+        path.unlink()
+        self.assertFalse(build_project_readiness_report(self.root, strict=True)["ok"])
+
     def test_project_readiness_allows_standalone_template(self) -> None:
         (self.root / "Harness/config/project.json").write_text(
             json.dumps({"template_mode": True, "project_name": "", "uproject_file": "", "build": {}}),

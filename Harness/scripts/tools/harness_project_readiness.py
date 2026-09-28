@@ -27,6 +27,28 @@ SPECIFIC_PLACEHOLDER_MARKERS = (
 PLACEHOLDER_SLOT_PATTERN = re.compile(
     r"(?m)(?:^\s*[-*]\s*TODO\b|:\s*TODO\s*$|^\s*[-*]\s*작성 필요|:\s*작성 필요\s*$)"
 )
+REQUIRED_TIER_LABELS = (
+    "C++ / module change", "Config change", "UI / UMG / input change",
+    "Content / asset change", "CI workflow change",
+)
+
+
+def missing_verification_tiers(text: str) -> list[str]:
+    """Require an explicit policy (including reasoned N/A) for each change type."""
+    entries = {}
+    for line in text.splitlines():
+        match = re.match(r"^\s*[-*]\s+([^:]+):\s*(.*?)\s*$", line)
+        if match:
+            entries[match[1].strip().casefold()] = match[2].strip()
+    missing = []
+    for label in REQUIRED_TIER_LABELS:
+        value = entries.get(label.casefold(), "").strip("`* ")
+        exemption = re.match(r"(?i)^(?:n/a|none|not applicable)\b(.*)$", value)
+        if exemption:
+            value = exemption[1].strip("`* :-–—()")
+        if not re.search(r"[^\W_]", value) or re.match(r"(?i)^(?:TODO\b|TBD\b|작성 필요|<)", value):
+            missing.append(label)
+    return missing
 
 
 def add_finding(findings: list[dict], level: str, path: str, message: str) -> None:
@@ -127,8 +149,9 @@ def build_report(root: Path, after_update: bool = False, strict: bool = False) -
                 add_finding(findings, "warning", relative, "still contains template placeholders; refresh it from actual Source, Config, assets, docs, logs, or verification output")
 
         verification_map = root / "Harness/index/verification_map.md"
-        if verification_map.exists() and "Unreal Project CI Attachment" not in read_text(verification_map):
-            add_finding(findings, "warning", "Harness/index/verification_map.md", "record the chosen Unreal verification tier after connection")
+        tier_gaps = missing_verification_tiers(read_text(verification_map))
+        if tier_gaps:
+            add_finding(findings, "warning", "Harness/index/verification_map.md", "record required verification tiers (or N/A with a reason): " + ", ".join(tier_gaps))
 
         if after_update:
             setup_doc = root / "Harness/docs/template/setup.md"

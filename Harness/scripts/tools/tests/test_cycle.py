@@ -5,6 +5,12 @@ from harness_cycle_summary import evidence_status
 
 
 class CycleTests(HarnessBaseTestCase):
+    def test_writer_rejects_failed_exit_codes_for_success_and_keeps_failed_history(self) -> None:
+        path = self.root / "Harness/work/cycles/failed.md"
+        errors = validate_iteration_entry(path, 1, 2, "stop_success", evidence_kinds=["runtime"], acceptance="passed", evidence_exit_codes=["1"])
+        self.assertTrue(any("verification_failed" in error for error in errors))
+        self.assertEqual([], validate_iteration_entry(path, 1, 2, "continue", evidence_kinds=["runtime"], acceptance="failed", evidence_exit_codes=["1"]))
+
     def test_cycle_entry_records_budget_decision_and_success_criteria(self) -> None:
         entry = build_entry(
             "Iteration",

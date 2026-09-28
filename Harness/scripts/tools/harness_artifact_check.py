@@ -143,6 +143,13 @@ def build_report(root: Path, strict: bool = False) -> dict:
             entry_errors.append({"id": entry_id, "field": "source_paths", "message": "non_empty_list_required"})
             source_paths = []
         normalized_sources: list[str] = []
+        source_hashes = raw.get("source_sha256")
+        if not isinstance(source_hashes, dict):
+            if "source_sha256" in raw:
+                entry_errors.append({"id": entry_id, "field": "source_sha256", "message": "must_be_object"})
+            else:
+                entry_warnings.append({"id": entry_id, "field": "source_sha256", "message": "source_hashes_missing_freshness_unverified"})
+            source_hashes = {}
         for source in source_paths:
             normalized = safe_relative_path(source)
             if normalized is None:
@@ -152,8 +159,25 @@ def build_report(root: Path, strict: bool = False) -> dict:
             source_path = contained_path(root, normalized)
             if source_path is None:
                 entry_errors.append({"id": entry_id, "field": "source_paths", "message": "path_escapes_project"})
-            elif not source_path.exists():
-                entry_warnings.append({"id": entry_id, "field": "source_paths", "message": f"source_missing:{normalized}"})
+            elif not source_path.is_file():
+                findings = entry_errors if normalized in source_hashes else entry_warnings
+                findings.append({"id": entry_id, "field": "source_paths", "message": f"source_missing:{normalized}"})
+            else:
+                expected_source_hash = source_hashes.get(normalized)
+                if expected_source_hash is None:
+                    entry_warnings.append({"id": entry_id, "field": "source_sha256", "message": f"source_hash_missing:{normalized}"})
+                elif not isinstance(expected_source_hash, str) or not SHA256_PATTERN.fullmatch(expected_source_hash):
+                    entry_errors.append({"id": entry_id, "field": "source_sha256", "message": f"invalid_source_hash:{normalized}"})
+                else:
+                    try:
+                        current_source_hash = file_sha256(source_path)
+                    except OSError:
+                        entry_errors.append({"id": entry_id, "field": "source_sha256", "message": f"source_unreadable:{normalized}"})
+                    else:
+                        if current_source_hash != expected_source_hash:
+                            entry_errors.append({"id": entry_id, "field": "source_sha256", "message": f"source_changed:{normalized}"})
+        if set(source_hashes) - set(normalized_sources):
+            entry_errors.append({"id": entry_id, "field": "source_sha256", "message": "hash_paths_not_in_source_paths"})
         if output_relative is not None:
             output = contained_path(root, output_relative)
             if output is None:

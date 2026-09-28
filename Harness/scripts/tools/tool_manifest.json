@@ -49,7 +49,7 @@
     {
       "name": "harness_artifact_check",
       "path": "Harness/scripts/tools/harness_artifact_check.py",
-      "purpose": "Validates project-owned generated-artifact provenance, safe paths, matching revisions, output SHA-256 integrity, evidence scope, and acceptance without modifying files.",
+      "purpose": "Validates generated-artifact provenance, safe paths, matching revisions, source/output SHA-256 integrity, evidence scope, and acceptance; legacy missing source hashes warn and block strict checks.",
       "inputs": [
         "Harness/config/generated_artifacts.json",
         "registered source and output paths",
@@ -353,7 +353,9 @@
         "--task",
         "--verification",
         "--include-staged-patch",
-        "--max-patch-chars"
+        "--max-patch-chars",
+        "--max-staged-paths",
+        "--expected-snapshot"
       ],
       "outputs": [
         "subagent_delegation_packet",
@@ -467,6 +469,7 @@
         "--stage-review",
         "--overwrite-stage",
         "--accept-receipt",
+        "--resolutions",
         "Harness/template/manifest.json",
         "Harness/config/template_receipt.json"
       ],

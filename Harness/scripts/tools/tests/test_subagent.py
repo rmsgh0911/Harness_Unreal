@@ -1,6 +1,7 @@
 """Regression tests for bounded, read-only Harness subagent packets."""
 
 import json
+import io
 import os
 import shutil
 import subprocess
@@ -493,9 +494,9 @@ class SubagentTests(HarnessBaseTestCase):
     def test_commit_packet_is_not_ready_when_staged_scope_exceeds_sample(self) -> None:
         write_registry(self.root)
         self._init_git()
-        for index in range(81):
-            (self.root / f"staged-{index:03d}.txt").write_text(f"{index}\n", encoding="utf-8")
-        self.assertEqual(0, self._git("add", ".").returncode)
+        for index in range(257):
+            (self.root / f"staged-{index:03d}.txt").write_text(f"{index}\n", encoding="utf-8", newline="\n")
+        self.assertEqual(0, self._git("add", "staged-*.txt").returncode)
 
         report = build_packet(self.root, "commit-explainer", request="prepare commit")
 
@@ -503,6 +504,42 @@ class SubagentTests(HarnessBaseTestCase):
         self.assertFalse(report["ready"])
         self.assertGreater(report["evidence"]["git"]["staged"]["paths_omitted"], 0)
         self.assertTrue(any("staged path scope exceeds" in item for item in report["warnings"]))
+        snapshot = report["evidence"]["git"]["snapshot_id"]
+        expanded = build_packet(self.root, "commit-explainer", max_staged_paths=512, expected_snapshot=snapshot)
+        self.assertTrue(expanded["ready"], expanded["warnings"])
+        self.assertTrue(expanded["evidence"]["git"]["staged"]["path_listing_complete"])
+        (self.root / "staged-000.txt").write_text("changed\n", encoding="utf-8", newline="\n")
+        self.assertEqual(0, self._git("add", "staged-000.txt").returncode)
+        stale = build_packet(self.root, "commit-explainer", max_staged_paths=512, expected_snapshot=snapshot)
+        self.assertFalse(stale["ready"])
+        self.assertTrue(any("snapshot differs" in item for item in stale["warnings"]))
+
+    def test_staged_path_bound_is_validated_independently(self) -> None:
+        for invalid in [0, -1, 4097, True, "256"]:
+            with self.assertRaises(ValueError):
+                collect_git_evidence(self.root, max_staged_paths=invalid)
+
+    def test_large_path_sample_also_has_an_aggregate_byte_bound(self) -> None:
+        with patch("harness_subagent.subprocess.Popen") as popen:
+            process = popen.return_value
+            process.stdout = io.BytesIO((b"a" * 65_000 + b"\0") * 10)
+            process.communicate.return_value = (b"", b"")
+            process.returncode = 0
+            with patch("harness_subagent.resolve_git_executable", return_value="git"):
+                report = harness_subagent._run_git_tokens(self.root, ["diff"], sample_limit=4096)
+        self.assertTrue(report["ok"])
+        self.assertEqual(10, report["count"])
+        self.assertEqual(6, report["omitted"])
+        self.assertLessEqual(report["sample_bytes"], harness_subagent.MAX_PATH_SAMPLE_BYTES)
+
+    def test_recheck_routes_use_the_platform_safe_launcher(self) -> None:
+        write_registry(self.root)
+        self._init_git()
+        for role in ["current-status", "commit-explainer"]:
+            report = build_packet(self.root, role)
+            command = report["evidence"]["recheck_route"]["command"]
+            self.assertNotIn("harness.cmd", command)
+            self.assertIn("harness.ps1" if os.name == "nt" else "harness.sh", command)
 
     def test_commit_packet_rejects_a_staged_snapshot_race(self) -> None:
         write_registry(self.root)

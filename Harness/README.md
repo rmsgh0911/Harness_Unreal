@@ -58,6 +58,8 @@ Use the rest of the tools as focused diagnostics, migration helpers, or optional
 
 The `subagent` command prints a bounded role-and-evidence packet without writing files or starting a provider-specific agent. Pass it to the runtime's subagent mechanism. The primary agent remains the sole integration and durable-record owner; the commit role treats only staged changes as commit scope and returns `not_ready` when staging is empty. Staged patch text is omitted by default; use `--include-staged-patch` for a redacted excerpt bounded to 65,536 characters, or lower/raise that bound within 1,024-262,144 using `--max-patch-chars`.
 
+Commit scope separately includes up to 256 staged paths by default. For a larger commit, retry with `--max-staged-paths` (1-4096) and `--expected-snapshot` set to the earlier packet's `git.snapshot_id`; a changed snapshot requires a fresh review. Standard registered tools require launcher aliases; legacy registered project tools are preserved without requiring a core alias.
+
 Use the launcher's `local-gate` command instead of server CI when a private Gitea project has no Actions or registered runners. It runs the local test/verify finish gate, checks staged and unstaged diff hygiene separately, reports conflicts and untracked files, and is read-only by default. Pass `--cleanup-caches` only when generated Harness Python caches should be removed explicitly.
 
 Use the launcher's `readiness --strict` command at the connection milestone (after first install or Harness update). Inside routine `verify` it runs non-strict: hard connection/config errors block, while lingering template placeholders are non-blocking warnings until you run it with `--strict`.
@@ -80,7 +82,11 @@ Cycle records may attach claims to `structure`, `runtime`, `render`, `interactio
 
 Task closeout previews by default. After the last cycle says `stop_success` and records concrete verification, add `--write` to mark the task completed and archive its task/cycle pair transactionally. Launcher `state-check --strict` blocks warning IDs that are new or whose reasoned baseline entry has expired.
 
+Closeout rejects invalidated, failed, or unaccepted structured evidence, including nonzero or invalid evidence exit codes. Preserve failed attempts as history, then record a new successful verification. A deliberate negative test should be wrapped by a verifier that returns zero only when the expected failure is observed.
+
 `generated_artifacts.json` is an empty, project-owned registry until a project chooses to retain generated evidence. Each entry binds an output hash to its generator/revision, sources, matching input/artifact revision, scope, acceptance, and verification command. The aggregate verifier checks it, while strict release hygiene also rejects pending or stale registered evidence.
+
+Include a `source_sha256` map for all source files at capture time. Changed sources fail ordinary verification; missing legacy source hashes report unknown freshness and block strict artifact checking. At project connection, fill all five change-type policies in `verification_map.md`; strict readiness also rejects missing or placeholder policies, while reasoned `N/A - ...` entries are supported.
 
 Use the launcher's `memory` command only for compact routing hints that still need confirmation against source, config, assets, logs, docs, or verification output. `Progress_index.html` is a stable viewer; routine status changes should update `Progress.md` and then reload the viewer. Because browsers block local `fetch()` over `file://`, open the viewer live with `Progress_view.cmd` or the launcher's `progress --serve` command.
 

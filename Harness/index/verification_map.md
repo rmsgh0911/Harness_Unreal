@@ -6,6 +6,8 @@ Task-type-specific minimum verification guidance. Keep entries short and practic
 
 Pin the mandatory verification tier for each change type after connecting the project (tiers are defined in `Harness/docs/template/project-ci.md`). Example:
 
+Keep the five labels below when filling this section: strict readiness checks each policy. Use `N/A - <project-specific reason>` when a change type cannot occur in this project.
+
 - C++ / module change: TODO (e.g., Tier 1 editor build required)
 - Config change: TODO (e.g., Tier 0 tool checks + affected runtime path)
 - UI / UMG / input change: TODO (e.g., Tier 3 PIE note required)

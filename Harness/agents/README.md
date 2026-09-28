@@ -17,6 +17,8 @@ Use `./Harness/harness.sh` with the same arguments on POSIX. The command does no
 
 The commit packet omits patch text unless `--include-staged-patch` is supplied. That option includes a sensitive-value-redacted excerpt with a 65,536-character default bound; `--max-patch-chars` accepts 1,024-262,144. Treat a truncated excerpt as an explicit evidence gap.
 
+The staged path list defaults to 256 paths independently of the 80-line status summary. To expand an incomplete scope, use `--max-staged-paths <count>` (at most 4096) together with `--expected-snapshot <git.snapshot_id>` from the earlier packet. A changed HEAD, index, or status snapshot rejects the retry. Incomplete scope never becomes ready merely because patch text was requested.
+
 User request and verification fields are bounded and sensitive-value-redacted. If one is truncated or crosses a private-key boundary, collection fails closed and omits the remaining repository evidence instead of risking a cross-field leak.
 
 ## Boundaries

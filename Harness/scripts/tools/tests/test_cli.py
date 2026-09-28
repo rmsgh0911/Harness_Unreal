@@ -33,16 +33,13 @@ class CliTests(HarnessBaseTestCase):
         self.assertIn("migration-audit", help_text)
         self.assertIn("progress", help_text)
 
-    def test_router_covers_every_registered_standard_tool(self) -> None:
+    def test_every_router_tool_is_registered_even_with_project_extensions(self) -> None:
         tools_dir = Path(__file__).resolve().parents[1]
         manifest = json.loads((tools_dir / "tool_manifest.json").read_text(encoding="utf-8"))
-        registered_scripts = {
-            Path(tool["path"]).name
-            for tool in manifest["tools"]
-            if Path(tool["path"]).name != "harness_cli.py"
-        }
-
-        self.assertEqual(registered_scripts, set(COMMANDS.values()))
+        required = {f"Harness/scripts/tools/{name}" for name in {*COMMANDS.values(), "harness_cli.py"}}
+        for tools in [manifest["tools"], [*manifest["tools"], {"path": "Harness/scripts/tools/project_custom.py"}]]:
+            registered = {tool["path"] for tool in tools}
+            self.assertTrue(required.issubset(registered), required - registered)
         self.assertTrue(PRIMARY_COMMANDS.issubset({*COMMANDS, "bootstrap"}))
 
     def test_arguments_with_spaces_and_korean_are_forwarded_exactly(self) -> None:

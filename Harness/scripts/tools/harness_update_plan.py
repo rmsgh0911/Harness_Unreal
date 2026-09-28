@@ -537,14 +537,33 @@ def accept_receipt(
     plan: dict,
     *,
     verifier: Callable[[Path], bool] | None = None,
+    resolutions: dict | None = None,
 ) -> str:
     if template.resolve() == target.resolve() or _roots_are_nested(template, target):
         raise ValueError("template and target must be separate, non-nested directory trees when accepting an install receipt")
+    _planned_paths(target, RECEIPT_RELATIVE)
+    # Rebuild at acceptance time: callers must not acknowledge a stale plan.
+    plan = build_update_plan(template, target)
+    resolutions = {} if resolutions is None else resolutions
+    if not isinstance(resolutions, dict):
+        raise ValueError("resolutions must be an object keyed by reviewed path")
+    reviewed_actions = {item["path"]: item for item in plan["actions"]}
+    for relative, resolution in resolutions.items():
+        item = reviewed_actions.get(relative)
+        if not isinstance(resolution, dict) or not item or item["owner"] not in {"managed_merge", "template_owned"}:
+            raise ValueError(f"invalid review resolution: {relative}")
+        if item["action"] not in {"merge_review", "replace_review", "unchanged", "keep_local"}:
+            raise ValueError(f"review resolution cannot accept an unapplied file: {relative}")
+        if not isinstance(resolution.get("reason"), str) or not resolution["reason"].strip():
+            raise ValueError(f"review resolution requires a reason: {relative}")
+        if not item["local_hash"] or resolution.get("local_sha256") != item["local_hash"] or resolution.get("upstream_sha256") != item["new_hash"]:
+            raise ValueError(f"review resolution hashes are stale: {relative}")
     unresolved = [
         item["path"]
         for item in plan["actions"]
         if item.get("owner") in {"template_owned", "managed_merge"}
         and item.get("action") not in {"unchanged", "keep_local"}
+        and item["path"] not in resolutions
     ]
     if unresolved:
         raise ValueError("receipt cannot be accepted while template changes remain unapplied or unreviewed: " + ", ".join(unresolved[:8]))
@@ -552,8 +571,16 @@ def accept_receipt(
     if not check(target):
         raise RuntimeError("target verification failed; template receipt was not written")
 
+    # Verification may invoke project code; refuse provenance for a changed tree.
+    after = build_update_plan(template, target)
+    fingerprint = lambda report: [(item["path"], item["local_hash"], item["new_hash"], item["owner"], item["action"]) for item in report["actions"]]
+    if fingerprint(after) != fingerprint(plan):
+        raise ValueError("template or target changed during verification; review a fresh plan")
+
     receipt = build_receipt(template)
-    path = target / RECEIPT_RELATIVE
+    if resolutions:
+        receipt["reviewed_resolutions"] = resolutions
+    path, _ = _planned_paths(target, RECEIPT_RELATIVE)
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(prefix=".template-receipt-", suffix=".json.tmp", dir=path.parent)
     os.close(descriptor)
@@ -610,12 +637,15 @@ def main() -> None:
     parser.add_argument("--stage-review", type=Path, default=None, help="Copy merge/replace candidates into this separate review directory.")
     parser.add_argument("--overwrite-stage", action="store_true", help="Allow --stage-review to replace files already present in the review directory.")
     parser.add_argument("--accept-receipt", action="store_true", help="Write installed provenance only when all template changes are resolved and target verification passes.")
+    parser.add_argument("--resolutions", type=Path, default=None, help="JSON file mapping reviewed paths to local_sha256, upstream_sha256, and reason; requires --accept-receipt.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
     args = parser.parse_args()
     if args.overwrite_stage and not args.stage_review:
         parser.error("--overwrite-stage requires --stage-review")
     if args.accept_receipt and (args.apply_missing or args.stage_review):
         parser.error("--accept-receipt must be a separate post-verification invocation after applying or reviewing files")
+    if args.resolutions and not args.accept_receipt:
+        parser.error("--resolutions requires --accept-receipt")
     template = find_project_root(args.template).resolve()
     target = args.target.resolve()
     if args.stage_review:
@@ -629,7 +659,10 @@ def main() -> None:
     try:
         report["copied_missing"] = apply_missing_files(template, target, report) if args.apply_missing else []
         report["staged_review"] = stage_review_files(template, stage, report, overwrite=args.overwrite_stage, target=target) if args.stage_review else []
-        report["accepted_receipt"] = accept_receipt(template, target, report) if args.accept_receipt else None
+        resolutions = load_json(args.resolutions, None) if args.resolutions else None
+        if args.resolutions and not isinstance(resolutions, dict):
+            raise ValueError("--resolutions must contain a JSON object keyed by reviewed path")
+        report["accepted_receipt"] = accept_receipt(template, target, report, resolutions=resolutions) if args.accept_receipt else None
     except (OSError, RuntimeError, ValueError, shutil.Error) as exc:
         parser.error(str(exc))
     print(dump_json(report) if args.json else format_text(report))

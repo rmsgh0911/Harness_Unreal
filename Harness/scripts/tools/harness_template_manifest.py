@@ -44,6 +44,12 @@ EXCLUDED_SUFFIXES = {".db", ".pyc", ".sqlite"}
 WORKSPACE_ONLY_ROOTS = (("Harness", "temp"),)
 HASHED_OWNERS = {"template_owned", "managed_merge"}
 VALID_OWNERS = {*HASHED_OWNERS, "project_owned", "generated_receipt"}
+RELEASE_HASH_FORMAT = "sha256-utf8-crlf-to-lf-v1"
+RELEASE_TEXT_SUFFIXES = {
+    ".bat", ".cmd", ".ps1", ".sh", ".py", ".md", ".txt", ".json", ".jsonl",
+    ".yaml", ".yml", ".toml", ".sql", ".html", ".css", ".js", ".xml",
+    ".cs", ".h", ".cpp", ".ini", ".uproject", ".uplugin",
+}
 DEFAULT_OWNERSHIP_RULES = [
     {
         "owner": "generated_receipt",
@@ -173,11 +179,29 @@ def classify_owner(relative: str, rules: list[dict]) -> str:
 
 
 def file_sha256(path: Path) -> str:
+    """Raw hash for installation receipts and local-change detection."""
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def release_bytes(path: Path) -> bytes:
+    """Canonical release bytes, independent of Git checkout newline conversion.
+
+    Only known UTF-8 text is normalized; binary and unknown file types retain
+    their exact bytes. Receipts deliberately continue to use raw hashes.
+    """
+    data = path.read_bytes()
+    if path.suffix.casefold() in RELEASE_TEXT_SUFFIXES or path.name in {".gitignore", ".gitattributes", ".gitkeep"}:
+        try:
+            data.decode("utf-8")
+        except UnicodeDecodeError:
+            return data
+        if b"\x00" not in data:
+            return data.replace(b"\r\n", b"\n")
+    return data
 
 
 def build_manifest(root: Path, current: dict | None = None) -> dict:
@@ -187,7 +211,7 @@ def build_manifest(root: Path, current: dict | None = None) -> dict:
         rules = DEFAULT_OWNERSHIP_RULES
     release_files = sorted({rel(path, root) for path in discover_release_files(root)} | {MANIFEST_RELATIVE})
     hashes = {
-        relative: file_sha256(root / relative)
+        relative: hashlib.sha256(release_bytes(root / relative)).hexdigest()
         for relative in release_files
         if relative != MANIFEST_RELATIVE
         and (root / relative).is_file()
@@ -198,6 +222,7 @@ def build_manifest(root: Path, current: dict | None = None) -> dict:
         source = {"repository": "https://github.com/rmsgh0911/Harness_Unreal", "commit": None}
     return {
         "schema_version": 2,
+        "hash_format": RELEASE_HASH_FORMAT,
         "ownership_schema_version": 1,
         "template_version": current.get("template_version", "0.2.0-dev"),
         "source": source,
@@ -239,6 +264,8 @@ def build_report(root: Path) -> dict:
         return {"root": str(root), "ok": False, "issues": issues, "file_count": 0, "hashed_file_count": 0}
     if current.get("schema_version") != 2:
         issues.append({"path": MANIFEST_RELATIVE, "message": "schema_version_must_be_2"})
+    if current.get("hash_format") != RELEASE_HASH_FORMAT:
+        issues.append({"path": MANIFEST_RELATIVE, "message": "release_hash_format_stale"})
     if current.get("ownership_schema_version") != 1:
         issues.append({"path": MANIFEST_RELATIVE, "message": "ownership_schema_version_must_be_1"})
     rules = current.get("ownership_rules")

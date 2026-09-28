@@ -13,7 +13,7 @@ sys.dont_write_bytecode = True
 
 from harness_common import dump_json, find_project_root, rel
 from harness_release_check import build_report as build_release_report
-from harness_template_manifest import MANIFEST_RELATIVE, discover_release_files, release_files_from_manifest, should_include
+from harness_template_manifest import MANIFEST_RELATIVE, discover_release_files, release_bytes, release_files_from_manifest, should_include
 
 
 DEFAULT_OUTPUT = Path("dist") / "Harness_Unreal_Template.zip"
@@ -83,7 +83,7 @@ def build_package(root: Path, output: Path, write: bool = False, force: bool = F
                 info.create_system = 3
                 info.compress_type = zipfile.ZIP_STORED
                 info.external_attr = (0o100755 if path.suffix.casefold() == ".sh" else 0o100644) << 16
-                archive.writestr(info, path.read_bytes())
+                archive.writestr(info, release_bytes(path))
         os.replace(temporary_path, output_path)
     finally:
         if temporary_path.exists():

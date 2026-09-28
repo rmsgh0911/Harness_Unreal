@@ -6,6 +6,17 @@ from harness_work import apply_close, build_close_plan
 
 
 class WorkCloseTests(HarnessBaseTestCase):
+    def test_close_rejects_invalidated_failed_and_unaccepted_evidence(self) -> None:
+        task, cycle = self.make_records()
+        original = cycle.read_text(encoding="utf-8")
+        for suffix, expected in [("- Invalidated: true\n", "invalidated"), ("- Evidence Exit Code: 1\n", "verification_failed"), ("- Evidence Exit Code: unknown\n", "invalid_exit_code"), ("- Acceptance: \n", "acceptance_unknown")]:
+            with self.subTest(expected=expected):
+                cycle.write_text(original + suffix, encoding="utf-8")
+                report = build_close_plan(self.root, "close-me", "2026-09")
+                self.assertFalse(report["ready"], report)
+                self.assertEqual(expected, report["evidence_status"])
+                self.assertTrue(task.exists())
+
     def make_records(self, decision: str = "stop_success", verified: str = "unit tests passed") -> tuple[Path, Path]:
         tasks = self.root / "Harness/work/tasks"
         cycles = self.root / "Harness/work/cycles"

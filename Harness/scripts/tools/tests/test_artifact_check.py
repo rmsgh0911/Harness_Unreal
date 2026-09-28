@@ -27,6 +27,7 @@ class ArtifactCheckTests(HarnessBaseTestCase):
             "input_revision": "abc123",
             "artifact_revision": "abc123",
             "source_paths": [source.relative_to(self.root).as_posix()],
+            "source_sha256": {source.relative_to(self.root).as_posix(): hashlib.sha256(source.read_bytes()).hexdigest()},
             "output": output.relative_to(self.root).as_posix(),
             "output_sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
             "evidence_kind": "runtime",
@@ -48,6 +49,37 @@ class ArtifactCheckTests(HarnessBaseTestCase):
         report = build_artifact_report(self.root, strict=True)
         self.assertTrue(report["ok"])
         self.assertEqual(1, report["summary"]["entries"])
+
+    def test_source_drift_blocks_even_when_output_and_revision_labels_match(self) -> None:
+        self.write_registry([self.valid_entry()])
+        (self.root / "Source/UI/Dashboard.cpp").write_text("// changed source\n", encoding="utf-8")
+        report = build_artifact_report(self.root)
+        self.assertFalse(report["ok"])
+        self.assertTrue(any(item["message"].startswith("source_changed:") for item in report["errors"]))
+
+    def test_legacy_entry_reports_unknown_freshness_and_blocks_strict(self) -> None:
+        entry = self.valid_entry()
+        del entry["source_sha256"]
+        self.write_registry([entry])
+        standard = build_artifact_report(self.root)
+        self.assertTrue(standard["ok"])
+        self.assertGreater(standard["summary"]["warnings"], 0)
+        self.assertFalse(build_artifact_report(self.root, strict=True)["ok"])
+
+    def test_removed_hashed_source_fails_standard_verification(self) -> None:
+        self.write_registry([self.valid_entry()])
+        (self.root / "Source/UI/Dashboard.cpp").unlink()
+        report = build_artifact_report(self.root)
+        self.assertFalse(report["ok"])
+        self.assertTrue(any(item["message"].startswith("source_missing:") for item in report["errors"]))
+
+    def test_malformed_source_hash_map_is_not_treated_as_legacy(self) -> None:
+        entry = self.valid_entry()
+        for value in [None, [], "bad"]:
+            with self.subTest(value=value):
+                entry["source_sha256"] = value
+                self.write_registry([entry])
+                self.assertFalse(build_artifact_report(self.root)["ok"])
 
     def test_unsafe_path_revision_mismatch_and_missing_output_fail(self) -> None:
         entry = self.valid_entry()

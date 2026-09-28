@@ -14,7 +14,7 @@ sys.dont_write_bytecode = True
 
 from harness_archive import apply_archive, build_plan as build_archive_plan, validate_archive_month
 from harness_common import dump_json, find_project_root, read_text, rel, task_cycle_path, task_path, validate_task_id
-from harness_cycle_summary import parse_cycle_file, unique_recorded
+from harness_cycle_summary import EVIDENCE_GAP_STATUSES, parse_cycle_file, unique_recorded
 
 
 STATUS_PATTERN = re.compile(r"^(\s*-\s*Status:\s*).+$", re.IGNORECASE | re.MULTILINE)
@@ -63,7 +63,7 @@ def build_close_plan(root: Path, task: str, month: str = "") -> dict:
             errors.append("latest cycle decision must be stop_success before closeout")
         if not unique_recorded(latest.get("verified", [])):
             errors.append("latest cycle must contain concrete verification before closeout")
-        if latest.get("evidence_status") in {"acceptance_failed", "pending_acceptance", "revision_mismatch", "skipped", "missing_artifact"}:
+        if latest.get("evidence_status") in EVIDENCE_GAP_STATUSES:
             errors.append(f"latest cycle has an unresolved evidence gap: {latest['evidence_status']}")
     destination = root / "Harness" / "work" / "archive" / archive_month
     for source, kind in ((task_file, "tasks"), (cycle_file, "cycles")):

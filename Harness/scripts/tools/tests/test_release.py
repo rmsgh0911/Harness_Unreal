@@ -8,6 +8,17 @@ from harness_template_manifest import write_manifest
 
 
 class ReleaseTests(HarnessBaseTestCase):
+    def test_package_bytes_survive_checkout_newline_changes(self) -> None:
+        script = self.root / "Harness/harness.ps1"
+        script.write_bytes(b"Write-Output 'ready'\n")
+        write_manifest(self.root)
+        first = self.root / "lf.zip"
+        second = self.root / "crlf.zip"
+        self.assertTrue(build_package(self.root, first, write=True)["ok"])
+        script.write_bytes(b"Write-Output 'ready'\r\n")
+        self.assertTrue(build_package(self.root, second, write=True)["ok"])
+        self.assertEqual(first.read_bytes(), second.read_bytes())
+
     def test_release_surfaces_invalid_generated_artifact_provenance(self) -> None:
         (self.root / "Harness/config/generated_artifacts.json").write_text(
             json.dumps({"schema_version": 1, "artifacts": [{"id": "broken"}]}),

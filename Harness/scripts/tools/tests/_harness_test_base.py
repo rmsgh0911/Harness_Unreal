@@ -96,6 +96,12 @@ class HarnessBaseTestCase(unittest.TestCase):
             encoding="utf-8",
         )
         (self.root / "Harness/index/api_surface.md").write_text("# API Surface\n\n## Public Names\n- Widget hooks\n", encoding="utf-8")
+        (self.root / "Harness/index/verification_map.md").write_text(
+            "# Verification Map\n\n## Minimum Required Tier\n"
+            "- C++ / module change: Editor build\n- Config change: Affected runtime test\n"
+            "- UI / UMG / input change: PIE acceptance\n- Content / asset change: Editor inspection\n"
+            "- CI workflow change: Local gate\n", encoding="utf-8",
+        )
 
     def tearDown(self) -> None:
         self.temp.cleanup()

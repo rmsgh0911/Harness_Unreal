@@ -17,6 +17,9 @@ VALID_BUDGET_MODES = {"exact_count", "upper_bound"}
 PLACEHOLDER_VALUES = {"", "none", "record needed"}
 ARTIFACT_REQUIRED_KINDS = {"render", "interaction", "live_service"}
 EVIDENCE_GAP_STATUSES = {
+    "invalidated",
+    "verification_failed",
+    "invalid_exit_code",
     "acceptance_failed",
     "acceptance_unknown",
     "missing_artifact",
@@ -33,6 +36,11 @@ def unique_recorded(values: list[str]) -> list[str]:
 def evidence_status(section: dict) -> str:
     if section.get("invalidated"):
         return "invalidated"
+    exit_codes = section.get("evidence_exit_codes", [])
+    if any(not re.fullmatch(r"-?\d+", str(code).strip()) for code in exit_codes):
+        return "invalid_exit_code"
+    if any(int(code) != 0 for code in exit_codes):
+        return "verification_failed"
     input_revision = section.get("input_revision", "")
     artifact_revision = section.get("artifact_revision", "")
     if input_revision and artifact_revision and input_revision != artifact_revision:

@@ -6,6 +6,19 @@ from harness_verify_all import build_verify_all
 
 
 class DoctorVerifyTests(HarnessBaseTestCase):
+    def test_doctor_allows_legacy_custom_tools_without_masking_missing_standard_tools(self) -> None:
+        manifest = json.loads((TOOLS_DIR / "tool_manifest.json").read_text(encoding="utf-8"))
+        custom = {"name": "custom", "path": "Harness/scripts/tools/custom.py", "purpose": "project utility", "writes_files": False, "safe_by_default": True, "verify": "python Harness/scripts/tools/custom.py --help"}
+        manifest["tools"].append(custom)
+        target = self.root / "Harness/scripts/tools/tool_manifest.json"
+        target.write_text(json.dumps(manifest), encoding="utf-8")
+        check = next(item for item in run_doctor(self.root)["checks"] if "launcher aliases stay in sync" in item["message"])
+        self.assertTrue(check["ok"])
+        manifest["tools"] = [tool for tool in manifest["tools"] if tool["path"] != "Harness/scripts/tools/harness_context.py"]
+        target.write_text(json.dumps(manifest), encoding="utf-8")
+        check = next(item for item in run_doctor(self.root)["checks"] if "launcher aliases stay in sync" in item["message"])
+        self.assertFalse(check["ok"])
+
     def test_doctor_requires_native_launchers(self) -> None:
         results = run_doctor(self.root)["checks"]
         missing = {

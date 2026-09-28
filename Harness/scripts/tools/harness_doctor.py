@@ -174,14 +174,14 @@ def run_doctor(root: Path) -> dict:
             names = [tool.get("name") for tool in tools if isinstance(tool, dict)]
             results.append(check(len(names) == len(set(names)), "tool_manifest.json tool names are unique"))
             declared_paths = {tool.get("path") for tool in tools if isinstance(tool, dict)}
-            standard_scripts = {
-                Path(path).name
-                for path in declared_paths
-                if isinstance(path, str) and path.endswith(".py") and not path.endswith("/harness_cli.py")
+            # Old projects may retain registered custom tools here. Require the
+            # complete standard surface without treating those extensions as errors.
+            required_standard_paths = {
+                f"Harness/scripts/tools/{name}" for name in LAUNCHER_COMMANDS.values()
             }
             results.append(
                 check(
-                    standard_scripts == set(LAUNCHER_COMMANDS.values()),
+                    required_standard_paths.issubset(declared_paths),
                     "registered standard tools and managed-runtime launcher aliases stay in sync",
                 )
             )

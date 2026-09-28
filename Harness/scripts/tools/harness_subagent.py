@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import re
 import subprocess
@@ -18,6 +19,7 @@ sys.dont_write_bytecode = True
 from harness_common import (
     dump_json,
     find_project_root,
+    launcher_command,
     load_json,
     next_path,
     rel,
@@ -55,6 +57,9 @@ REQUIRED_FORBIDDEN_ACTIONS = {
     "change_branches",
 }
 MAX_STATUS_LINES = 80
+DEFAULT_STAGED_PATHS = 256
+MAX_STAGED_PATHS = 4096
+MAX_PATH_SAMPLE_BYTES = 262_144
 MAX_RECORD_LINES = 80
 MAX_RECORD_BYTES = 32_768
 MAX_RECORD_LINE_BYTES = 4_096
@@ -763,19 +768,24 @@ def _run_git_tokens(
     if not git:
         return {"ok": False, "exit_code": None, "sample": [], "count": 0, "omitted": 0, "token_truncated": False, "stderr": "git executable not found"}
     samples: list[str] = []
+    sample_bytes = 0
+    sample_full = False
     token_count = 0
     token_truncated = False
     token_buffer = bytearray()
     current_token_truncated = False
 
     def emit_token() -> None:
-        nonlocal token_count, current_token_truncated
+        nonlocal token_count, current_token_truncated, sample_bytes, sample_full
         if not token_buffer and not current_token_truncated:
             return
         decoded = bytes(token_buffer).decode("utf-8", errors="replace")
         token_count += 1
-        if len(samples) < sample_limit:
+        if len(samples) >= sample_limit or sample_bytes + len(token_buffer) > MAX_PATH_SAMPLE_BYTES:
+            sample_full = True
+        if not sample_full:
             samples.append(decoded)
+            sample_bytes += len(token_buffer)
         if on_token is not None:
             on_token(decoded, current_token_truncated)
         token_buffer.clear()
@@ -821,6 +831,7 @@ def _run_git_tokens(
         "ok": process.returncode == 0 and not token_truncated,
         "exit_code": int(process.returncode) if process.returncode is not None else None,
         "sample": safe_samples,
+        "sample_bytes": sample_bytes,
         "count": token_count,
         "omitted": max(0, token_count - len(samples)),
         "token_truncated": token_truncated,
@@ -891,11 +902,13 @@ def _collect_status(root: Path) -> dict:
     }
 
 
-def collect_git_evidence(root: Path, *, include_staged_patch: bool = False, max_patch_chars: int = DEFAULT_PATCH_CHARS) -> dict:
+def collect_git_evidence(root: Path, *, include_staged_patch: bool = False, max_patch_chars: int = DEFAULT_PATCH_CHARS, max_staged_paths: int = DEFAULT_STAGED_PATHS) -> dict:
     if isinstance(max_patch_chars, bool) or not isinstance(max_patch_chars, int):
         raise ValueError("max_patch_chars must be an integer")
     if not 1024 <= max_patch_chars <= MAX_PATCH_CHARS:
         raise ValueError(f"max_patch_chars must be between 1024 and {MAX_PATCH_CHARS}")
+    if isinstance(max_staged_paths, bool) or not isinstance(max_staged_paths, int) or not 1 <= max_staged_paths <= MAX_STAGED_PATHS:
+        raise ValueError(f"max_staged_paths must be an integer between 1 and {MAX_STAGED_PATHS}")
     top = _run_git_prefix(root, ["rev-parse", "--show-toplevel"], max_bytes=4096)
     if not top["ok"]:
         return {"available": False, "error": top["stderr"] or top["stdout"], "root_matches": False}
@@ -926,6 +939,7 @@ def collect_git_evidence(root: Path, *, include_staged_patch: bool = False, max_
     staged_paths = _run_git_tokens(
         root,
         ["diff", "--cached", "--name-only", "-z", "--no-ext-diff", "--no-textconv"],
+        sample_limit=max_staged_paths,
     )
     unstaged_paths = _run_git_tokens(
         root,
@@ -1078,6 +1092,9 @@ def collect_git_evidence(root: Path, *, include_staged_patch: bool = False, max_
             "paths": staged_paths["sample"],
             "path_count": staged_paths["count"],
             "paths_omitted": staged_paths["omitted"],
+            "path_limit": max_staged_paths,
+            "path_bytes": staged_paths.get("sample_bytes", 0),
+            "path_byte_limit": MAX_PATH_SAMPLE_BYTES,
             "path_listing_complete": staged_paths["ok"] and staged_paths["omitted"] == 0,
             "stat": staged_stat_text,
             "diff_check_ok": staged_check["exit_code"] == 0,
@@ -1210,7 +1227,7 @@ def _current_status_evidence(root: Path, request: str, task: str, verification: 
         },
         "recheck_route": {
             "owner": "primary_agent",
-            "command": "Harness/harness.cmd subagent --role current-status --request <same-request> [--task <task-id>] --json",
+            "command": launcher_command('subagent --role current-status --request "<same-request>" [--task <task-id>] --json'),
             "policy": "Request a fresh bounded packet; this advisory role must not bypass it with raw Git or memory commands.",
         },
     }
@@ -1224,13 +1241,19 @@ def _commit_evidence(
     verification: list[str],
     include_staged_patch: bool,
     max_patch_chars: int,
+    max_staged_paths: int,
+    expected_snapshot: str,
 ) -> tuple[dict, list[str]]:
-    git = collect_git_evidence(root, include_staged_patch=include_staged_patch, max_patch_chars=max_patch_chars)
+    git = collect_git_evidence(root, include_staged_patch=include_staged_patch, max_patch_chars=max_patch_chars, max_staged_paths=max_staged_paths)
+    snapshot_id = hashlib.sha256(json.dumps(git.get("snapshot_components", {}), sort_keys=True).encode("utf-8")).hexdigest() if git.get("snapshot_consistent") else ""
+    git["snapshot_id"] = snapshot_id
     warnings: list[str] = []
     blockers: list[str] = []
     if not git.get("available"):
         blockers.append(git.get("error", "git evidence unavailable"))
     else:
+        if expected_snapshot and expected_snapshot != snapshot_id:
+            blockers.append("snapshot differs from --expected-snapshot; restart review from a fresh packet")
         if not git.get("commands_ok"):
             blockers.append("git evidence commands failed: " + ", ".join(git.get("command_errors", [])))
         if not git.get("snapshot_consistent"):
@@ -1241,7 +1264,7 @@ def _commit_evidence(
         if not staged.get("has_changes"):
             blockers.append("no staged changes; unstaged and untracked work is excluded from commit scope")
         if staged.get("has_changes") and not staged.get("path_listing_complete"):
-            blockers.append("staged path scope exceeds the bounded evidence sample")
+            blockers.append("staged path scope exceeds the bounded evidence sample; retry with --max-staged-paths (up to 4096) and --expected-snapshot, or split the commit if its path count/256 KiB byte bound is exceeded")
         if staged.get("has_changes") and not staged.get("diff_check_ok"):
             blockers.append("git diff --cached --check failed")
         if git.get("unstaged", {}).get("has_changes") or git.get("untracked", {}).get("count", 0):
@@ -1273,7 +1296,7 @@ def _commit_evidence(
         "verification_note": "Only explicit verification above may be described as current-diff evidence.",
         "recheck_route": {
             "owner": "primary_agent",
-            "command": "Harness/harness.cmd subagent --role commit-explainer --request <same-request> [--task <task-id>] --include-staged-patch --json",
+            "command": launcher_command('subagent --role commit-explainer --request "<same-request>" [--task <task-id>] --include-staged-patch --json'),
             "policy": "Request a fresh bounded packet; this advisory role must not bypass it with raw Git, diff, text-conversion, or memory commands.",
         },
     }
@@ -1308,6 +1331,8 @@ def build_packet(
     verification: list[str] | None = None,
     include_staged_patch: bool = False,
     max_patch_chars: int = DEFAULT_PATCH_CHARS,
+    max_staged_paths: int = DEFAULT_STAGED_PATHS,
+    expected_snapshot: str = "",
 ) -> dict:
     validate_task_id(task)
     registry = validate_registry(root)
@@ -1364,6 +1389,8 @@ def build_packet(
             supplied_verification,
             include_staged_patch,
             max_patch_chars,
+            max_staged_paths,
+            expected_snapshot,
         )
     else:
         return {
@@ -1471,10 +1498,16 @@ def main() -> None:
         help=f"Maximum included staged patch characters ({1024}-{MAX_PATCH_CHARS}).",
     )
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    parser.add_argument("--max-staged-paths", type=int, default=DEFAULT_STAGED_PATHS, help="Complete commit-scope path bound, separate from status/patch limits (1-4096).")
+    parser.add_argument("--expected-snapshot", default="", help="Require the snapshot_id from an earlier commit packet when increasing evidence bounds.")
     args = parser.parse_args()
 
     if not 1024 <= args.max_patch_chars <= MAX_PATCH_CHARS:
         parser.error(f"--max-patch-chars must be between 1024 and {MAX_PATCH_CHARS}")
+    if not 1 <= args.max_staged_paths <= MAX_STAGED_PATHS:
+        parser.error(f"--max-staged-paths must be between 1 and {MAX_STAGED_PATHS}")
+    if args.expected_snapshot and not re.fullmatch(r"[0-9a-f]{64}", args.expected_snapshot):
+        parser.error("--expected-snapshot must be a lowercase SHA-256 snapshot_id")
 
     root = find_project_root(args.root)
     if args.list:
@@ -1490,6 +1523,8 @@ def main() -> None:
                 verification=args.verification,
                 include_staged_patch=args.include_staged_patch,
                 max_patch_chars=args.max_patch_chars,
+                max_staged_paths=args.max_staged_paths,
+                expected_snapshot=args.expected_snapshot,
             )
         except ValueError as exc:
             parser.error(str(exc))

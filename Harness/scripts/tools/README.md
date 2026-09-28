@@ -81,6 +81,8 @@ Other tools in this folder are supporting diagnostics, migration helpers, option
 - `harness_field_check.py`: checks field-proven operating risks, suspicious doc text artifacts, nested Harness review copies, Unreal Python wrapper hints, and optional branch-ref alignment.
 - `harness_handoff.py`: creates a minimal handoff brief for another worker or session.
 - `harness_subagent.py`: validates provider-neutral helper roles and prints bounded current-status or staged-commit evidence packets; it never spawns an agent or writes files.
+
+  Commit scope defaults to 256 paths independently of status and patch limits. Increase it with `--max-staged-paths` up to 4096 and bind a retry to the previous `git.snapshot_id` using `--expected-snapshot`.
 - `harness_local_gate.py`: runs the no-CI local finish gate: tool tests, read-only Harness Python cache inventory, `harness_verify_all.py --skip-tool-tests`, optional strict release check, conflict/untracked reporting, and separate staged/unstaged diff checks and stats. Cache removal requires `--cleanup-caches`.
 - `harness_local_gate.py` includes the read-only memory review step, so projects without server CI still see commit/push memory candidates before diff checks.
 - `harness_verify_all.py`: runs lightweight standard checks before finishing work; real project mode requires complete build configuration.
@@ -186,6 +188,8 @@ Examples:
 & Harness\harness.ps1 unreal-script --script Harness/scripts/unreal/verify_project.py
 & Harness\harness.ps1 tool-usage
 ```
+
+For a deliberately retained manual merge, add `--resolutions <review.json>` to receipt acceptance. The JSON object maps each reviewed path to `local_sha256`, `upstream_sha256`, and `reason`; obtain both hashes from a fresh update plan. Receipt acceptance rejects stale acknowledgements and changes made during verification. Standard launcher checks preserve existing registered custom tools; new project tools should use `Harness/scripts/project/`.
 
 If `python` resolves to the Microsoft Store alias on Windows, use the real Python 3 executable, set `HARNESS_PYTHON`, or run `& Harness\harness.ps1 bootstrap` to create an isolated managed runtime. The bootstrap is a native-launcher command, so it works without Python; it is explicit, checksum-verifies its pinned uv 0.12.18 installer, disables Python Install Manager automatic installation during normal command probes, and never modifies PATH or the Windows Python registry. Use `bootstrap --status` for a network-free check. Closed networks must provide uv 0.12.18 through `HARNESS_UV` plus an environment-based Python mirror or preseeded `UV_CACHE_DIR` / `HARNESS_UV_CACHE_DIR`.
 

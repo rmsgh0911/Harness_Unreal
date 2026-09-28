@@ -3,10 +3,25 @@
 from _harness_test_base import *  # noqa: F401,F403
 
 from harness_template_manifest import build_manifest, build_report as build_manifest_report
-from harness_template_manifest import classify_owner, discover_release_files, release_files_from_manifest, write_manifest
+from harness_template_manifest import classify_owner, discover_release_files, release_bytes, release_files_from_manifest, write_manifest
 
 
 class TemplateManifestTests(HarnessBaseTestCase):
+    def test_release_hashes_survive_checkout_newlines_but_detect_content_changes(self) -> None:
+        script = self.root / "Harness/harness.ps1"
+        script.write_bytes(b"Write-Output 'ready'\n")
+        write_manifest(self.root)
+        script.write_bytes(b"Write-Output 'ready'\r\n")
+        self.assertTrue(build_manifest_report(self.root)["ok"])
+        script.write_bytes(b"Write-Output 'different'\r\n")
+        self.assertFalse(build_manifest_report(self.root)["ok"])
+
+    def test_release_bytes_preserve_unknown_and_binary_data(self) -> None:
+        for name, content in [("blob.bin", b"a\r\nb"), ("invalid.txt", b"\xff\r\n"), ("nul.txt", b"a\x00\r\n")]:
+            path = self.root / name
+            path.write_bytes(content)
+            self.assertEqual(content, release_bytes(path))
+
     def _seed_extensions(self) -> None:
         (self.root / "Harness/template").mkdir(parents=True, exist_ok=True)
         (self.root / "Harness/config/project.json").write_text("{}\n", encoding="utf-8")
