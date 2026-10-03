@@ -16,3 +16,10 @@ CREATE TABLE IF NOT EXISTS memory_entry (
 
 CREATE INDEX IF NOT EXISTS idx_memory_entry_status ON memory_entry(status);
 CREATE INDEX IF NOT EXISTS idx_memory_entry_created_at ON memory_entry(created_at);
+
+-- Cache schema version 3; metadata stores schema_version and memory_fingerprint.
+CREATE TABLE IF NOT EXISTS memory_token (
+  token TEXT NOT NULL,
+  entry_id TEXT NOT NULL,
+  PRIMARY KEY (token, entry_id)
+);

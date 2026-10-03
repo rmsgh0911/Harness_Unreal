@@ -8,6 +8,29 @@ from harness_artifact_check import build_report as build_artifact_report
 
 
 class ArtifactCheckTests(HarnessBaseTestCase):
+    def test_non_string_provenance_is_not_coerced_into_verified_metadata(self):
+        entry = self.valid_entry()
+        for field in ("generator", "generator_revision", "input_revision", "artifact_revision", "scope", "verify_command", "id"):
+            for value in (None, True, [], {}):
+                with self.subTest(field=field, value=value):
+                    bad = {**entry, field: value}
+                    if field == "input_revision":
+                        bad["artifact_revision"] = value
+                    self.write_registry([bad])
+                    self.assertFalse(build_artifact_report(self.root)["ok"])
+
+    def test_linked_artifact_cannot_alias_other_project_content(self):
+        entry = self.valid_entry()
+        output = self.root / entry["output"]
+        output.unlink()
+        try:
+            output.symlink_to(self.root / entry["source_paths"][0])
+        except OSError:
+            self.skipTest("symlink permission unavailable")
+        entry["output_sha256"] = hashlib.sha256(output.read_bytes()).hexdigest()
+        self.write_registry([entry])
+        self.assertFalse(build_artifact_report(self.root)["ok"])
+
     def write_registry(self, artifacts: list[dict]) -> None:
         (self.root / "Harness/config/generated_artifacts.json").write_text(
             json.dumps({"schema_version": 1, "artifacts": artifacts}),

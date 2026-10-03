@@ -4,6 +4,35 @@ from _harness_test_base import *  # noqa: F401,F403
 
 
 class ArchiveTests(HarnessBaseTestCase):
+    def test_archive_before_preserves_task_associated_cycles_and_invalid_dates(self):
+        cycles = self.root / "Harness/work/cycles"
+        tasks = self.root / "Harness/work/tasks"
+        cycles.mkdir()
+        tasks.mkdir()
+        for name in ("2026-01-01-feature", "2026-01-02-finished"):
+            (cycles / (name + ".md")).write_text("# Cycle", encoding="utf-8")
+            (tasks / (name + ".md")).write_text("- Status: active", encoding="utf-8")
+        (cycles / "2026-02-31.md").write_text("invalid date", encoding="utf-8")
+        (cycles / "2026-02-01.md").write_text("# Daily cycle", encoding="utf-8")
+        plan = build_archive_before_plan(self.root, "2026-03")
+        self.assertTrue(plan["ready"])
+        self.assertEqual(["Harness/work/cycles/2026-02-01.md"], [item["path"] for item in plan["sources"]])
+
+    def test_archive_before_rejects_original_link_before_path_serialization(self):
+        cycles = self.root / "Harness/work/cycles"
+        cycles.mkdir()
+        source = self.root / "HARNESS.md"
+        before = source.read_bytes()
+        try:
+            (cycles / "2026-01-01.md").symlink_to(source)
+        except OSError:
+            self.skipTest("symlink permission unavailable")
+        plan = build_archive_before_plan(self.root, "2026-03")
+        self.assertFalse(plan["ready"])
+        with self.assertRaises(ValueError):
+            apply_archive(self.root, plan)
+        self.assertEqual(before, source.read_bytes())
+
     def test_archive_before_moves_only_old_date_cycles_by_their_own_month(self) -> None:
         cycles = self.root / "Harness/work/cycles"
         cycles.mkdir()

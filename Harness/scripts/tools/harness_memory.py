@@ -3,21 +3,25 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import re
 import sqlite3
 import sys
+import tempfile
 import uuid
 from datetime import datetime, timedelta
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 sys.dont_write_bytecode = True
 
-from harness_common import dump_json, find_project_root, harness_dir, rel
+from harness_common import dump_json, find_project_root, harness_dir, normalize_search_token, rel
 
 
-SCHEMA_VERSION = "1"
+SCHEMA_VERSION = "3"
 DATA_RELATIVE = Path("Harness") / "data"
 MEMORY_RELATIVE = DATA_RELATIVE / "memory"
 DB_RELATIVE = DATA_RELATIVE / "harness.sqlite"
@@ -43,6 +47,11 @@ CREATE TABLE IF NOT EXISTS memory_entry (
 
 CREATE INDEX IF NOT EXISTS idx_memory_entry_status ON memory_entry(status);
 CREATE INDEX IF NOT EXISTS idx_memory_entry_created_at ON memory_entry(created_at);
+CREATE TABLE IF NOT EXISTS memory_token (
+  token TEXT NOT NULL,
+  entry_id TEXT NOT NULL,
+  PRIMARY KEY (token, entry_id)
+);
 """
 
 
@@ -83,7 +92,7 @@ def _tags_text(tags: str | list[str]) -> str:
 
 
 def _tokens(text: str) -> list[str]:
-    return [match.group(0).casefold() for match in TOKEN_PATTERN.finditer(text)]
+    return [normalize_search_token(match.group(0)) for match in TOKEN_PATTERN.finditer(text)]
 
 
 def _parse_iso(value: str) -> datetime:
@@ -91,44 +100,91 @@ def _parse_iso(value: str) -> datetime:
 
 
 def ensure_layout(root: Path) -> None:
+    for path in (data_dir(root), memory_dir(root), db_path(root)):
+        require_local_path(root, path)
     memory_dir(root).mkdir(parents=True, exist_ok=True)
     gitkeep = memory_dir(root) / ".gitkeep"
     if not gitkeep.exists():
         gitkeep.write_text("", encoding="utf-8")
 
 
-def connect(root: Path) -> sqlite3.Connection:
+def connect(root: Path, *, readonly: bool = False) -> sqlite3.Connection:
     path = db_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(path)
+    require_local_path(root, path)
+    if readonly:
+        connection = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        connection = sqlite3.connect(path)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA busy_timeout = 3000")
     return connection
 
 
 def initialize_database(root: Path) -> dict:
+    return rebuild_cache(root)
+
+
+@contextmanager
+def write_lock(root: Path):
     ensure_layout(root)
-    schema_file = schema_path(root)
-    schema = schema_file.read_text(encoding="utf-8") if schema_file.exists() else DEFAULT_SCHEMA
-    connection = connect(root)
+    path = data_dir(root) / ".memory.lock"
     try:
-        connection.executescript(schema)
-        connection.execute(
-            "INSERT OR REPLACE INTO metadata(key, value) VALUES (?, ?)",
-            ("schema_version", SCHEMA_VERSION),
-        )
-        connection.commit()
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError as exc:
+        raise ValueError("memory writer lock exists; wait for the writer or review a stale .memory.lock before removing it") from exc
+    os.close(descriptor)
+    try:
+        yield
     finally:
-        connection.close()
-    return {"ok": True, "database": rel(db_path(root), root), "memory_dir": rel(memory_dir(root), root)}
+        path.unlink()
+
+
+def atomic_bytes(path: Path, data: bytes) -> None:
+    descriptor, name = tempfile.mkstemp(prefix=".memory-", suffix=".tmp", dir=path.parent)
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+def commit_sources(root: Path, changes: dict[Path, bytes]) -> dict:
+    originals = {path: path.read_bytes() if path.exists() else None for path in changes}
+    promoted = []
+    try:
+        for path, data in changes.items():
+            atomic_bytes(path, data)
+            promoted.append(path)
+        rebuilt = _rebuild_cache(root)
+        if not rebuilt["ok"]:
+            raise ValueError("memory rebuild rejected changed sources")
+        return rebuilt
+    except Exception:
+        for path in reversed(promoted):
+            if originals[path] is None:
+                path.unlink()
+            else:
+                atomic_bytes(path, originals[path])
+        raise
 
 
 def validate_entry(raw: dict[str, Any], shard_path: str = "") -> dict[str, Any]:
+    if not isinstance(raw, dict):
+        raise ValueError("memory entry must be an object")
+    for field in ("id", "created_at", "title", "body"):
+        if not isinstance(raw.get(field), str):
+            raise ValueError(f"memory entry {field} must be a string")
     entry_id = str(raw.get("id", "")).strip()
     if not entry_id:
         raise ValueError("memory entry missing id")
     try:
-        uuid.UUID(entry_id)
+        entry_id = str(uuid.UUID(entry_id))
     except ValueError as exc:
         raise ValueError(f"invalid memory entry id: {entry_id}") from exc
 
@@ -136,7 +192,9 @@ def validate_entry(raw: dict[str, Any], shard_path: str = "") -> dict[str, Any]:
     if not created_at:
         raise ValueError(f"memory entry {entry_id} missing created_at")
     try:
-        datetime.fromisoformat(created_at)
+        timestamp = datetime.fromisoformat(created_at)
+        if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+            raise ValueError("timezone required")
     except ValueError as exc:
         raise ValueError(f"memory entry {entry_id} has invalid created_at") from exc
 
@@ -148,6 +206,10 @@ def validate_entry(raw: dict[str, Any], shard_path: str = "") -> dict[str, Any]:
     body = str(raw.get("body", "")).strip()
     if not title or not body:
         raise ValueError(f"memory entry {entry_id} requires title and body")
+    if not isinstance(raw.get("tags", []), (list, str)) or (isinstance(raw.get("tags"), list) and any(not isinstance(tag, str) for tag in raw["tags"])):
+        raise ValueError(f"memory entry {entry_id} tags must be strings")
+    if not isinstance(raw.get("source", ""), str):
+        raise ValueError(f"memory entry {entry_id} source must be a string")
 
     return {
         "id": entry_id,
@@ -176,17 +238,64 @@ def entry_to_json(entry: dict[str, Any]) -> str:
 
 def iter_shards(root: Path) -> list[Path]:
     base = memory_dir(root)
+    require_local_path(root, base)
     if not base.exists():
         return []
-    return sorted(path for path in base.glob("*.jsonl") if path.is_file())
+    paths = sorted(path for path in base.glob("*.jsonl") if path.is_file())
+    for path in paths:
+        require_local_path(root, path)
+    return paths
+
+
+def require_local_path(root: Path, path: Path) -> None:
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError as exc:
+        raise ValueError(f"memory path escapes project root: {path}") from exc
+
+
+def source_fingerprint(root: Path) -> str:
+    """Bind a cache to exact shard names and bytes, including deletions."""
+    digest = hashlib.sha256()
+    for path in iter_shards(root):
+        digest.update(path.name.encode("utf-8") + b"\0")
+        digest.update(hashlib.sha256(path.read_bytes()).digest())
+    return digest.hexdigest()
+
+
+def cache_status(root: Path) -> dict:
+    status = {"exists": db_path(root).exists(), "path": rel(db_path(root), root), "status": "absent", "stale": False}
+    if not status["exists"]:
+        return status
+    try:
+        connection = connect(root, readonly=True)
+        try:
+            metadata = dict(connection.execute("SELECT key, value FROM metadata"))
+        finally:
+            connection.close()
+        fingerprint = source_fingerprint(root)
+        current = metadata.get("schema_version") == SCHEMA_VERSION and metadata.get("memory_fingerprint") == fingerprint
+        status.update(status="current" if current else "stale", stale=not current, fingerprint=fingerprint)
+    except (OSError, ValueError, sqlite3.Error):
+        status.update(status="unavailable", stale=True)
+    return status
 
 
 def load_jsonl_entries(root: Path) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
     entries: list[dict[str, Any]] = []
     errors: list[dict[str, str]] = []
     seen_ids: dict[str, str] = {}
-    for shard in iter_shards(root):
-        for line_number, line in enumerate(shard.read_text(encoding="utf-8-sig").splitlines(), start=1):
+    try:
+        shards = iter_shards(root)
+    except (OSError, ValueError) as exc:
+        return [], [{"path": str(MEMORY_RELATIVE), "error": str(exc)}]
+    for shard in shards:
+        try:
+            lines = shard.read_text(encoding="utf-8-sig").splitlines()
+        except (OSError, UnicodeError) as exc:
+            errors.append({"path": rel(shard, root), "error": f"cannot read UTF-8 memory shard: {exc}"})
+            continue
+        for line_number, line in enumerate(lines, start=1):
             stripped = line.strip()
             if not stripped:
                 continue
@@ -209,10 +318,25 @@ def load_jsonl_entries(root: Path) -> tuple[list[dict[str, Any]], list[dict[str,
     return entries, errors
 
 
-def upsert_entries(root: Path, entries: list[dict[str, Any]], replace: bool = False) -> None:
-    initialize_database(root)
-    connection = connect(root)
+def upsert_entries(root: Path, entries: list[dict[str, Any]], replace: bool = False, fingerprint: str = "") -> None:
+    descriptor, name = tempfile.mkstemp(prefix=".memory-cache-", suffix=".sqlite", dir=data_dir(root))
+    os.close(descriptor)
+    temporary = Path(name)
+    connection = sqlite3.connect(temporary)
     try:
+        if db_path(root).exists():
+            original = None
+            try:
+                original = connect(root, readonly=True)
+                original.backup(connection)
+            except sqlite3.Error:
+                pass  # Explicit rebuild may replace a damaged derived cache.
+            finally:
+                if original is not None:
+                    original.close()
+        # These are owned derived tables: repair incompatible old schemas too.
+        connection.executescript("DROP TABLE IF EXISTS memory_token; DROP TABLE IF EXISTS memory_entry; DROP TABLE IF EXISTS metadata;")
+        connection.executescript(DEFAULT_SCHEMA)
         if replace:
             connection.execute("DELETE FROM memory_entry")
         connection.executemany(
@@ -235,22 +359,42 @@ def upsert_entries(root: Path, entries: list[dict[str, Any]], replace: bool = Fa
                 for entry in entries
             ],
         )
+        connection.execute("INSERT OR REPLACE INTO metadata(key, value) VALUES (?, ?)", ("memory_fingerprint", fingerprint))
+        connection.execute("INSERT OR REPLACE INTO metadata(key, value) VALUES (?, ?)", ("schema_version", SCHEMA_VERSION))
+        connection.executemany("INSERT INTO memory_token(token, entry_id) VALUES (?, ?)",
+                               [(token, entry["id"]) for entry in entries for token in set(_tokens(
+                                   " ".join((entry["title"], entry["body"], " ".join(entry["tags"]), entry["source"]))))])
         connection.commit()
+        connection.close()
+        os.replace(temporary, db_path(root))
     finally:
         connection.close()
+        if temporary.exists():
+            temporary.unlink()
 
 
 def rebuild_cache(root: Path) -> dict:
+    with write_lock(root):
+        return _rebuild_cache(root)
+
+
+def _rebuild_cache(root: Path) -> dict:
+    before = source_fingerprint(root)
     entries, errors = load_jsonl_entries(root)
     if errors:
         return {"ok": False, "database": rel(db_path(root), root), "indexed": 0, "errors": errors}
-    upsert_entries(root, entries, replace=True)
+    if source_fingerprint(root) != before:
+        return {"ok": False, "indexed": 0, "errors": [{"error": "memory changed during rebuild; retry from a stable snapshot"}]}
+    upsert_entries(root, entries, replace=True, fingerprint=before)
     return {"ok": True, "database": rel(db_path(root), root), "indexed": len(entries), "errors": []}
 
 
 def validate_memory(root: Path) -> dict:
     entries, errors = load_jsonl_entries(root)
-    shards = [rel(path, root) for path in iter_shards(root)]
+    try:
+        shards = [rel(path, root) for path in iter_shards(root)]
+    except (OSError, ValueError):
+        shards = []  # load_jsonl_entries already carries the actionable error.
     return {
         "ok": not errors,
         "entries": len(entries),
@@ -275,8 +419,16 @@ def _load_shard_json(path: Path) -> tuple[list[dict[str, Any]], list[dict[str, s
 
 
 def update_status(root: Path, entry_id: str, status: str) -> dict:
+    with write_lock(root):
+        return _update_status(root, str(uuid.UUID(entry_id)), status)
+
+
+def _update_status(root: Path, entry_id: str, status: str) -> dict:
     if status not in VALID_STATUSES:
         raise ValueError(f"invalid status: {status}")
+    validation = validate_memory(root)
+    if not validation["ok"]:
+        return {"ok": False, "updated": False, "errors": validation["errors"]}
     matches: list[tuple[Path, int, dict[str, Any], list[dict[str, Any]]]] = []
     errors: list[dict[str, str]] = []
     for shard in iter_shards(root):
@@ -284,7 +436,7 @@ def update_status(root: Path, entry_id: str, status: str) -> dict:
         errors.extend(shard_errors)
         for index, row in enumerate(rows):
             raw = row.get("raw")
-            if isinstance(raw, dict) and raw.get("id") == entry_id:
+            if isinstance(raw, dict) and str(uuid.UUID(raw["id"])) == entry_id:
                 matches.append((shard, index, raw, rows))
     if errors:
         return {"ok": False, "updated": False, "errors": errors}
@@ -297,8 +449,8 @@ def update_status(root: Path, entry_id: str, status: str) -> dict:
     before = raw.get("status", "")
     raw["status"] = status
     rows[index]["text"] = json.dumps(raw, ensure_ascii=False, separators=(",", ":"))
-    shard.write_text("\n".join(row["text"] for row in rows if row["text"] is not None) + "\n", encoding="utf-8")
-    rebuild = rebuild_cache(root)
+    data = ("\n".join(row["text"] for row in rows if row["text"] is not None) + "\n").encode("utf-8")
+    rebuild = commit_sources(root, {shard: data})
     return {
         "ok": rebuild["ok"],
         "updated": True,
@@ -315,7 +467,7 @@ def memory_doctor(root: Path, draft_days: int = 30, max_body_chars: int = 600) -
     entries, errors = load_jsonl_entries(root)
     now = datetime.now().astimezone()
     findings: list[dict[str, Any]] = []
-    title_body_seen: dict[tuple[str, str], str] = {}
+    content_groups: dict[tuple[str, str], list[dict]] = {}
 
     for entry in entries:
         if len(entry["body"]) > max_body_chars:
@@ -331,35 +483,35 @@ def memory_doctor(root: Path, draft_days: int = 30, max_body_chars: int = 600) -
         if source and not re.match(r"^[a-z]+://", source) and not (root / source).exists():
             findings.append({"kind": "missing_source", "id": entry["id"], "title": entry["title"], "source": source})
         key = (entry["title"].casefold(), entry["body"].casefold())
-        prior = title_body_seen.get(key)
-        if prior:
-            findings.append({"kind": "duplicate_content", "id": entry["id"], "title": entry["title"], "first_id": prior})
-        else:
-            title_body_seen[key] = entry["id"]
+        content_groups.setdefault(key, []).append(entry)
 
-    db = db_path(root)
-    shards = iter_shards(root)
-    stale_cache = False
-    if db.exists() and shards:
-        db_mtime = db.stat().st_mtime
-        stale_cache = any(path.stat().st_mtime > db_mtime for path in shards)
-        if stale_cache:
-            findings.append({"kind": "stale_cache", "database": rel(db, root), "message": "run --rebuild"})
+    for group in content_groups.values():
+        retained = max(group, key=lambda entry: (entry["status"] == "confirmed", _parse_iso(entry["created_at"]), entry["id"]))
+        for entry in group:
+            if entry["id"] != retained["id"]:
+                findings.append({"kind": "duplicate_content", "id": entry["id"], "title": entry["title"], "first_id": retained["id"]})
+
+    cache = cache_status(root)
+    if cache["stale"]:
+        findings.append({"kind": "stale_cache", "database": cache["path"], "message": "cache is stale or unavailable; query falls back to JSONL; run --rebuild"})
 
     return {
         "ok": not errors and not findings,
         "entries": len(entries),
         "errors": errors,
         "findings": findings,
-        "cache": {
-            "exists": db.exists(),
-            "path": rel(db, root),
-            "stale": stale_cache,
-        },
+        "cache": cache,
     }
 
 
 def prune_memory(root: Path, args: argparse.Namespace) -> dict:
+    if args.write:
+        with write_lock(root):
+            return _prune_memory(root, args)
+    return _prune_memory(root, args)
+
+
+def _prune_memory(root: Path, args: argparse.Namespace) -> dict:
     report = memory_doctor(root, draft_days=args.prune_draft_days, max_body_chars=args.prune_max_body_chars)
     removable_ids = [
         item["id"]
@@ -369,6 +521,7 @@ def prune_memory(root: Path, args: argparse.Namespace) -> dict:
     removed: list[str] = []
     if args.write and removable_ids and not report["errors"]:
         remove_set = set(removable_ids)
+        changes = {}
         for shard in iter_shards(root):
             rows, errors = _load_shard_json(shard)
             if errors:
@@ -377,15 +530,15 @@ def prune_memory(root: Path, args: argparse.Namespace) -> dict:
             changed = False
             for row in rows:
                 raw = row.get("raw")
-                if isinstance(raw, dict) and raw.get("id") in remove_set:
+                if isinstance(raw, dict) and str(uuid.UUID(raw["id"])) in remove_set:
                     removed.append(str(raw["id"]))
                     changed = True
                     continue
                 if row["text"] is not None:
                     kept_lines.append(row["text"])
             if changed:
-                shard.write_text(("\n".join(kept_lines) + "\n") if kept_lines else "", encoding="utf-8")
-        rebuild_cache(root)
+                changes[shard] = (("\n".join(kept_lines) + "\n") if kept_lines else "").encode("utf-8")
+        commit_sources(root, changes)
     return {
         "ok": not report["errors"],
         "write": args.write,
@@ -396,6 +549,11 @@ def prune_memory(root: Path, args: argparse.Namespace) -> dict:
 
 
 def add_entry(root: Path, args: argparse.Namespace) -> dict:
+    with write_lock(root):
+        return _add_entry(root, args)
+
+
+def _add_entry(root: Path, args: argparse.Namespace) -> dict:
     created_at = args.created_at or _now_iso()
     entry = validate_entry(
         {
@@ -408,30 +566,43 @@ def add_entry(root: Path, args: argparse.Namespace) -> dict:
             "source": args.source or "",
         }
     )
-    ensure_layout(root)
+    entries, errors = load_jsonl_entries(root)
+    if errors:
+        raise ValueError("invalid memory shards block additions; run --validate first")
+    if any(existing["id"] == entry["id"] for existing in entries):
+        raise ValueError(f"duplicate memory id: {entry['id']}")
     shard = memory_dir(root) / f"{_entry_date(entry['created_at'])}.jsonl"
     entry["shard_path"] = rel(shard, root)
-    with shard.open("a", encoding="utf-8", newline="\n") as handle:
-        handle.write(entry_to_json(entry) + "\n")
-    upsert_entries(root, [entry], replace=False)
-    return {"ok": True, "entry": entry, "shard": rel(shard, root), "database": rel(db_path(root), root)}
+    prior = shard.read_bytes() if shard.exists() else b""
+    if prior and not prior.endswith(b"\n"):
+        prior += b"\n"
+    rebuilt = commit_sources(root, {shard: prior + (entry_to_json(entry) + "\n").encode("utf-8")})
+    return {"ok": rebuilt["ok"], "entry": entry, "shard": rel(shard, root), "database": rel(db_path(root), root), "errors": rebuilt.get("errors", [])}
 
 
-def rows_from_cache(root: Path, include_draft: bool) -> list[dict[str, Any]]:
+def rows_from_cache(root: Path, include_draft: bool, query_tokens: list[str] | None = None, fingerprint: str = "") -> list[dict[str, Any]]:
     if not db_path(root).exists():
         return []
     statuses = ("confirmed", "draft") if include_draft else ("confirmed",)
     placeholders = ",".join("?" for _ in statuses)
-    connection = connect(root)
+    connection = connect(root, readonly=True)
     try:
+        connection.execute("BEGIN")
+        metadata = dict(connection.execute("SELECT key, value FROM metadata"))
+        if fingerprint and (metadata.get("memory_fingerprint") != fingerprint or metadata.get("schema_version") != SCHEMA_VERSION):
+            raise ValueError("memory cache changed between freshness check and read")
+        tokens = sorted(set(query_tokens or []))
+        token_filter = ""
+        if tokens:
+            token_filter = " AND id IN (SELECT entry_id FROM memory_token WHERE token IN (" + ",".join("?" for _ in tokens) + "))"
         rows = connection.execute(
             f"""
             SELECT id, created_at, status, title, body, tags, source, shard_path
             FROM memory_entry
-            WHERE status IN ({placeholders})
+            WHERE status IN ({placeholders}) {token_filter}
             ORDER BY created_at DESC
             """,
-            statuses,
+            (*statuses, *tokens),
         ).fetchall()
     finally:
         connection.close()
@@ -450,37 +621,70 @@ def rows_from_cache(root: Path, include_draft: bool) -> list[dict[str, Any]]:
     ]
 
 
-def candidate_entries(root: Path, include_draft: bool) -> tuple[list[dict[str, Any]], str, list[dict[str, str]]]:
-    rows = rows_from_cache(root, include_draft)
-    if rows:
-        return rows, "sqlite", []
-    entries, errors = load_jsonl_entries(root)
+def candidate_entries(root: Path, include_draft: bool, query_tokens: list[str] | None = None) -> tuple[list[dict[str, Any]], str, list[dict[str, str]], dict]:
+    cache = cache_status(root)
+    if cache["status"] == "current":
+        try:
+            rows = rows_from_cache(root, include_draft, query_tokens, cache["fingerprint"])
+            if source_fingerprint(root) == cache["fingerprint"] and not (data_dir(root) / ".memory.lock").exists():
+                return rows, "sqlite", [], cache
+            cache.update(status="stale", stale=True)
+        except (OSError, ValueError, sqlite3.Error):
+            cache.update(status="unavailable", stale=True)
+    try:
+        before = source_fingerprint(root)
+        entries, errors = load_jsonl_entries(root)
+        if source_fingerprint(root) != before or (data_dir(root) / ".memory.lock").exists():
+            return [], "jsonl", [{"error": "memory changed or writer lock exists; retry after writer completion or reviewed recovery"}], cache
+    except (OSError, ValueError) as exc:
+        return [], "jsonl", [{"error": str(exc)}], cache
     if not include_draft:
         entries = [entry for entry in entries if entry["status"] == "confirmed"]
-    return entries, "jsonl", errors
+    return entries, "jsonl", errors, cache
 
 
 def score_entry(entry: dict[str, Any], query_tokens: list[str]) -> int:
-    haystack = " ".join([
-        entry["title"],
-        entry["body"],
-        " ".join(entry["tags"]),
-        entry.get("source", ""),
-    ]).casefold()
-    score = 0
-    for token in query_tokens:
-        count = haystack.count(token)
-        score += count
-        if token in entry["title"].casefold():
-            score += 2
-        if token in " ".join(entry["tags"]).casefold():
-            score += 1
-    return score
+    query = set(query_tokens)
+    return sum(weight * len(query.intersection(_tokens(value))) for weight, value in (
+        (3, entry["title"]), (2, " ".join(entry["tags"])),
+        (1, entry["body"]), (1, entry.get("source", "")),
+    ))
+
+
+def result_chars(results: list[dict]) -> int:
+    """Character budget for compact JSON results, including keys and provenance."""
+    return len(json.dumps(results, ensure_ascii=False, separators=(",", ":")))
+
+
+def budget_results(ranked: list[dict], limit: int, max_chars: int) -> list[dict]:
+    results = []
+    for entry in ranked:
+        if len(results) >= limit:
+            break
+        if result_chars(results + [entry]) <= max_chars:
+            results.append(entry)
+            continue
+        shortened = dict(entry, body="", truncated=True)
+        if result_chars(results + [shortened]) > max_chars:
+            continue  # Never truncate identity, title, or provenance to force a fit.
+        low, high = 0, len(entry["body"])
+        while low < high:
+            middle = (low + high + 1) // 2
+            shortened["body"] = entry["body"][:middle]
+            if result_chars(results + [shortened]) <= max_chars:
+                low = middle
+            else:
+                high = middle - 1
+        shortened["body"] = entry["body"][:low]
+        results.append(shortened)
+    return results
 
 
 def query_memory(root: Path, args: argparse.Namespace) -> dict:
+    if args.limit < 1 or args.max_chars < 200:
+        raise ValueError("query requires limit >= 1 and max_chars >= 200")
     query_tokens = _tokens(args.query)
-    entries, source, errors = candidate_entries(root, args.include_draft)
+    entries, source, errors, cache = candidate_entries(root, args.include_draft, query_tokens)
     ranked: list[dict[str, Any]] = []
     for entry in entries:
         score = score_entry(entry, query_tokens) if query_tokens else 1
@@ -488,21 +692,21 @@ def query_memory(root: Path, args: argparse.Namespace) -> dict:
             item = dict(entry)
             item["score"] = score
             ranked.append(item)
-    ranked.sort(key=lambda item: (item["score"], item["created_at"]), reverse=True)
-    results = ranked[:args.limit]
-    total_chars = 0
-    trimmed: list[dict[str, Any]] = []
-    for entry in results:
-        text_cost = len(entry["title"]) + len(entry["body"]) + len(entry.get("source", ""))
-        if trimmed and total_chars + text_cost > args.max_chars:
-            break
-        total_chars += text_cost
-        trimmed.append(entry)
+    ranked.sort(key=lambda item: (item["score"], _parse_iso(item["created_at"]), item["id"]), reverse=True)
+    trimmed = budget_results(ranked, args.limit, args.max_chars)
     return {
         "ok": not errors,
         "source": source,
+        "cache": cache,
+        "warnings": ["memory cache is stale or unavailable; used JSONL without changing the cache"] if cache["stale"] else [],
         "query": args.query,
         "count": len(trimmed),
+        "candidate_count": len(entries),
+        "matched_count": len(ranked),
+        "omitted_count": len(ranked) - len(trimmed),
+        "result_chars": result_chars(trimmed),
+        "max_chars": args.max_chars,
+        "budget_scope": "compact JSON results only; envelope and diagnostics excluded; not a token count",
         "results": trimmed,
         "errors": errors,
     }
@@ -515,9 +719,11 @@ def format_text(report: dict) -> str:
         "Harness Memory",
         f"- Source: {report['source']}",
         f"- Results: {report['count']}",
+        f"- Result budget: {report['result_chars']}/{report['max_chars']} characters; omitted: {report['omitted_count']}",
     ]
     if report["errors"]:
         lines.append("- Errors: " + str(len(report["errors"])))
+    lines.extend(f"- Warning: {warning}" for warning in report.get("warnings", []))
     if report["results"]:
         lines.append("")
         lines.append("Relevant memory:")
@@ -525,7 +731,8 @@ def format_text(report: dict) -> str:
             tags = ",".join(item["tags"])
             suffix = f" [{tags}]" if tags else ""
             source = f" ({item['source']})" if item.get("source") else ""
-            lines.append(f"- {item['title']}{suffix}: {item['body']}{source}")
+            truncation = " [body truncated; open source]" if item.get("truncated") else ""
+            lines.append(f"- {item['title']}{suffix}: {item['body']}{source}{truncation}")
     return "\n".join(lines)
 
 
@@ -552,7 +759,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--source", default="", help="Optional source path or note for --add.")
     parser.add_argument("--include-draft", action="store_true", help="Include draft entries in --query.")
     parser.add_argument("--limit", type=int, default=5, help="Maximum query results.")
-    parser.add_argument("--max-chars", type=int, default=1600, help="Maximum approximate result characters.")
+    parser.add_argument("--max-chars", type=int, default=1600, help="Maximum compact JSON result characters including metadata (not total CLI output or tokens).")
     parser.add_argument("--prune-draft-days", type=int, default=30, help="Draft age threshold for --doctor and --prune.")
     parser.add_argument("--prune-max-body-chars", type=int, default=600, help="Body length threshold for --doctor and --prune.")
     parser.add_argument("--write", action="store_true", help="Apply --prune deletions. Other write actions are explicit by action name.")
@@ -572,24 +779,27 @@ def main() -> None:
     if args.prune_draft_days < 0:
         parser.error("--prune-draft-days must be non-negative")
 
-    if args.init:
-        report = initialize_database(root)
-    elif args.validate:
-        report = validate_memory(root)
-    elif args.rebuild:
-        report = rebuild_cache(root)
-    elif args.add:
-        report = add_entry(root, args)
-    elif args.promote:
-        report = update_status(root, args.promote, "confirmed")
-    elif args.demote:
-        report = update_status(root, args.demote, "draft")
-    elif args.doctor:
-        report = memory_doctor(root, draft_days=args.prune_draft_days, max_body_chars=args.prune_max_body_chars)
-    elif args.prune:
-        report = prune_memory(root, args)
-    else:
-        report = query_memory(root, args)
+    try:
+        if args.init:
+            report = initialize_database(root)
+        elif args.validate:
+            report = validate_memory(root)
+        elif args.rebuild:
+            report = rebuild_cache(root)
+        elif args.add:
+            report = add_entry(root, args)
+        elif args.promote:
+            report = update_status(root, args.promote, "confirmed")
+        elif args.demote:
+            report = update_status(root, args.demote, "draft")
+        elif args.doctor:
+            report = memory_doctor(root, draft_days=args.prune_draft_days, max_body_chars=args.prune_max_body_chars)
+        elif args.prune:
+            report = prune_memory(root, args)
+        else:
+            report = query_memory(root, args)
+    except (ValueError, OSError, sqlite3.Error) as exc:
+        report = {"ok": False, "errors": [{"error": str(exc)}]}
 
     if args.json:
         print(dump_json(report))

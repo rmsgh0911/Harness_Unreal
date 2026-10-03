@@ -54,7 +54,7 @@ Do not broadly scan the repository or use external reviewers, write-capable help
 ## Parallel Work Records
 
 - Create one task file per parallel branch under `Harness/work/tasks/<task-id>.md`.
-- Task files should record `Owner`, `Branch`, `Worktree`, `Started`, `Updated`, `Status`, scope, success criteria, and remaining work.
+- Task files should record `Owner`, `Branch`, `Worktree`, `Started`, `Updated`, `Status`, scope, success criteria, and remaining work. Put one non-empty `Status` and at most one `Updated` field in the leading metadata before the first subsection or code fence; body examples are not task state.
 - Prefer task-scoped cycle files under `Harness/work/cycles/<task-id>.md`.
 - Run the launcher's `cycle --task <task-id> --worker <agent>` command when recording parallel work.
 - `Harness/work/state.md` contains only the latest confirmed project facts.
@@ -80,6 +80,7 @@ Do not broadly scan the repository or use external reviewers, write-capable help
 - Stop and report when the same issue repeats twice, a build fails twice for the same reason, the diff becomes unexpectedly large, or a public API / Blueprint risk appears.
 - Keep repeated-work records machine-readable: success criteria, cycle number and budget mode (`exact_count` or `upper_bound`), verification result, remaining work, and one decision (`continue`, `stop_success`, or `stop_blocked`).
 - Separate implementation claims from acceptance evidence. For rendered UI, interaction, or live-service behavior, record the evidence kind, artifact, tested input revision, acceptance scope, and result; automation completion alone is not user acceptance.
+- Passed render/interaction/live-service cycle evidence requires an artifact, matching nonempty input/artifact revisions, scope and passed acceptance. `not_required` cannot waive these while still claiming that evidence kind; record an inapplicable check under structure/runtime with its reason instead. These labels record a claim, not automatic inspection of the artifact.
 - Preserve invalidated evidence as history and point a correction at it with `Supersedes`. Knowledge search treats invalidated or superseded sections as routing context, not current truth.
 - `stop_success` and task closeout reject invalidated evidence, nonzero or malformed evidence exit codes, and unresolved acceptance. An expected-failure test should be recorded through a test runner that checks the expected failure and itself exits successfully.
 
@@ -130,6 +131,7 @@ Recommended cycle entry:
 
 - `Harness/data/memory/*.jsonl` may store reviewed, compact memory entries as daily JSONL shards. Each entry uses a UUID so Git merges can keep both lines when branches add different memories.
 - `Harness/data/harness.sqlite` is a local search cache rebuilt from JSONL shards. It is ignored by Git and is never the source of truth.
+- Execution history stays in task/cycle/archive Markdown. Use `knowledge --history --query "<request>"` for complete history routing independent of the documentation file bound; `knowledge --rebuild-history` explicitly creates the ignored `Harness/data/history.sqlite` index. See `Harness/data/README.md` for budgets, freshness, and recovery limits.
 - Private repositories may commit reviewed daily JSONL shards even while `template_mode` is still true. Public template packages exclude real daily shards and SQLite cache files.
 - When the user asks to summarize work for commit or push, review the completed work for a durable routing hint, reusable project rule, or decision that would reduce future context loading. Add only a reviewed, compact memory entry when such a reusable item exists.
 - Use the launcher's `memory-review` command before staging when you want a read-only check of changed paths and memory shard health; it suggests candidate categories but never writes memory.
@@ -153,11 +155,11 @@ Recommended cycle entry:
 
 ## Tool Additions
 
-- Put repeatable small CLI tools under `Harness/scripts/tools/`.
+- Put new project-specific utilities under project-owned `Harness/scripts/project/` and register them in its `project_tool_manifest.json`. Reusable framework tools belong under template-owned `Harness/scripts/tools/`; preserve legacy project tools already registered there when updating.
 - Delete finished one-off Unreal scripts (captures, exports, experiments) from `Harness/scripts/unreal/` instead of accumulating them; Git history preserves them and `harness_field_check.py` warns when the folder grows past its limit.
 - Tools should be read-only by default; writes require explicit options such as `--write`, `--apply`, or `--update`.
 - Put project-specific values in `Harness/config/project.json` or command-line arguments.
-- Update `Harness/scripts/tools/tool_manifest.json` and run the smallest useful verification for changed tools.
+- Update the manifest matching the tool's ownership (`scripts/project/project_tool_manifest.json` or `scripts/tools/tool_manifest.json`) and run the smallest useful verification. Do not add project-only tools to the core registry.
 - Periodically run the launcher's `tool-usage` command to find low-reference tools; prefer consolidating or removing rarely-wired tools over adding near-duplicates.
 - Prefer adding a small check to an existing finish gate before creating a broad new workflow. Field-proven checks that catch repeated mistakes belong in `harness_field_check.py` or another read-only tool.
 

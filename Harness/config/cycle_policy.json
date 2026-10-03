@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "note": "This file is a structured helper for the cycle, recording, and tool rules in HARNESS.md. If rules change, update HARNESS.md first and keep this file aligned.",
   "mode": "primary_single_worker",
   "default_max_cycles": 1,
@@ -31,8 +31,16 @@
       "short_record",
       "continue_or_stop_decision"
     ],
-    "max_cycles_is_upper_bound": true,
-    "stop_before_max_when_success_criteria_met": true,
+    "budget_modes": {
+      "exact_count": {
+        "max_cycles_is_upper_bound": false,
+        "stop_before_max_when_success_criteria_met": false
+      },
+      "upper_bound": {
+        "max_cycles_is_upper_bound": true,
+        "stop_before_max_when_success_criteria_met": true
+      }
+    },
     "exact_count_requests_complete_requested_count": true,
     "do_not_repeat_same_attempt_without_new_evidence": true
   },
@@ -40,20 +48,18 @@
     "note": "The single-Harness model has no automatic worker switching; a human hands work to another agent at integration or handoff points.",
     "requires_human_assignment": true,
     "record_in_cycle_log": true,
-    "generate_brief_with": "python Harness/scripts/tools/harness_handoff.py --request \"<handoff summary>\"",
+    "generate_brief_windows": "& Harness\\harness.ps1 handoff --request \"<handoff summary>\"",
+    "generate_brief_posix": "sh Harness/harness.sh handoff --request \"<handoff summary>\"",
     "recommended_when": [
       "model_quota_exhausted",
       "context_too_large",
       "human_requested_switch"
     ],
     "new_agent_reads_first": [
-      "HARNESS.md",
-      "Harness/work/state.md",
-      "Harness/work/next.md",
-      "Harness/work/tasks/<task-id>.md",
-      "Harness/work/cycles/<task-id>.md",
-      "git status --short",
-      "git diff"
+      "run launcher context --request <current-request> --task <task-id> when a task exists",
+      "read only recommended sections; use AGENTS.md manual fallback if context is unavailable",
+      "refresh scoped Git evidence and distinguish staged, unstaged, untracked, unknown, and omitted paths",
+      "read active task/cycle evidence before continuing or closing; handoff tail is not complete history"
     ],
     "avoid_mid_change_when": [
       "public_api_change",
@@ -97,8 +103,11 @@
   },
   "tool_policy": {
     "agent_may_add_tools": true,
-    "default_tool_directory": "Harness/scripts/tools",
-    "manifest": "Harness/scripts/tools/tool_manifest.json",
+    "default_tool_directory": "Harness/scripts/project",
+    "manifest": "Harness/scripts/project/project_tool_manifest.json",
+    "standard_tool_directory": "Harness/scripts/tools",
+    "standard_manifest": "Harness/scripts/tools/tool_manifest.json",
+    "preserve_legacy_registered_custom_tools": true,
     "create_when": [
       "same_exploration_or_verification_will_repeat",
       "output_can_be_short_text_or_json",
@@ -115,7 +124,7 @@
       "default_execution_should_be_read_only",
       "file_writes_require_explicit_option",
       "project_specific_values_should_not_be_hardcoded",
-      "new_or_changed_tools_must_be_recorded_in_manifest",
+      "register_tools_in_the_manifest_matching_their_ownership",
       "new_or_changed_tools_need_smallest_reasonable_verification"
     ]
   },
@@ -139,7 +148,7 @@
   },
   "stop_conditions": [
     "same_issue_repeated_twice",
-    "build_failed_twice",
+    "build_failed_twice_for_the_same_reason",
     "unexpected_large_diff",
     "unsafe_public_api_or_blueprint_change",
     "human_stop_requested"

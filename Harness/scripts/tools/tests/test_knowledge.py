@@ -4,6 +4,21 @@ from _harness_test_base import *  # noqa: F401,F403
 
 
 class KnowledgeTests(HarnessBaseTestCase):
+    def test_current_correction_outranks_invalidated_more_relevant_match(self):
+        folder = self.root / "Harness/work/cycles"
+        folder.mkdir(exist_ok=True)
+        (folder / "fix.md").write_text("## Old\n- Invalidated: true\nneedle uniquealpha uniquebeta\n\n## New\n- Supersedes: #Old\nneedle\n", encoding="utf-8")
+        report = build_knowledge(self.root, query="needle uniquealpha uniquebeta", limit=1)
+        self.assertEqual("New", report["matches"][0]["section"])
+
+    def test_local_supersedes_does_not_invalidate_another_files_same_heading(self):
+        folder = self.root / "Harness/work/cycles"
+        folder.mkdir(exist_ok=True)
+        (folder / "one.md").write_text("## Old\nneedle\n\n## New\n- Supersedes: Old\nneedle\n", encoding="utf-8")
+        (folder / "two.md").write_text("## Old\nneedle\n", encoding="utf-8")
+        report = build_knowledge(self.root, query="needle")
+        self.assertEqual("current", next(item for item in report["matches"] if item["path"].endswith("two.md"))["status"])
+
     def test_invalidated_result_surfaces_replacement(self) -> None:
         cycles = self.root / "Harness/work/cycles"
         cycles.mkdir(exist_ok=True)

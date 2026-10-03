@@ -95,7 +95,7 @@ def append_entry(path: Path, entry: str) -> None:
 
 
 def entry_count(path: Path) -> int:
-    return sum(1 for line in read_text(path).splitlines() if line.startswith("## "))
+    return len(parse_cycle_file(path)["sections"])
 
 
 def validate_evidence(
@@ -117,8 +117,8 @@ def validate_evidence(
         errors.append("passed render/interaction/live_service evidence requires an artifact")
     if input_revision and artifact_revision and input_revision.strip() != artifact_revision.strip():
         errors.append("artifact revision does not match input revision")
-    if decision == "stop_success" and kinds & ARTIFACT_REQUIRED_KINDS and acceptance not in {"passed", "not_required"}:
-        errors.append("stop_success requires passed or not_required acceptance for render/interaction/live_service evidence")
+    if decision == "stop_success" and kinds & ARTIFACT_REQUIRED_KINDS and acceptance != "passed":
+        errors.append("stop_success requires passed acceptance for render/interaction/live_service evidence")
     if decision == "stop_success" and invalidated:
         errors.append("an invalidated entry cannot stop successfully")
     return errors
@@ -138,13 +138,23 @@ def validate_iteration_entry(
     acceptance: str = "",
     invalidated: bool = False,
     evidence_exit_codes: list[str] | None = None,
+    scopes: list[str] | None = None,
 ) -> list[str]:
+    errors = validate_evidence(evidence_kinds, artifacts, input_revision, artifact_revision, acceptance, decision, invalidated)
+    status = evidence_status({
+        "evidence_kinds": evidence_kinds or [], "artifacts": artifacts or [],
+        "input_revision": input_revision, "artifact_revision": artifact_revision,
+        "acceptance": acceptance, "invalidated": invalidated,
+        "evidence_exit_codes": evidence_exit_codes or [], "scopes": scopes or [],
+    })
+    if status in {"invalid_exit_code", "invalid_metadata"} or ((decision == "stop_success" or acceptance in {"passed", "not_required"}) and status in EVIDENCE_GAP_STATUSES):
+        errors.append(f"unresolved evidence status: {status}")
     if cycle_number is None:
-        return []
+        return errors
     parsed = parse_cycle_file(path) if path.exists() else {"sections": [], "iteration": {"warnings": []}}
     sections = parsed["sections"]
     numbered = [section for section in sections if section.get("cycle_number") is not None]
-    errors = [f"existing cycle log is invalid: {warning}" for warning in parsed["iteration"]["warnings"]]
+    errors.extend(f"existing cycle log is invalid: {warning}" for warning in parsed["iteration"]["warnings"])
     expected = len(sections) + 1
     if cycle_number != expected:
         errors.append(f"cycle number must be the next contiguous value: {expected}")
@@ -162,15 +172,15 @@ def validate_iteration_entry(
         errors.append("--decision is required when --max-cycles is used")
     if max_cycles is not None and cycle_number == max_cycles and decision == "continue":
         errors.append("the final budgeted cycle must use stop_success or stop_blocked")
-    errors.extend(validate_evidence(evidence_kinds, artifacts, input_revision, artifact_revision, acceptance, decision, invalidated))
-    status = evidence_status({
-        "evidence_kinds": evidence_kinds or [], "artifacts": artifacts or [],
-        "input_revision": input_revision, "artifact_revision": artifact_revision,
-        "acceptance": acceptance, "invalidated": invalidated,
-        "evidence_exit_codes": evidence_exit_codes or [],
-    })
-    if status == "invalid_exit_code" or (decision == "stop_success" and status in EVIDENCE_GAP_STATUSES):
-        errors.append(f"unresolved evidence status: {status}")
+    effective_mode = budget_mode or next(iter(recorded_budget_modes), "")
+    effective_budget = max_cycles if max_cycles is not None else next(iter(recorded_budgets), None)
+    if effective_budget is not None:
+        if cycle_number > effective_budget:
+            errors.append("cycle number exceeds the recorded budget")
+        if cycle_number == effective_budget and decision not in {"stop_success", "stop_blocked"}:
+            errors.append("the final budgeted cycle must use stop_success or stop_blocked")
+    if effective_mode == "exact_count" and effective_budget is not None and decision == "stop_success" and cycle_number != effective_budget:
+        errors.append("exact-count work cannot stop successfully before its requested budget")
     return errors
 
 
@@ -248,6 +258,7 @@ def main() -> None:
         acceptance=args.acceptance,
         invalidated=args.invalidated,
         evidence_exit_codes=args.evidence_exit_code,
+        scopes=args.scope,
     )
     if iteration_errors:
         parser.error("; ".join(iteration_errors))

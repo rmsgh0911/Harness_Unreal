@@ -9,10 +9,11 @@ import webbrowser
 from datetime import datetime
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 sys.dont_write_bytecode = True
 
-from harness_common import dump_json, find_project_root, harness_dir, rel, write_text
+from harness_common import dump_json, find_project_root, harness_dir, rel, write_text, require_owned_path
 
 
 PROGRESS_RELATIVE = Path("Harness") / "Progress.md"
@@ -290,10 +291,20 @@ def build_report(root: Path, write: bool = False) -> dict:
     output = root / OUTPUT_RELATIVE
     generated_at = datetime.now().astimezone().replace(microsecond=0).isoformat()
     html_text = render_html(PROGRESS_RELATIVE.as_posix(), generated_at)
-    if write:
-        write_text(output, html_text)
+    errors = []
+    try:
+        require_owned_path(root, source)
+        require_owned_path(root, output)
+        if not source.is_file():
+            errors.append("Progress source is missing or not a regular file")
+        if write and not errors:
+            write_text(output, html_text)
+    except (OSError, ValueError) as exc:
+        errors.append(str(exc))
     return {
-        "ok": source.exists(),
+        "ok": not errors,
+        "errors": errors,
+        "written": write and not errors,
         "source": rel(source, root),
         "output": rel(output, root),
         "write": write,
@@ -304,7 +315,7 @@ def build_report(root: Path, write: bool = False) -> dict:
 
 
 def build_server(root: Path, port: int = 0) -> tuple[ThreadingHTTPServer, str]:
-    """Create a localhost static server rooted at the Harness directory.
+    """Create a localhost viewer serving only its HTML and Progress source.
 
     Returns the running server and the URL of the Progress viewer. The caller
     owns the lifecycle: call ``serve_forever`` then ``server_close``. Binding to
@@ -312,17 +323,44 @@ def build_server(root: Path, port: int = 0) -> tuple[ThreadingHTTPServer, str]:
     lets the OS pick a free port.
     """
     serve_root = harness_dir(root)
-    handler = functools.partial(SimpleHTTPRequestHandler, directory=str(serve_root))
+    class ProgressHandler(SimpleHTTPRequestHandler):
+        def send_head(self):
+            path = unquote(urlsplit(self.path).path)
+            if path not in {"/" + VIEWER_FILENAME, "/" + PROGRESS_RELATIVE.name}:
+                self.send_error(404, "Viewer resource not found")
+                return None
+            target = serve_root / path[1:]
+            try:
+                require_owned_path(root, target)
+                if not target.is_file():
+                    raise ValueError("viewer resource missing")
+            except (OSError, ValueError):
+                self.send_error(404, "Viewer resource not found")
+                return None
+            return super().send_head()
+
+        def end_headers(self):
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            super().end_headers()
+
+    handler = functools.partial(ProgressHandler, directory=str(serve_root))
     httpd = ThreadingHTTPServer(("127.0.0.1", port), handler)
     bound_port = httpd.server_address[1]
     return httpd, f"http://127.0.0.1:{bound_port}/{VIEWER_FILENAME}"
 
 
 def serve(root: Path, port: int = 0, open_browser: bool = True) -> int:
-    """Serve Harness/ on localhost so the viewer can fetch the live Progress.md."""
+    """Serve only the viewer and live Progress.md on localhost."""
     viewer = root / OUTPUT_RELATIVE
-    if not viewer.exists():
-        print(f"Viewer missing: {rel(viewer, root)}. Run with --write first to generate it.")
+    try:
+        for path in (viewer, root / PROGRESS_RELATIVE):
+            require_owned_path(root, path)
+            if not path.is_file():
+                raise ValueError(f"Viewer/source missing: {rel(path, root)}. Check Progress.md and run --write first.")
+    except (OSError, ValueError) as exc:
+        print(str(exc))
+        return 1
     httpd, url = build_server(root, port=port)
     print(f"Serving live Harness Progress viewer at {url}")
     print("Live source: Harness/Progress.md (served over HTTP so fetch works).")
@@ -352,6 +390,7 @@ def format_text(report: dict) -> str:
     ]
     if report.get("html"):
         lines.extend(["", report["html"]])
+    lines.extend(f"- Error: {error}" for error in report.get("errors", []))
     return "\n".join(lines)
 
 
@@ -359,7 +398,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Write a thin Harness/Progress_index.html viewer for Harness/Progress.md.")
     parser.add_argument("--root", type=Path, default=None, help="Project root. Defaults to nearest Harness root.")
     parser.add_argument("--write", action="store_true", help="Write Harness/Progress_index.html.")
-    parser.add_argument("--serve", action="store_true", help="Serve Harness/ on localhost and open the live viewer so fetch works.")
+    parser.add_argument("--serve", action="store_true", help="Serve only the Progress viewer and source on localhost.")
     parser.add_argument("--port", type=int, default=0, help="Port for --serve. Default 0 auto-selects a free port.")
     parser.add_argument("--no-browser", action="store_true", help="With --serve, do not auto-open a browser.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")

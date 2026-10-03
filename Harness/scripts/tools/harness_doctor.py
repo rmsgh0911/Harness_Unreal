@@ -43,6 +43,12 @@ def markdown_section(text: str, heading: str) -> str:
 
 
 def run_doctor(root: Path) -> dict:
+    from harness_common import config_preflight
+
+    preflight = config_preflight(root)
+    if not preflight["ok"]:
+        checks = [check(False, f"{item['path']}: {item['error']}") for item in preflight["errors"]]
+        return {"root": str(root), "ok": False, "summary": {"checks": len(checks), "errors": len(checks), "warnings": 0}, "checks": checks}
     harness = harness_dir(root)
     results: list[dict] = []
 

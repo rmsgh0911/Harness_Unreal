@@ -8,6 +8,16 @@ from harness_sensitive_check import normalized_line_sha256
 
 
 class SensitiveCheckTests(HarnessBaseTestCase):
+    def test_role_instruction_files_are_in_sensitive_finish_gate(self):
+        folder = self.root / "Harness/agents"
+        folder.mkdir(parents=True, exist_ok=True)
+        secret = "ghp_" + "R" * 36
+        (folder / "custom-role.md").write_text("# Role\n" + secret, encoding="utf-8")
+        report = build_sensitive_report(self.root)
+        self.assertFalse(report["ok"])
+        self.assertTrue(any(item["path"] == "Harness/agents/custom-role.md" for item in report["findings"]))
+        self.assertNotIn(secret, json.dumps(report))
+
     def setUp(self) -> None:
         super().setUp()
         (self.root / "Harness/config/sensitive_allowlist.json").write_text(

@@ -20,6 +20,7 @@ TEXT_SUFFIXES = {".json", ".jsonl", ".md", ".toml", ".txt", ".yaml", ".yml"}
 ROOT_TEXT_FILES = ("AGENTS.md", "CLAUDE.md", "HARNESS.md", "README.md")
 HARNESS_TEXT_FILES = ("Harness/Progress.md", "Harness/template.lock.json")
 SCAN_DIRECTORIES = (
+    "Harness/agents",
     "Harness/config",
     "Harness/docs",
     "Harness/index",

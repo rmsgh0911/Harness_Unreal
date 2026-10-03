@@ -26,6 +26,7 @@ from harness_field_check import build_report as build_field_report
 from harness_project_readiness import build_report as build_project_readiness_report
 from harness_sensitive_check import build_report as build_sensitive_report
 from harness_artifact_check import build_report as build_artifact_report
+from harness_memory import validate_memory
 
 
 def required_checks_ok(*checks: dict) -> bool:
@@ -129,6 +130,11 @@ def check_build_readiness(root: Path) -> dict:
 
 
 def build_verify_all(root: Path, include_assets: bool = False, compile_python: bool = True, run_tests: bool = True) -> dict:
+    from harness_common import config_preflight
+
+    preflight = config_preflight(root)
+    if not preflight["ok"]:
+        return {"root": str(root), "ok": False, "preflight_failed": True, "summary": {"configuration": "failed", "remaining_checks": "not_run"}, "config_check": preflight}
     doctor = run_doctor(root)
     context = build_context(root)
     scan_report = scan(root, include_assets=include_assets)
@@ -140,6 +146,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
     field_check = build_field_report(root)
     sensitive_check = build_sensitive_report(root)
     artifact_check = build_artifact_report(root)
+    memory_check = validate_memory(root)
     project_readiness = build_project_readiness_report(root)
     json_check = check_json_files(root)
     compile_check = compile_python_files(root) if compile_python else {"ok": True, "checked": [], "failures": [], "skipped": True}
@@ -161,6 +168,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
         field_check,
         sensitive_check,
         artifact_check,
+        memory_check,
         project_readiness,
         json_check,
         compile_check,
@@ -203,6 +211,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
             "field_check": "ok" if field_check["ok"] else "failed",
             "sensitive_check": "ok" if sensitive_check["ok"] else "failed",
             "artifact_check": "ok" if artifact_check["ok"] else "failed",
+            "memory_check": "ok" if memory_check["ok"] else "failed",
             "project_readiness": "ok" if project_readiness["ok"] else "failed",
             "build": build_readiness["status"],
             "build_readiness": build_readiness["readiness"],
@@ -212,6 +221,7 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
         "context_warnings": context.get("warnings", []),
         "doctor": doctor["summary"],
         "json_check": json_check,
+        "memory_check": memory_check,
         "python_compile": compile_check,
         "tool_tests": tool_tests,
         "scan": {
@@ -271,6 +281,9 @@ def build_verify_all(root: Path, include_assets: bool = False, compile_python: b
 
 
 def format_text(report: dict) -> str:
+    if report.get("preflight_failed"):
+        return "Harness Verify All: configuration failed; remaining checks not run\n" + "\n".join(
+            f"- {item['path']}: {item['error']}" for item in report["config_check"]["errors"])
     lines = [
         "Harness Verify All",
         f"- Root: {report['root']}",
@@ -290,6 +303,7 @@ def format_text(report: dict) -> str:
         f"- Field check: {report['summary']['field_check']}",
         f"- Sensitive data: {report['summary']['sensitive_check']}",
         f"- Generated artifacts: {report['summary']['artifact_check']}",
+        f"- Memory source validation: {report['summary']['memory_check']}",
         f"- Project readiness: {report['summary']['project_readiness']}",
         f"- Build readiness: {report['summary']['build_readiness']}",
         f"- Build execution: {report['summary']['build_execution']}",
@@ -299,6 +313,9 @@ def format_text(report: dict) -> str:
         lines.append("")
         lines.append("Warnings:")
         lines.extend(f"- {warning}" for warning in report["context_warnings"])
+    if report["memory_check"]["errors"]:
+        lines.extend(["", "Memory errors:"])
+        lines.extend(f"- {item.get('path', '')}: {item['error']}" for item in report["memory_check"]["errors"][:5])
     if report["build_readiness"]["missing"]:
         lines.append("")
         lines.append("Build readiness missing:")

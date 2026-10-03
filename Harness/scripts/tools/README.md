@@ -79,8 +79,8 @@ Other tools in this folder are supporting diagnostics, migration helpers, option
 - `harness_cycle.py`: creates cycle log entries with durable exact/upper-bound budget mode plus optional claim, evidence, revision, artifact, scope, acceptance, invalidation, and supersession metadata; writes only with `--write`. Use `--task` and `--worker` for parallel work.
 - `harness_diff_guard.py`: checks changed files and Unreal risk signals.
 - `harness_field_check.py`: checks field-proven operating risks, suspicious doc text artifacts, nested Harness review copies, Unreal Python wrapper hints, and optional branch-ref alignment.
-- `harness_handoff.py`: creates a minimal handoff brief for another worker or session.
-- `harness_subagent.py`: validates provider-neutral helper roles and prints bounded current-status or staged-commit evidence packets; it never spawns an agent or writes files.
+- `harness_handoff.py`: creates a compact handoff with staged/unstaged/untracked groups, context warnings, and explicit omission counts. Unavailable Git is unknown, not a clean tree. `--write` accepts only project-contained, non-linked destinations and never replaces a non-handoff file.
+- `harness_subagent.py`: validates and pins provider-neutral helper contracts; prints bounded, redacted evidence with caller provenance, warnings and staged scope/content readiness. It does not search broad history, enforce a runtime sandbox, execute supplied verification, spawn an agent or write files. See `Harness/agents/README.md` for collection limits.
 
   Commit scope defaults to 256 paths independently of status and patch limits. Increase it with `--max-staged-paths` up to 4096 and bind a retry to the previous `git.snapshot_id` using `--expected-snapshot`.
 - `harness_local_gate.py`: runs the no-CI local finish gate: tool tests, read-only Harness Python cache inventory, `harness_verify_all.py --skip-tool-tests`, optional strict release check, conflict/untracked reporting, and separate staged/unstaged diff checks and stats. Cache removal requires `--cleanup-caches`.
@@ -94,7 +94,7 @@ Other tools in this folder are supporting diagnostics, migration helpers, option
 - `harness_migration_audit.py`: audits an older Harness project before migration.
 - `harness_state_check.py`: checks whether state/next/tasks/cycles are compact, stale, or mixed with completed history; findings have stable IDs and `--strict` blocks new or expired warning debt from `record_policy.json`.
 - `harness_progress_check.py`: enforces the four-section, 40-line Progress dashboard contract.
-- `harness_progress_html.py`: writes the tracked `Harness/Progress_index.html` viewer for `Harness/Progress.md`, and with `--serve` hosts `Harness/` on localhost so the viewer fetches the live file (double-click `Harness/Progress_view.cmd` for the same result).
+- `harness_progress_html.py`: writes the tracked `Harness/Progress_index.html` viewer only when `Harness/Progress.md` exists; `--serve` exposes only those two regular, non-linked files on localhost (double-click `Harness/Progress_view.cmd` for the same result). Missing viewer/source fails before starting a server.
 - `harness_python_check.py`: checks Python 3 availability and Unreal Python candidates.
 - `harness_init_plan.py`: summarizes preservation, fill, and verification work for initialization or migration.
 - `harness_docs_index.py`: indexes project doc headings to reduce reading scope.
@@ -103,7 +103,7 @@ Other tools in this folder are supporting diagnostics, migration helpers, option
 - `harness_project_readiness.py`: checks post-install or post-update project connection quality; `harness_verify_all.py` includes it.
 - `harness_cycle_summary.py`: summarizes recent cycle logs.
 - `harness_unreal_risk.py`: extracts Unreal-specific risk signals from changed files.
-- `harness_unreal_script.py`: checks Unreal Python script readiness and command; runs only with `--run`.
+- `harness_unreal_script.py`: checks Unreal Python script readiness and command; runs only with `--run`. Missing readiness or failed execution exits nonzero. Reports readiness, execution, and acceptance separately; exit zero from Unreal is process evidence, not proof of asset/UI acceptance. With `--json`, engine output goes to stderr so stdout remains machine-readable.
 - `harness_tool_usage.py`: static reference audit of the tools; flags low-reference consolidation candidates as the tool count grows.
 
 ## Field-Proven Tool Choices
@@ -112,6 +112,7 @@ Other tools in this folder are supporting diagnostics, migration helpers, option
 - Use launcher `unreal-script --script <file> --run` for scripts that import `unreal`; plain CPython is only enough for ordinary Python helpers.
 - Use launcher `iteration-status` before continuing long repeated work so cycle budgets, missing verification, and stop conditions stay visible.
 - Use launcher `knowledge --query "<request>"` after migrations or context handoffs to route into retained docs and cycle records without broad scans.
+- Use `knowledge --history --query "<request>"` for all retained execution records, optionally filtered by `--task`, `--decision`, or `--since YYYY-MM-DD`. `knowledge --rebuild-history` explicitly refreshes its disposable SQLite token index; ordinary queries remain read-only. See `Harness/data/README.md` for character budgets, cache/source guarantees, and recovery limits.
 - Use launcher `memory --query "<request>" --limit 5` for short reviewed lessons; treat results as routing hints, not final evidence.
 - Use launcher `memory-review` before staging when a task is being summarized, committed, or pushed; add memory only for reusable decisions, routing hints, or project rules.
 - Use launcher `verify` as the standard finish gate, then inspect `git diff --stat` to confirm scope.

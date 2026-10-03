@@ -439,7 +439,8 @@ class SubagentTests(HarnessBaseTestCase):
         staged = report["evidence"]["git"]["staged"]
         unstaged = report["evidence"]["git"]["unstaged"]
 
-        self.assertTrue(report["ready"], report["warnings"])
+        self.assertFalse(report["ready"])
+        self.assertTrue(report["evidence"]["scope_ready"])
         self.assertTrue(staged["has_changes"])
         self.assertTrue(unstaged["has_changes"])
         self.assertIn("tracked.txt", staged["paths"])
@@ -461,7 +462,7 @@ class SubagentTests(HarnessBaseTestCase):
         self.assertTrue(evidence["staged"]["has_changes"])
         self.assertEqual(64, len(evidence["staged"]["snapshot_sha256"]))
         self.assertEqual(
-            "matching start/end ref identity, staged-raw, and porcelain-v1 -z digests",
+            "matching start/end ref identity, full-object-ID staged-raw, and porcelain-v1 -z digests; checkout-bound",
             evidence["staged"]["snapshot_basis"],
         )
         self.assertEqual(0, evidence["staged"]["patch_bytes_read"])
@@ -505,7 +506,7 @@ class SubagentTests(HarnessBaseTestCase):
         self.assertGreater(report["evidence"]["git"]["staged"]["paths_omitted"], 0)
         self.assertTrue(any("staged path scope exceeds" in item for item in report["warnings"]))
         snapshot = report["evidence"]["git"]["snapshot_id"]
-        expanded = build_packet(self.root, "commit-explainer", max_staged_paths=512, expected_snapshot=snapshot)
+        expanded = build_packet(self.root, "commit-explainer", max_staged_paths=512, expected_snapshot=snapshot, include_staged_patch=True, max_patch_chars=262144)
         self.assertTrue(expanded["ready"], expanded["warnings"])
         self.assertTrue(expanded["evidence"]["git"]["staged"]["path_listing_complete"])
         (self.root / "staged-000.txt").write_text("changed\n", encoding="utf-8", newline="\n")
@@ -523,6 +524,7 @@ class SubagentTests(HarnessBaseTestCase):
         with patch("harness_subagent.subprocess.Popen") as popen:
             process = popen.return_value
             process.stdout = io.BytesIO((b"a" * 65_000 + b"\0") * 10)
+            process.stderr = io.BytesIO()
             process.communicate.return_value = (b"", b"")
             process.returncode = 0
             with patch("harness_subagent.resolve_git_executable", return_value="git"):
@@ -630,7 +632,7 @@ class SubagentTests(HarnessBaseTestCase):
         (self.root / "initial.txt").write_text("initial\n", encoding="utf-8")
         self.assertEqual(0, self._git("add", "initial.txt").returncode)
 
-        report = build_packet(self.root, "commit-explainer", request="prepare initial commit")
+        report = build_packet(self.root, "commit-explainer", request="prepare initial commit", include_staged_patch=True)
 
         self.assertTrue(report["ok"])
         self.assertTrue(report["ready"], report["warnings"])

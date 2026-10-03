@@ -13,6 +13,7 @@ Build a compact, evidence-backed view of the current task. Separate confirmed fa
 - Cite a path or command for every material claim. Include freshness such as HEAD, task/cycle record, or recorded verification when available.
 - Separate staged, unstaged, and untracked changes. Do not imply they are one commit scope.
 - A recorded verification is historical evidence, not proof of the current diff unless its revision or scope matches.
+- Supplied verification strings are caller-reported, not executed or snapshot-bound by the collector. Attribute them as reported; do not upgrade them to independently confirmed results. Packet `ready` only describes evidence collection, not task completion or acceptance.
 - Mark missing evidence as `unknown` or `not run`. Show conflicting evidence instead of resolving it by assumption.
 - For render, interaction, or live-service claims, require the matching artifact/revision and acceptance scope defined by Harness.
 

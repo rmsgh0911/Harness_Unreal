@@ -4,6 +4,13 @@ from _harness_test_base import *  # noqa: F401,F403
 
 
 class MemoryTests(HarnessBaseTestCase):
+    def test_memory_review_quality_findings_have_actionable_text(self):
+        from harness_memory_review import format_text
+        report = build_memory_review(self.root, changed_paths=[])
+        report["memory_doctor"]["findings"] = [{"kind": "missing_source", "title": "routing rule", "source": "missing.md"}]
+        text = format_text(report)
+        self.assertIn("missing_source: routing rule missing.md", text)
+
     def test_knowledge_does_not_match_tokens_inside_unrelated_words(self) -> None:
         docs = self.root / "Harness/docs"
         docs.mkdir(exist_ok=True)

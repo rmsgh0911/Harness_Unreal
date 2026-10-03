@@ -13,24 +13,26 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 
 from harness_archive import apply_archive, build_plan as build_archive_plan, validate_archive_month
-from harness_common import dump_json, find_project_root, read_text, rel, task_cycle_path, task_path, validate_task_id
+from harness_common import dump_json, find_project_root, read_text, rel, task_cycle_path, task_path, validate_task_id, require_owned_path, task_metadata_prefix, task_status
 from harness_cycle_summary import EVIDENCE_GAP_STATUSES, parse_cycle_file, unique_recorded
 
 
-STATUS_PATTERN = re.compile(r"^(\s*-\s*Status:\s*).+$", re.IGNORECASE | re.MULTILINE)
-UPDATED_PATTERN = re.compile(r"^(\s*-\s*Updated:\s*).+$", re.IGNORECASE | re.MULTILINE)
+STATUS_PATTERN = re.compile(r"^([ \t]*-[ \t]*Status:[ \t]*)[^\r\n]*(?=\r?$)", re.IGNORECASE | re.MULTILINE)
+UPDATED_PATTERN = re.compile(r"^([ \t]*-[ \t]*Updated:[ \t]*)[^\r\n]*(?=\r?$)", re.IGNORECASE | re.MULTILINE)
 SUCCESS_DECISION = "stop_success"
 
 
 def render_completed_task(text: str, recorded_at: datetime | None = None) -> str:
-    if len(STATUS_PATTERN.findall(text)) != 1:
-        raise ValueError("task record must contain exactly one Status field")
+    task_status(text)
+    prefix = task_metadata_prefix(text)
+    if len(UPDATED_PATTERN.findall(prefix)) > 1:
+        raise ValueError("task record must not contain duplicate Updated metadata")
     now = recorded_at or datetime.now().astimezone()
-    updated = STATUS_PATTERN.sub(r"\g<1>completed", text, count=1)
+    updated = STATUS_PATTERN.sub(r"\g<1>completed", prefix, count=1)
     timestamp = now.isoformat(timespec="minutes")
     if UPDATED_PATTERN.search(updated):
         updated = UPDATED_PATTERN.sub(rf"\g<1>{timestamp}", updated, count=1)
-    return updated
+    return updated + text[len(prefix):]
 
 
 def build_close_plan(root: Path, task: str, month: str = "") -> dict:
@@ -40,6 +42,16 @@ def build_close_plan(root: Path, task: str, month: str = "") -> dict:
     cycle_file = task_cycle_path(root, task)
     archive_month = month or datetime.now().strftime("%Y-%m")
     errors: list[str] = []
+    destination = root / "Harness" / "work" / "archive" / archive_month
+    try:
+        for path in (task_file, cycle_file, destination / "tasks" / task_file.name,
+                     destination / "cycles" / cycle_file.name, destination.parent / "index.md"):
+            require_owned_path(root, path)
+    except ValueError as exc:
+        return {"root": str(root), "task": task, "archive_month": archive_month,
+                "task_path": rel(task_file, root), "cycle_path": rel(cycle_file, root),
+                "destination": rel(destination, root), "latest_decision": "", "evidence_status": "",
+                "actions": [], "errors": [str(exc)], "ready": False}
     latest: dict = {}
     if not task_file.is_file():
         errors.append(f"task record is missing: {rel(task_file, root)}")

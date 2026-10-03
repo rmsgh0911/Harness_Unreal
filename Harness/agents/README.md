@@ -9,20 +9,26 @@ Registered roles live in `Harness/config/agents.json`. Their provider-neutral in
 Build a bounded delegation packet before spawning a role:
 
 ```powershell
-Harness\harness.cmd subagent --role current-status --request "Summarize the current task" --task <task-id>
-Harness\harness.cmd subagent --role commit-explainer --request "Prepare the requested commit explanation" --verification "Harness verify passed" --include-staged-patch
+& Harness\harness.ps1 subagent --role current-status --request "Summarize the current task" --task <task-id>
+& Harness\harness.ps1 subagent --role commit-explainer --request "Prepare the requested commit explanation" --verification "Harness verify passed" --include-staged-patch
 ```
 
-Use `./Harness/harness.sh` with the same arguments on POSIX. The command does not spawn an agent or write files; it prints the role contract and a read-only evidence packet for the runtime to pass to a subagent. If the runtime has no subagent feature, the primary agent may follow the same contract directly.
+Use `sh Harness/harness.sh` with the same arguments on POSIX. Use PowerShell for free-form Windows request text; CMD can reparse metacharacters before the batch wrapper receives them. The command does not spawn an agent or write files; it prints the role contract and a read-only evidence packet for the runtime to pass to a subagent. If the runtime has no subagent feature, the primary agent may follow the same contract directly.
 
-The commit packet omits patch text unless `--include-staged-patch` is supplied. That option includes a sensitive-value-redacted excerpt with a 65,536-character default bound; `--max-patch-chars` accepts 1,024-262,144. Treat a truncated excerpt as an explicit evidence gap.
+The commit packet omits patch text unless `--include-staged-patch` is supplied. That option includes a sensitive-value-redacted excerpt with a 65,536-character default bound; `--max-patch-chars` accepts 1,024-262,144. Missing or truncated content is `not_ready` for a semantic draft even when `scope_ready` is true. Binary markers, LFS pointers and redacted values do not establish payload behavior or intent.
 
 The staged path list defaults to 256 paths independently of the 80-line status summary. To expand an incomplete scope, use `--max-staged-paths <count>` (at most 4096) together with `--expected-snapshot <git.snapshot_id>` from the earlier packet. A changed HEAD, index, or status snapshot rejects the retry. Incomplete scope never becomes ready merely because patch text was requested.
 
 User request and verification fields are bounded and sensitive-value-redacted. If one is truncated or crosses a private-key boundary, collection fails closed and omits the remaining repository evidence instead of risking a cross-field leak.
 
+Role instructions are nonempty UTF-8, capped at 32 KiB, unlinked and pinned by SHA-256 before collection. Selected task/state/next/cycle sources are capped at 1 MiB each before excerpt selection; oversized, changing, linked or invalid UTF-8 records are incomplete evidence. Git streams have per-command time/output bounds and concurrent diagnostic draining. Helper context does not search broad history or optional memory; the primary agent may separately supply reviewed, narrowly scoped historical evidence.
+
 ## Boundaries
 
+- Read-only is a role contract, not an OS sandbox. The collector restricts its commands and bounds/redacts evidence, but it cannot remove the runtime's tool permissions or prove the helper will obey. Configure actual runtime restrictions where available and keep primary review mandatory. Repository Git filters may still run under Git's own configuration; use only trusted checkouts.
+- Packet `ok` means collection completed, not that evidence is complete, tests passed, or work is accepted. Inspect `ready`, warnings and blockers separately. Supplied verification is caller-reported and not executed or revision-bound by this command.
+- The instruction snapshot is pinned to its validated bounded bytes. Git consistency compares start/end identities, not an atomic checkout lock: unstaged and untracked contents are not hashed, and a change followed by restoration may be undetected. Pause writers and refresh the packet before relying on it.
+- Redaction is a best-effort pattern filter, not a guarantee that all secrets or prompt injections are removed. Do not supply credentials or use an untrusted repository as a safe execution environment.
 - Use only registered roles at their documented checkpoints. Do not invoke them for every small task.
 - Pause primary-agent mutation while a status or staged-commit snapshot is being inspected.
 - Refresh Git, context, or memory evidence only by asking the primary agent to rebuild the bounded packet; helper roles do not run raw replacement commands.

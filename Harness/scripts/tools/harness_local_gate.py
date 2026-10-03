@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import dump_json, find_project_root, harness_dir
+from harness_common import dump_json, find_project_root, harness_dir, readonly_git_env, parse_git_status_z, is_link_or_junction
 from harness_memory_review import build_review as build_memory_review
 
 
@@ -25,8 +25,7 @@ def _is_within(path: Path, parent: Path) -> bool:
 
 
 def _is_link_or_junction(path: Path) -> bool:
-    is_junction = getattr(path, "is_junction", None)
-    return path.is_symlink() or bool(is_junction and is_junction())
+    return is_link_or_junction(path)
 
 
 def _display_path(path: Path, root: Path) -> str:
@@ -41,6 +40,10 @@ def inspect_python_caches(root: Path) -> dict:
     cache_dirs: list[Path] = []
     pyc_files: list[Path] = []
     blocked_links: list[Path] = []
+
+    if _is_link_or_junction(harness):
+        return {"ok": False, "scope": "Harness/", "executed": True, "found": [], "found_count": 0,
+                "cache_dirs": [], "pyc_files": [], "blocked_links": ["Harness"]}
 
     if harness.exists():
         for current, dir_names, file_names in os.walk(harness, topdown=True, followlinks=False):
@@ -154,11 +157,15 @@ def clean_python_caches(root: Path) -> dict:
 def run_command(root: Path, command: list[str]) -> dict:
     # A finish gate must fail with a clear step, not a traceback, when a
     # required executable (for example git) is missing from PATH.
+    if command[0] == "git":
+        command = [command[0], "-c", "core.fsmonitor=false", *command[1:]]
+        if "diff" in command:
+            command.extend(["--no-ext-diff", "--no-textconv"])
     try:
         completed = subprocess.run(
             command,
             cwd=root,
-            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+            env=readonly_git_env(),
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -180,6 +187,8 @@ def run_command(root: Path, command: list[str]) -> dict:
         "returncode": completed.returncode,
         "command": " ".join(command),
         "output": output,
+        "stdout": completed.stdout,
+        "stderr": completed.stderr,
     }
 
 
@@ -219,7 +228,7 @@ def build_git_steps(root: Path) -> list[dict]:
         return steps
 
     try:
-        git_root = Path(repository["output"]).resolve()
+        git_root = Path(repository.get("stdout", repository["output"]).strip()).resolve()
     except OSError:
         git_root = Path()
     if git_root != root.resolve():
@@ -229,19 +238,28 @@ def build_git_steps(root: Path) -> list[dict]:
         return steps
 
     status = {"name": "git_status", "scope": "working_tree", **run_command(root, commands[0][1])}
-    entries = _status_entries(status["output"]) if status["ok"] else []
+    records = []
+    if status["ok"]:
+        try:
+            records = parse_git_status_z(status.get("stdout", status["output"]))
+        except ValueError as exc:
+            status.update(ok=False, output=str(exc))
+    entries = [item["status"] + " " + item["path"] for item in records]
+    status["records"] = records
     status["entries"] = entries
     status["untracked"] = [entry[3:] for entry in entries if entry.startswith("?? ")]
     status["untracked_count"] = len(status["untracked"])
-    status["output"] = "\n".join(entries)
+    if status["ok"]:
+        status["output"] = "\n".join(entries)
     steps.append(status)
 
     conflicts = {"name": "conflict_check", "scope": "index", **run_command(root, commands[1][1])}
-    conflict_entries = _status_entries(conflicts["output"]) if conflicts["executed"] else []
+    conflict_entries = _status_entries(conflicts.get("stdout", conflicts["output"])) if conflicts["ok"] else []
     conflict_paths = sorted({entry.split("\t", 1)[-1] for entry in conflict_entries if "\t" in entry})
     conflicts["conflicts"] = conflict_paths
     conflicts["conflict_count"] = len(conflict_paths)
-    conflicts["output"] = "\n".join(conflict_paths)
+    if conflicts["ok"]:
+        conflicts["output"] = "\n".join(conflict_paths)
     if conflict_paths:
         conflicts["ok"] = False
     steps.append(conflicts)
@@ -352,7 +370,7 @@ def format_text(report: dict) -> str:
             if step.get("output"):
                 lines.append(step["output"])
             if step.get("errors"):
-                lines.extend(f"- {item['path']}: {item['error']}" for item in step["errors"])
+                lines.extend(f"- {item.get('path', 'step')}: {item['error']}" for item in step["errors"])
     return "\n".join(lines)
 
 

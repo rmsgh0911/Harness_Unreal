@@ -68,6 +68,14 @@ def _project_value(project: dict, key: str) -> str:
 
 
 def build_report(root: Path, after_update: bool = False, strict: bool = False) -> dict:
+    from harness_common import config_preflight
+
+    preflight = config_preflight(root)
+    if not preflight["ok"]:
+        findings = [{"level": "error", "path": item["path"], "message": item["error"]} for item in preflight["errors"]]
+        return {"root": str(root), "ok": False, "strict": strict, "after_update": after_update,
+                "status": "invalid_configuration", "template_mode": False, "uprojects": [], "findings": findings,
+                "summary": {"errors": len(findings), "warnings": 0, "uproject_count": 0, "modules": [], "editor_targets": [], "game_targets": []}}
     # Severity split: hard connection/config invariants (missing project.json
     # fields, absent/malformed uproject, missing connection files) are errors and
     # block the standard verify_all finish gate. Soft freshness signals (lingering

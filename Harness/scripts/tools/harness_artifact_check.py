@@ -11,7 +11,7 @@ from pathlib import Path, PurePosixPath
 
 sys.dont_write_bytecode = True
 
-from harness_common import dump_json, find_project_root, harness_dir, load_json, rel
+from harness_common import dump_json, find_project_root, harness_dir, load_json, rel, require_owned_path
 
 
 REGISTRY_RELATIVE = "Harness/config/generated_artifacts.json"
@@ -34,21 +34,27 @@ def safe_relative_path(value: object) -> str | None:
 
 
 def file_sha256(path: Path) -> str:
+    before = path.stat()
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
+    after = path.stat()
+    identity = lambda value: (value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
+    if identity(before) != identity(after):
+        raise OSError("artifact source changed while hashing")
     return digest.hexdigest()
 
 
 def contained_path(root: Path, relative: str) -> Path | None:
     try:
         root_resolved = root.resolve()
+        require_owned_path(root, root / relative)
         candidate = (root / relative).resolve(strict=False)
         if not candidate.is_relative_to(root_resolved):
             return None
         return candidate
-    except (OSError, ValueError):
+    except (OSError, ValueError, RuntimeError):
         return None
 
 
@@ -84,7 +90,7 @@ def build_report(root: Path, strict: bool = False) -> dict:
     except (OSError, ValueError) as exc:
         errors.append({"id": "registry", "field": "file", "message": f"unreadable_json:{type(exc).__name__}"})
         registry = {}
-    if not isinstance(registry, dict) or registry.get("schema_version") != 1:
+    if not isinstance(registry, dict) or type(registry.get("schema_version")) is not int or registry.get("schema_version") != 1:
         errors.append({"id": "registry", "field": "schema_version", "message": "must_equal_1"})
     raw_entries = registry.get("artifacts", []) if isinstance(registry, dict) else []
     if not isinstance(raw_entries, list):
@@ -98,6 +104,9 @@ def build_report(root: Path, strict: bool = False) -> dict:
         if not isinstance(raw, dict):
             errors.append({"id": entry_id, "field": "entry", "message": "must_be_object"})
             continue
+        for field in ("id", "generator", "generator_revision", "input_revision", "artifact_revision", "verify_command", "scope", "output_sha256", "evidence_kind", "acceptance"):
+            if not isinstance(raw.get(field), str) or not raw[field].strip():
+                entry_errors.append({"id": entry_id, "field": field, "message": "non_empty_string_required"})
         requested_id = str(raw.get("id", "")).strip()
         if not ID_PATTERN.fullmatch(requested_id):
             entry_errors.append({"id": entry_id, "field": "id", "message": "invalid_id"})

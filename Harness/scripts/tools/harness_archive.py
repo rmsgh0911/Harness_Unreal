@@ -13,10 +13,9 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import cycles_dir, dump_json, find_project_root, read_text, rel, task_cycle_path, task_path, validate_task_id
+from harness_common import cycles_dir, dump_json, find_project_root, read_text, rel, task_cycle_path, task_path, tasks_dir, validate_task_id, require_owned_path, task_status
 
 
-COMPLETED_STATUS_PATTERN = re.compile(r"^\s*-\s*Status:\s*(completed|complete|done|closed)\s*$", re.IGNORECASE | re.MULTILINE)
 ARCHIVE_MONTH_PATTERN = re.compile(r"20\d\d-(0[1-9]|1[0-2])")
 DATE_CYCLE_PATTERN = re.compile(r"(20\d\d-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]))")
 
@@ -38,10 +37,16 @@ def build_plan(root: Path, task: str, month: str = "") -> dict:
     errors: list[str] = []
     if not task_file.exists():
         errors.append(f"task record is missing: {rel(task_file, root)}")
-    elif not COMPLETED_STATUS_PATTERN.search(read_text(task_file)):
-        errors.append("task Status must be completed, complete, done, or closed before archiving")
+    else:
+        try:
+            require_owned_path(root, task_file)
+            if task_status(read_text(task_file)) not in {"completed", "complete", "done", "closed"}:
+                errors.append("task Status must be completed, complete, done, or closed before archiving")
+        except ValueError as exc:
+            errors.append(str(exc))
     if not sources:
         errors.append("no task or cycle records found")
+    errors.extend(archive_path_errors(root, [(path, "tasks" if path == task_file else "cycles", archive_month) for path in sources]))
     return {
         "mode": "task",
         "root": str(root),
@@ -80,14 +85,27 @@ def build_before_plan(root: Path, before: str) -> dict:
     sources: list[dict] = []
     if before:
         for path in sorted(cycles.glob("*.md")) if cycles.exists() else []:
+            # Validate the discovered path before rel(), which resolves links.
+            try:
+                require_owned_path(root, path)
+            except ValueError as exc:
+                errors.append(str(exc))
+                continue
+            if (tasks_dir(root) / path.name).exists():
+                continue  # Task-associated history must move with its task pair.
             match = DATE_CYCLE_PATTERN.search(path.stem)
             if not match:
                 continue
+            try:
+                datetime.strptime(match.group(1), "%Y-%m-%d")
+            except ValueError:
+                continue
             month = match.group(1)[:7]
             if month < before:
-                sources.append({"path": rel(path, root), "kind": "cycles", "month": month})
+                sources.append({"path": path.relative_to(root).as_posix(), "kind": "cycles", "month": month})
         if not sources:
             errors.append(f"no date-based cycle records older than {before}")
+    errors.extend(archive_path_errors(root, [(root / item["path"], item["kind"], item["month"]) for item in sources]))
     return {
         "mode": "before",
         "root": str(root),
@@ -97,6 +115,21 @@ def build_before_plan(root: Path, before: str) -> dict:
         "errors": errors,
         "ready": not errors,
     }
+
+
+def archive_path_errors(root: Path, sources: list[tuple[Path, str, str]]) -> list[str]:
+    errors = []
+    archive = root / "Harness/work/archive"
+    for source, kind, month in sources:
+        target = archive / month / kind / source.name
+        try:
+            for path in (source, target, archive / "index.md"):
+                require_owned_path(root, path)
+            if target.exists():
+                errors.append(f"archive target already exists: {rel(target, root)}")
+        except ValueError as exc:
+            errors.append(str(exc))
+    return errors
 
 
 def rebuild_plan(root: Path, plan: dict) -> dict:

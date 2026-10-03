@@ -80,7 +80,7 @@ def format_text(report: dict) -> str:
         f"- Remaining budget: {report['remaining_cycles']}",
         f"- Latest decision: {report['latest_decision'] or 'not recorded'}",
         f"- Verification gaps: {report['verification_gaps']}",
-        f"- Evidence/acceptance gaps: {report['evidence_gaps']}",
+        f"- Historical evidence/acceptance gaps: {report['evidence_gaps']} (failed/invalidated attempts remain in history)",
         f"- Continue recommended: {report['continue_recommended']}",
     ]
     if report["stop_reasons"]:

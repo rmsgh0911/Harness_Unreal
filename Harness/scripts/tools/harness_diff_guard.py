@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import subprocess
 import sys
@@ -10,7 +11,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from harness_common import find_project_root, rel, print_text_or_json
+from harness_common import find_project_root, rel, print_text_or_json, readonly_git_env, parse_git_status_z
 
 
 GENERATED_DIRS = {"Binaries", "Intermediate", "Saved", "DerivedDataCache"}
@@ -63,7 +64,8 @@ def run_git_status(root: Path) -> tuple[bool, list[str]]:
         return False, []
     try:
         top_level = subprocess.run(
-            [git_executable, "rev-parse", "--show-toplevel"],
+            [git_executable, "-c", "core.fsmonitor=false", "rev-parse", "--show-toplevel"],
+            env=readonly_git_env(),
             cwd=root,
             check=False,
             capture_output=True,
@@ -76,22 +78,32 @@ def run_git_status(root: Path) -> tuple[bool, list[str]]:
         if git_root != root.resolve():
             return False, []
         completed = subprocess.run(
-            [git_executable, "status", "--short"],
+            [git_executable, "-c", "core.fsmonitor=false", "status", "--porcelain=v1", "-z", "--untracked-files=all"],
+            env=readonly_git_env(),
             cwd=root,
             check=False,
             capture_output=True,
             text=True,
             encoding="utf-8",
         )
-    except FileNotFoundError:
+    except (OSError, UnicodeError):
         return False, []
     if completed.returncode != 0:
         return False, []
-    return True, [line.rstrip() for line in completed.stdout.splitlines() if line.strip()]
+    try:
+        entries = parse_git_status_z(completed.stdout)
+    except ValueError:
+        return False, []
+    return True, [item["status"] + " " + json.dumps(item["path"], ensure_ascii=False) for item in entries]
 
 
 def changed_path_from_status(line: str) -> str:
     text = line[3:] if len(line) > 3 else line
+    if text.startswith('"'):
+        try:
+            return json.loads(text)
+        except ValueError:
+            pass  # Legacy human-readable status is still accepted by callers.
     if " -> " in text:
         text = text.rsplit(" -> ", 1)[-1]
     return text.strip().strip('"')
@@ -112,6 +124,8 @@ def classify(paths: list[str]) -> dict:
         path_text = changed_path_from_status(status_line)
         parts = Path(path_text).parts
         suffix = Path(path_text).suffix.lower()
+        if status_line[:2] in {"DD", "AU", "UD", "UA", "DU", "AA", "UU"}:
+            risks.append({"level": "high", "path": path_text, "reason": "unmerged_index"})
         if any(part in GENERATED_DIRS for part in parts):
             risks.append({"level": "high", "path": path_text, "reason": "generated_directory"})
         if suffix in BINARY_ASSET_SUFFIXES:
@@ -137,7 +151,7 @@ def inspect_public_api_markers(root: Path, report: dict) -> None:
             continue
         try:
             text = path.read_text(encoding="utf-8-sig")
-        except UnicodeDecodeError:
+        except (OSError, UnicodeError):
             continue
         hits = [marker for marker in PUBLIC_API_MARKERS if marker in text]
         if hits:
@@ -182,6 +196,8 @@ def build_report(root: Path) -> dict:
         }
     )
     inspect_public_api_markers(root, report)
+    if report["git_directory_exists"] and not reliable_change_list:
+        report["ok"] = False
     inspect_progress_recording(report)
     if report["progress_recording"]["update_recommended"]:
         report["ok"] = False
@@ -234,6 +250,7 @@ def main() -> None:
     root = find_project_root(args.root)
     report = build_report(root)
     print_text_or_json(report if args.json else format_text(report), args.json)
+    raise SystemExit(0 if report["ok"] else 1)
 
 
 if __name__ == "__main__":

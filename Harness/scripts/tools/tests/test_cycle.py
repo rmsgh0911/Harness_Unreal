@@ -5,6 +5,80 @@ from harness_cycle_summary import evidence_status
 
 
 class CycleTests(HarnessBaseTestCase):
+    def test_visual_success_requires_revision_scope_and_acceptance(self):
+        base = {"evidence_kinds": ["render"], "artifacts": ["capture.png"], "acceptance": "passed"}
+        self.assertEqual("missing_revision", evidence_status(base))
+        complete = {**base, "input_revision": "a", "artifact_revision": "a", "scopes": ["layout"]}
+        self.assertEqual("accepted", evidence_status(complete))
+        self.assertEqual("missing_scope", evidence_status({**complete, "scopes": []}))
+        self.assertEqual("acceptance_required", evidence_status({**complete, "acceptance": "not_required"}))
+        path = self.root / "Harness/work/cycles/unnumbered.md"
+        self.assertTrue(validate_iteration_entry(path, None, None, "", evidence_kinds=["render"], acceptance="passed"))
+
+    def test_fenced_examples_do_not_fabricate_cycles_or_verification(self):
+        from harness_cycle_summary import parse_cycle_text
+        from harness_cycle import entry_count
+        text = "## Cycle 1\n- Cycle: 1/2\n- Verified: real\n```markdown\n## Cycle 2\n- Cycle: 2/2\n- Verified: invented\n- Decision: stop_success\n```\n    - Acceptance: passed\n- Decision: continue\n"
+        parsed = parse_cycle_text(text)
+        self.assertEqual(1, len(parsed["sections"]))
+        self.assertEqual(["real"], parsed["sections"][0]["verified"])
+        self.assertEqual("", parsed["sections"][0]["acceptance"])
+        path = self.root / "Harness/work/cycles/fence.md"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        self.assertEqual(1, entry_count(path))
+
+    def test_conflicting_and_malformed_metadata_never_becomes_accepted(self):
+        from harness_cycle_summary import parse_cycle_text
+        for suffix in ("- Acceptance: failed\n- Acceptance: passed", "- Cycle: nope", "- Cycle: 0/0", "- Invalidated: perhaps"):
+            with self.subTest(suffix=suffix):
+                parsed = parse_cycle_text("## Cycle 1\n- Verified: unsupported\n" + suffix)
+                self.assertEqual("invalid_metadata", parsed["sections"][0]["evidence_status"])
+                self.assertTrue(parsed["iteration"]["warnings"])
+
+    def test_superseded_success_is_not_in_recent_verified_summary(self):
+        path = self.root / "Harness/work/cycles/correction.md"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text("## Old\n- Verified: obsolete claim\n\n## New\n- Supersedes: #Old\n- Verified: corrected claim\n", encoding="utf-8")
+        self.assertEqual(["corrected claim"], build_cycle_summary(self.root)["recent_verified"])
+
+    def test_recorded_budget_cannot_be_bypassed_by_omitting_budget_argument(self):
+        path = self.root / "Harness/work/cycles/budget.md"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text("## Cycle 1\n- Cycle: 1/2\n- Budget Mode: exact_count\n- Decision: continue\n", encoding="utf-8")
+        self.assertTrue(validate_iteration_entry(path, 2, None, "continue"))
+        self.assertTrue(validate_iteration_entry(path, 3, None, "continue"))
+
+    def test_multiline_exit_codes_do_not_create_empty_malformed_code(self):
+        path = self.root / "Harness/work/cycles/exit.md"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text("## Cycle 1\n- Evidence Exit Code:\n  - 0\n- Evidence Kind: runtime\n- Acceptance: passed\n", encoding="utf-8")
+        section = parse_cycle_file(path)["sections"][0]
+        self.assertEqual(["0"], section["evidence_exit_codes"])
+        self.assertEqual("accepted", section["evidence_status"])
+
+    def test_unknown_fields_do_not_become_concrete_verification(self):
+        path = self.root / "Harness/work/cycles/unknown.md"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text("## Cycle 1\n- Verified:\n- Unknown: not a test\n  - also not a test\n- Recorded: 2026-09-29T01:00+09:00\n", encoding="utf-8")
+        section = parse_cycle_file(path)["sections"][0]
+        self.assertEqual([""], section["verified"])
+        self.assertEqual("2026-09-29T01:00+09:00", section["recorded_at"])
+
+    def test_exact_budget_rejects_early_success_but_allows_blocked(self):
+        path = self.root / "Harness/work/cycles/exact.md"
+        self.assertTrue(validate_iteration_entry(path, 1, 8, "stop_success", budget_mode="exact_count"))
+        self.assertFalse(validate_iteration_entry(path, 1, 8, "stop_blocked", budget_mode="exact_count"))
+        self.assertFalse(validate_iteration_entry(path, 1, 8, "stop_success", budget_mode="upper_bound"))
+
+    def test_invalidated_verification_is_not_in_recent_verified_summary(self):
+        path = self.root / "Harness/work/cycles/stale.md"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text("## Old\n- Verified: obsolete claim\n- Invalidated: true\n", encoding="utf-8")
+        report = build_cycle_summary(self.root)
+        self.assertNotIn("obsolete claim", report["recent_verified"])
+        self.assertEqual(1, len(report["evidence_gaps"]))
+
     def test_writer_rejects_failed_exit_codes_for_success_and_keeps_failed_history(self) -> None:
         path = self.root / "Harness/work/cycles/failed.md"
         errors = validate_iteration_entry(path, 1, 2, "stop_success", evidence_kinds=["runtime"], acceptance="passed", evidence_exit_codes=["1"])

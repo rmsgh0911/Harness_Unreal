@@ -321,7 +321,7 @@
     {
       "name": "harness_handoff",
       "path": "Harness/scripts/tools/harness_handoff.py",
-      "purpose": "Creates a minimal task-aware handoff with filtered next work and iteration progress as a dry run, and writes only with explicit --write.",
+      "purpose": "Creates a task-aware handoff with separate Git scopes, warnings and omission counts; --write replaces only generated project-contained handoffs.",
       "inputs": [
         "harness_context",
         "harness_diff_guard",
@@ -341,7 +341,7 @@
     {
       "name": "harness_subagent",
       "path": "Harness/scripts/tools/harness_subagent.py",
-      "purpose": "Validates provider-neutral read-only helper roles and emits bounded current-status or staged-commit delegation packets without spawning an agent or writing files.",
+      "purpose": "Pins validated bounded role contracts and emits redacted current-status or staged-commit packets with provenance, warnings and separate scope/content readiness; no spawning, writes, broad history search or runtime sandbox enforcement.",
       "inputs": [
         "Harness/config/agents.json",
         "Harness/agents/*.md",
@@ -486,12 +486,18 @@
     {
       "name": "harness_knowledge",
       "path": "Harness/scripts/tools/harness_knowledge.py",
-      "purpose": "Searches retained Harness material with explicit/current paths first, marks invalidated or superseded sections, then reports omitted scope when bounds truncate discovery.",
+      "purpose": "Searches retained Harness material with current evidence first, reports bounded discovery, and separately searches complete task/cycle/archive history with an explicitly rebuilt SQLite token index.",
       "inputs": [
         "--query",
         "--limit",
         "--max-files",
         "--path",
+        "--history",
+        "--rebuild-history",
+        "--task",
+        "--decision",
+        "--since",
+        "--max-chars",
         "Harness/config/docs.json",
         "Harness/docs/",
         "Harness/index/",
@@ -501,9 +507,10 @@
         "knowledge_inventory",
         "ranked_existing_material",
         "omitted_scope_and_broader_query_hint",
+        "Harness/data/history.sqlite (only with --rebuild-history)",
         "json"
       ],
-      "writes_files": false,
+      "writes_files": "only_with_--rebuild-history",
       "safe_by_default": true,
       "verify": "python Harness/scripts/tools/harness_knowledge.py --query \"Harness update\" --json"
     },
@@ -793,7 +800,7 @@
     {
       "name": "harness_unreal_script",
       "path": "Harness/scripts/tools/harness_unreal_script.py",
-      "purpose": "Checks readiness and command for running Harness/scripts/unreal/*.py through UnrealEditor-Cmd, and runs only with explicit --run.",
+      "purpose": "Checks readiness for Harness/scripts/unreal/*.py and runs only with --run; separates readiness, process result and unevaluated acceptance, with nonzero exit on failure.",
       "inputs": [
         "Harness/config/project.json",
         "--script",
@@ -807,7 +814,7 @@
       ],
       "writes_files": "only_with_--run_when_target_unreal_script_writes",
       "safe_by_default": true,
-      "verify": "python Harness/scripts/tools/harness_unreal_script.py --json"
+      "verify": "python Harness/scripts/tools/harness_unreal_script.py --help"
     },
     {
       "name": "harness_tool_usage",

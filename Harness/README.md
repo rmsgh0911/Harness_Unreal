@@ -21,7 +21,7 @@ All supported agents use this single Harness layout. If a project uses parallel 
 - `work/cycles/`: short task-scoped work loop records
 - `Progress.md`: short Korean human-facing dashboard
 - `Progress_index.html`: tracked convenience viewer that loads `Progress.md` at view time
-- `Progress_view.cmd`: double-click launcher that serves `Harness/` on localhost so the viewer can fetch the live `Progress.md`
+- `Progress_view.cmd`: double-click launcher that serves only `Progress_index.html` and live `Progress.md` on localhost; config, work records, memory, directory listings, and linked files are not served
 
 Keep the current decision surface compact:
 
@@ -71,6 +71,7 @@ Use the launcher's `readiness --strict` command at the connection milestone (aft
 & Harness\harness.ps1 context --request "<task description>" --all-next
 & Harness\harness.ps1 iteration-status --request "<repeated task>" --task <task-id>
 & Harness\harness.ps1 knowledge --query "<feature or issue>"
+& Harness\harness.ps1 knowledge --history --query "<past execution or failure>"
 & Harness\harness.ps1 memory --query "<feature or issue>" --limit 5
 & Harness\harness.ps1 progress --write
 & Harness\harness.ps1 progress --serve

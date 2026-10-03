@@ -203,7 +203,10 @@ def evaluate_cycle_request(request: str, policy: dict) -> dict:
     }
 
 
-def build_context(root: Path, request: str = "", task: str = "", all_next: bool = False, use_memory: bool = True, memory_limit: int = 3) -> dict:
+def build_context(root: Path, request: str = "", task: str = "", all_next: bool = False, use_memory: bool = True, memory_limit: int = 3, *, use_knowledge: bool = True) -> dict:
+    from harness_common import require_valid_config
+
+    require_valid_config(root)
     harness = harness_dir(root)
     project = load_json(harness / "config" / "project.json", {}) or {}
     policy = load_json(harness / "config" / "cycle_policy.json", {}) or {}
@@ -247,8 +250,8 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
     elif daily_cycle.exists():
         first_reads.append(rel(daily_cycle, root))
     existing_knowledge = {"scanned_files": 0, "counts": {}, "matches": []}
-    if request.strip():
-        from harness_knowledge import build_knowledge
+    if request.strip() and use_knowledge:
+        from harness_knowledge import build_history, build_knowledge
 
         preferred_paths = [path for path in (active_task, active_cycle) if path is not None]
         existing_knowledge = build_knowledge(root, query=request, limit=12, preferred_paths=preferred_paths)
@@ -256,6 +259,11 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
             item for item in existing_knowledge["matches"] if item["kind"] not in {"snapshot", "index"}
         ][:3]
         first_reads.extend(item["path"] for item in existing_knowledge["matches"])
+        history = build_history(root, query=request, limit=2, max_chars=1800)
+        existing_knowledge["history"] = history
+        known_references = {item["reference"] for item in existing_knowledge["matches"]}
+        existing_knowledge["history_matches"] = [item for item in history["results"] if item["reference"] not in known_references]
+        first_reads.extend(item["path"] for item in existing_knowledge["history_matches"])
         if use_memory and memory_limit > 0:
             try:
                 from argparse import Namespace
@@ -268,6 +276,8 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
                 existing_knowledge["memory_matches"] = memory_report.get("results", [])[:memory_limit]
                 existing_knowledge["memory_source"] = memory_report.get("source", "")
                 existing_knowledge["memory_errors"] = memory_report.get("errors", [])
+                existing_knowledge["memory_warnings"] = memory_report.get("warnings", [])
+                existing_knowledge["memory_budget"] = {key: memory_report[key] for key in ("result_chars", "max_chars", "matched_count", "omitted_count")}
             except Exception as exc:  # noqa: BLE001
                 existing_knowledge["memory_matches"] = []
                 existing_knowledge["memory_source"] = "unavailable"
@@ -293,6 +303,17 @@ def build_context(root: Path, request: str = "", task: str = "", all_next: bool 
         files[rel(active_cycle, root)] = file_status(active_cycle)
 
     warnings: list[str] = []
+    if existing_knowledge.get("errors"):
+        warnings.append("knowledge has unreadable or out-of-project sources; run knowledge for details")
+    if existing_knowledge.get("truncated"):
+        warnings.append("knowledge search is incomplete: file/text bounds reached; use knowledge --path/--max-files or --history for execution records")
+    history = existing_knowledge.get("history", {})
+    if history.get("errors"):
+        warnings.append("execution history unavailable or changed during query; run knowledge --history for details")
+    warnings.extend(history.get("warnings", []))
+    if existing_knowledge.get("memory_errors"):
+        warnings.append("memory has source errors; hints are partial, not confirmed evidence; run memory --validate")
+    warnings.extend(existing_knowledge.get("memory_warnings", []))
     configured = bool(project.get("project_name") and project.get("uproject_file"))
     if not configured and not project.get("template_mode", False):
         warnings.append("project.json is not fully configured")
@@ -395,12 +416,22 @@ def format_text(context: dict) -> str:
             for item in context["existing_knowledge"]["matches"]
         )
     memory_matches = context["existing_knowledge"].get("memory_matches", [])
+    history_matches = context["existing_knowledge"].get("history_matches", [])
+    if history_matches:
+        lines.extend(["", "Execution history (routing only):"])
+        for item in history_matches:
+            lines.append(f"- [{item['status']}/{item['evidence_status']}] {item['path']}:{item['line']} > {item['section']} | {item['decision'] or 'decision unrecorded'}")
     if memory_matches:
         lines.extend(["", "Memory hints:"])
         for item in memory_matches:
             tags = ",".join(item.get("tags", []))
             suffix = f" [{tags}]" if tags else ""
-            lines.append(f"- {item['title']}{suffix}: {item['body']}")
+            source = item.get("source") or item.get("shard_path", "")
+            truncated = " [body truncated]" if item.get("truncated") else ""
+            lines.append(f"- {item['title']}{suffix}: {item['body']} ({source}){truncated}")
+    budget = context["existing_knowledge"].get("memory_budget", {})
+    if budget.get("omitted_count"):
+        lines.append(f"- Memory results omitted by limit/budget: {budget['omitted_count']}; rerun memory with a larger --limit/--max-chars")
     lines.extend(["", "All next items:" if context["all_next"] else "Related next:"])
     if context["next_items"]:
         lines.extend(f"- {item}" for item in context["next_items"])
@@ -422,7 +453,12 @@ def main() -> None:
     root = find_project_root(args.root)
     if args.memory_limit < 0:
         parser.error("--memory-limit must be non-negative")
-    context = build_context(root, args.request, args.task, all_next=args.all_next, use_memory=not args.no_memory, memory_limit=args.memory_limit)
+    try:
+        context = build_context(root, args.request, args.task, all_next=args.all_next, use_memory=not args.no_memory, memory_limit=args.memory_limit)
+    except (OSError, ValueError) as exc:
+        report = {"ok": False, "error": str(exc), "recommended_first_reads": ["HARNESS.md", "Harness/README.md", "Harness/work/state.md", "Harness/work/next.md", "Harness/index/project_index.md"]}
+        print_text_or_json(report, True)
+        raise SystemExit(1)
     print_text_or_json(context if args.json else format_text(context), args.json)
 
 

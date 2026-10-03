@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import subprocess
 import sys
 from pathlib import Path
 
@@ -11,6 +10,7 @@ sys.dont_write_bytecode = True
 
 from harness_common import dump_json, find_project_root, launcher_command, rel
 from harness_memory import memory_doctor, validate_memory
+from harness_diff_guard import run_git_status, changed_path_from_status
 
 
 REVIEW_RULES = [
@@ -43,33 +43,9 @@ REVIEW_RULES = [
 
 
 def git_changed_paths(root: Path) -> dict:
-    try:
-        completed = subprocess.run(
-            ["git", "status", "--short"],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            check=False,
-        )
-    except (FileNotFoundError, OSError) as exc:
-        return {"ok": False, "paths": [], "error": f"git status could not start: {exc}"}
-
-    if completed.returncode != 0:
-        output = "\n".join(part.strip() for part in [completed.stdout, completed.stderr] if part.strip())
-        return {"ok": False, "paths": [], "error": output or f"git status exited {completed.returncode}"}
-
-    paths: list[str] = []
-    for line in completed.stdout.splitlines():
-        if len(line) < 4:
-            continue
-        path = line[3:].strip()
-        if " -> " in path:
-            path = path.rsplit(" -> ", 1)[1].strip()
-        if path:
-            paths.append(path.replace("\\", "/"))
-    return {"ok": True, "paths": sorted(set(paths)), "error": ""}
+    ok, lines = run_git_status(root)
+    return {"ok": ok, "paths": sorted({changed_path_from_status(line) for line in lines}),
+            "error": "" if ok else "Git change inventory unavailable or repository root mismatch"}
 
 
 def classify_memory_candidates(paths: list[str]) -> list[dict]:
@@ -150,9 +126,9 @@ def format_text(report: dict) -> str:
         lines.append("")
         lines.append("Memory doctor findings:")
         for item in doctor_findings[:5]:
-            location = item.get("location", "")
-            message = item.get("message", item.get("error", ""))
-            lines.append(f"- {item.get('severity', 'info')}: {message} {location}".rstrip())
+            location = item.get("source") or item.get("database") or item.get("id", "")
+            message = item.get("message") or item.get("title") or item.get("error", "")
+            lines.append(f"- {item.get('kind', 'info')}: {message} {location}".rstrip())
 
     if report["errors"]:
         lines.append("")

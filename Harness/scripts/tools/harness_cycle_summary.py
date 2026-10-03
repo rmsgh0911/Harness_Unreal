@@ -26,6 +26,10 @@ EVIDENCE_GAP_STATUSES = {
     "pending_acceptance",
     "revision_mismatch",
     "skipped",
+    "invalid_metadata",
+    "missing_revision",
+    "missing_scope",
+    "acceptance_required",
 }
 
 
@@ -34,6 +38,12 @@ def unique_recorded(values: list[str]) -> list[str]:
 
 
 def evidence_status(section: dict) -> str:
+    if section.get("metadata_errors"):
+        return "invalid_metadata"
+    if set(section.get("evidence_kinds", [])) - {"structure", "runtime", "render", "interaction", "live_service"}:
+        return "invalid_metadata"
+    if section.get("acceptance", "") not in {"", "passed", "pending", "failed", "skipped", "not_required"}:
+        return "invalid_metadata"
     if section.get("invalidated"):
         return "invalidated"
     exit_codes = section.get("evidence_exit_codes", [])
@@ -54,6 +64,15 @@ def evidence_status(section: dict) -> str:
         return "pending_acceptance"
     kinds = set(section.get("evidence_kinds", []))
     artifacts = unique_recorded(section.get("artifacts", []))
+    if kinds & ARTIFACT_REQUIRED_KINDS and acceptance in {"passed", "not_required"}:
+        if not artifacts:
+            return "missing_artifact"
+        if not input_revision or not artifact_revision:
+            return "missing_revision"
+        if not unique_recorded(section.get("scopes", [])):
+            return "missing_scope"
+        if acceptance == "not_required":
+            return "acceptance_required"
     if acceptance == "passed":
         if kinds & ARTIFACT_REQUIRED_KINDS and not artifacts:
             return "missing_artifact"
@@ -73,6 +92,8 @@ def analyze_iteration(sections: list[dict]) -> dict:
     budgets = {section["max_cycles"] for section in numbered if section["max_cycles"] is not None}
     budget_modes = {section.get("budget_mode", "") for section in numbered if section.get("budget_mode")}
     warnings: list[str] = []
+    warnings.extend(f"{section.get('title', 'entry')}: {error}"
+                    for section in sections for error in section.get("metadata_errors", []))
     if len(numbers) != len(set(numbers)):
         warnings.append("duplicate cycle numbers")
     if numbers and numbers != list(range(1, max(numbers) + 1)):
@@ -95,6 +116,8 @@ def analyze_iteration(sections: list[dict]) -> dict:
     current = max(numbers, default=0)
     if budget is not None and current > budget:
         warnings.append("cycle number exceeds budget")
+    if budget is not None and budget_modes == {"exact_count"} and numbered and numbered[-1]["decision"] == "stop_success" and current != budget:
+        warnings.append("exact-count work cannot stop successfully before its requested budget")
     return {
         "current_cycle": current,
         "max_cycles": budget,
@@ -105,7 +128,10 @@ def analyze_iteration(sections: list[dict]) -> dict:
 
 
 def parse_cycle_file(path: Path) -> dict:
-    text = read_text(path)
+    return parse_cycle_text(read_text(path), path)
+
+
+def parse_cycle_text(text: str, path: Path = Path("")) -> dict:
     sections: list[dict] = []
     current: dict | None = None
     current_key: str | None = None
@@ -122,12 +148,27 @@ def parse_cycle_file(path: Path) -> dict:
         "Scope": "scopes",
         "Supersedes": "supersedes",
     }
-    for line in text.splitlines():
+    fence = ""
+    fence_length = 0
+    metadata_seen: dict[str, str] = {}
+    scalar_prefixes = {"Worker", "Cycle", "Decision", "Recorded", "Budget Mode", "Input Revision", "Artifact Revision", "Acceptance", "Invalidated"}
+    for line_number, line in enumerate(text.splitlines(), 1):
+        marker = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
+        if fence:
+            if marker and marker[1][0] == fence and len(marker[1]) >= fence_length and not marker[2].strip():
+                fence = ""
+            continue
+        if marker:
+            fence, fence_length = marker[1][0], len(marker[1])
+            current_key = None
+            continue
         if line.startswith("## "):
             title = line[3:].strip()
             legacy_number = re.search(r"\bCycle\s+(\d+)\b", title, flags=re.IGNORECASE)
             current = {
                 "title": title,
+                "line": line_number,
+                "recorded_at": "",
                 "worker": "",
                 "cycle_number": int(legacy_number.group(1)) if legacy_number else None,
                 "max_cycles": None,
@@ -148,26 +189,52 @@ def parse_cycle_file(path: Path) -> dict:
                 "acceptance": "",
                 "supersedes": [],
                 "invalidated": False,
+                "metadata_errors": [],
             }
             sections.append(current)
             current_key = None
+            metadata_seen = {}
             continue
         if not current:
             continue
         stripped = line.strip()
+        if not line.startswith("- "):
+            if current_key and line.startswith("  - "):
+                if current_key == "evidence_exit_codes" and current[current_key] and current[current_key][-1] == "":
+                    current[current_key].pop()
+                current[current_key].append(stripped[2:].strip())
+            elif stripped:
+                current_key = None
+            continue
+        label, separator, value = stripped[2:].partition(":")
+        if separator and label in scalar_prefixes:
+            value = value.strip()
+            if label in metadata_seen and metadata_seen[label] != value:
+                current["metadata_errors"].append(f"conflicting duplicate metadata: {label}")
+                current_key = None
+                continue
+            metadata_seen[label] = value
         if stripped.startswith("- Worker:"):
             current["worker"] = stripped.removeprefix("- Worker:").strip()
+            current_key = None
             continue
         if stripped.startswith("- Cycle:"):
             match = re.fullmatch(r"(\d+)(?:/(\d+))?", stripped.removeprefix("- Cycle:").strip())
             if match:
                 current["cycle_number"] = int(match.group(1))
                 current["max_cycles"] = int(match.group(2)) if match.group(2) else None
+                if current["cycle_number"] < 1 or current["max_cycles"] == 0:
+                    current["metadata_errors"].append("cycle numbers and budgets must be positive")
+            else:
+                current["metadata_errors"].append("malformed Cycle metadata")
+            current_key = None
             continue
         if stripped.startswith("- Decision:"):
             current["decision"] = stripped.removeprefix("- Decision:").strip()
+            current_key = None
             continue
         scalar_labels = {
+            "- Recorded:": "recorded_at",
             "- Budget Mode:": "budget_mode",
             "- Input Revision:": "input_revision",
             "- Artifact Revision:": "artifact_revision",
@@ -183,6 +250,8 @@ def parse_cycle_file(path: Path) -> dict:
         if scalar_matched:
             continue
         if stripped.startswith("- Invalidated:"):
+            if value.casefold() not in {"true", "yes", "1", "false", "no", "0"}:
+                current["metadata_errors"].append("malformed Invalidated metadata")
             current["invalidated"] = stripped.removeprefix("- Invalidated:").strip().casefold() in {"true", "yes", "1"}
             current_key = None
             continue
@@ -190,12 +259,13 @@ def parse_cycle_file(path: Path) -> dict:
         for label, key in labels.items():
             prefix = f"- {label}:"
             if stripped.startswith(prefix):
-                current[key].append(stripped.removeprefix(prefix).strip())
+                value = stripped.removeprefix(prefix).strip()
+                current[key].append(value)
                 current_key = key
                 matched = True
                 break
-        if not matched and current_key and stripped.startswith("- "):
-            current[current_key].append(stripped[2:].strip())
+        if not matched and stripped:
+            current_key = None
     for section in sections:
         section["evidence_status"] = evidence_status(section)
     return {"path": path, "sections": sections, "lines": len(text.splitlines()), "iteration": analyze_iteration(sections)}
@@ -209,6 +279,17 @@ def build_summary(root: Path, limit: int = 5) -> dict:
         reverse=True,
     ) if cycles.exists() else []
     parsed = [parse_cycle_file(path) for path in files[:limit]]
+    from harness_knowledge import _apply_replacements
+
+    routing_records = []
+    for item in parsed:
+        for section in item["sections"]:
+            relative = rel(item["path"], root)
+            routing_records.append({"path": relative, "section": section["title"],
+                                    "reference": f"{relative}#{section['title']}",
+                                    "invalidated": section["invalidated"], "supersedes": section["supersedes"]})
+    _apply_replacements(routing_records)
+    routing_status = {item["reference"]: item["status"] for item in routing_records}
     changed: list[str] = []
     verified: list[str] = []
     remaining: list[str] = []
@@ -224,7 +305,9 @@ def build_summary(root: Path, limit: int = 5) -> dict:
         for section in item["sections"]:
             total_sections += 1
             changed.extend(section["changed"])
-            verified.extend(section["verified"])
+            reference = f"{rel(item['path'], root)}#{section['title']}"
+            if section.get("evidence_status") not in EVIDENCE_GAP_STATUSES and routing_status[reference] == "current":
+                verified.extend(section["verified"])
             if section.get("evidence_status") in EVIDENCE_GAP_STATUSES:
                 evidence_gaps.append({
                     "path": rel(item["path"], root),

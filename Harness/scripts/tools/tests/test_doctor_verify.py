@@ -6,6 +6,15 @@ from harness_verify_all import build_verify_all
 
 
 class DoctorVerifyTests(HarnessBaseTestCase):
+    def test_standard_verification_includes_invalid_memory_source_gate(self):
+        folder = self.root / "Harness/data/memory"
+        folder.mkdir(parents=True)
+        (folder / "bad.jsonl").write_bytes(b"\xff")
+        report = build_verify_all(self.root, compile_python=False, run_tests=False)
+        self.assertFalse(report["memory_check"]["ok"])
+        self.assertEqual("failed", report["summary"]["memory_check"])
+        self.assertFalse(report["ok"])
+
     def test_doctor_allows_legacy_custom_tools_without_masking_missing_standard_tools(self) -> None:
         manifest = json.loads((TOOLS_DIR / "tool_manifest.json").read_text(encoding="utf-8"))
         custom = {"name": "custom", "path": "Harness/scripts/tools/custom.py", "purpose": "project utility", "writes_files": False, "safe_by_default": True, "verify": "python Harness/scripts/tools/custom.py --help"}

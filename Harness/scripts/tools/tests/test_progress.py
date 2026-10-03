@@ -7,6 +7,76 @@ from _harness_test_base import *  # noqa: F401,F403
 
 
 class ProgressTests(HarnessBaseTestCase):
+    def test_viewer_server_does_not_expose_other_harness_files(self):
+        import threading
+        from urllib.request import urlopen
+        from urllib.error import HTTPError
+        build_progress_html_report(self.root, write=True)
+        httpd, url = build_progress_server(self.root)
+        thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        thread.start()
+        origin = url.rsplit("/", 1)[0]
+        try:
+            with urlopen(url) as response:
+                self.assertEqual(200, response.status)
+            with urlopen(origin + "/Progress.md") as response:
+                self.assertEqual(200, response.status)
+                self.assertEqual("no-store", response.headers["Cache-Control"])
+            for path in ("/", "/config/project.json", "/work/state.md", "/../HARNESS.md", "/%2e%2e/HARNESS.md"):
+                with self.subTest(path=path), self.assertRaises(HTTPError) as caught:
+                    urlopen(origin + path)
+                self.assertEqual(404, caught.exception.code)
+        finally:
+            httpd.shutdown()
+            thread.join(timeout=5)
+            httpd.server_close()
+
+    def test_missing_source_does_not_write_or_start_server(self):
+        from harness_progress_html import serve
+        source = self.root / "Harness/Progress.md"
+        source.unlink()
+        with patch("harness_progress_html.build_server") as server:
+            report = build_progress_html_report(self.root, write=True)
+            self.assertFalse(report["ok"])
+            self.assertFalse(report["written"])
+            self.assertFalse((self.root / "Harness/Progress_index.html").exists())
+            self.assertEqual(1, serve(self.root, open_browser=False))
+        server.assert_not_called()
+
+    def test_linked_viewer_target_is_not_overwritten(self):
+        outside = self.root / "preserved.html"
+        outside.write_text("preserve", encoding="utf-8")
+        output = self.root / "Harness/Progress_index.html"
+        try:
+            output.symlink_to(outside)
+        except OSError:
+            self.skipTest("symlink permission unavailable")
+        self.assertFalse(build_progress_html_report(self.root, write=True)["ok"])
+        self.assertEqual("preserve", outside.read_text(encoding="utf-8"))
+
+    def test_server_refuses_linked_progress_source(self):
+        import threading
+        from urllib.request import urlopen
+        from urllib.error import HTTPError
+        build_progress_html_report(self.root, write=True)
+        source = self.root / "Harness/Progress.md"
+        source.unlink()
+        try:
+            source.symlink_to(self.root / "HARNESS.md")
+        except OSError:
+            self.skipTest("symlink permission unavailable")
+        httpd, url = build_progress_server(self.root)
+        thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with self.assertRaises(HTTPError) as caught:
+                urlopen(url.rsplit("/", 1)[0] + "/Progress.md")
+            self.assertEqual(404, caught.exception.code)
+        finally:
+            httpd.shutdown()
+            thread.join(timeout=5)
+            httpd.server_close()
+
     def test_context_includes_task_iteration_progress(self) -> None:
         path = self.root / "Harness/work/cycles/repeat.md"
         path.parent.mkdir(exist_ok=True)

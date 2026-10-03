@@ -11,6 +11,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 
 from harness_common import cycles_dir, dump_json, find_project_root, harness_dir, launcher_command, load_json, next_path, read_text, rel, state_path, tasks_dir
+from harness_common import task_status
 
 
 HISTORY_HINTS = [
@@ -27,8 +28,6 @@ HISTORY_HINTS = [
 _DATE_PATTERN = re.compile(r"20\d\d-\d\d-\d\d")
 _CONSOLIDATED_PATTERN = re.compile(r"Last consolidated:\s*(20\d\d-\d\d-\d\d)", re.IGNORECASE)
 _COMPLETED_CHECKBOX_PATTERN = re.compile(r"^\s*-\s*\[[xX]\]", re.MULTILINE)
-# Mirrors harness_archive.COMPLETED_STATUS_PATTERN so the warning matches what the archive tool accepts.
-_COMPLETED_TASK_STATUS_PATTERN = re.compile(r"^\s*-\s*Status:\s*(completed|complete|done|closed)\s*$", re.IGNORECASE | re.MULTILINE)
 _TOP_LEVEL_BULLET_PATTERN = re.compile(r"^-\s+", re.MULTILINE)
 STATE_ALLOWED_SECTIONS = ["Project", "Current State", "Latest Verification", "Risks"]
 NEXT_HISTORY_HEADINGS = ["complete", "completed", "done", "history", "archive", "완료", "이력", "과거"]
@@ -285,8 +284,11 @@ def task_summary(root: Path) -> dict:
         total_lines += lines
         if lines > 180:
             large_files.append({"path": rel(path, root), "lines": lines})
-        if _COMPLETED_TASK_STATUS_PATTERN.search(text):
-            completed_tasks.append(path.stem)
+        try:
+            if task_status(text) in {"completed", "complete", "done", "closed"}:
+                completed_tasks.append(path.stem)
+        except ValueError:
+            pass  # Invalid metadata is not proof of completion.
     return {
         "file_count": len(files),
         "total_lines": total_lines,

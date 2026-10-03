@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import os
 import stat
 import subprocess
 from pathlib import Path
@@ -11,6 +12,57 @@ from harness_local_gate import build_gate, build_git_steps, clean_python_caches,
 
 
 class LocalGateTests(HarnessBaseTestCase):
+    def test_cache_cleanup_refuses_linked_harness_root(self):
+        harness = self.root / "Harness"
+        target = self.root / "preserved-harness"
+        harness.rename(target)
+        cache = target / "__pycache__"
+        cache.mkdir()
+        marker = cache / "preserved.pyc"
+        marker.write_bytes(b"preserve")
+        try:
+            harness.symlink_to(target, target_is_directory=True)
+        except OSError:
+            self.skipTest("symlink permission unavailable")
+        report = clean_python_caches(self.root)
+        self.assertFalse(report["ok"])
+        self.assertEqual([], report["removed"])
+        self.assertTrue(marker.is_file())
+
+    def test_foreign_index_cannot_hide_staged_whitespace(self) -> None:
+        self._init_git()
+        target = self.root / "staged.txt"
+        target.write_text("bad whitespace   \n", encoding="utf-8")
+        self._git("add", "staged.txt")
+        with patch.dict(os.environ, {"GIT_INDEX_FILE": str(self.root / "foreign-index")}):
+            steps = self._steps_by_name(build_git_steps(self.root))
+        self.assertFalse(steps["staged_diff_check"]["ok"])
+
+    def test_rename_status_is_one_record_and_unicode_paths_survive(self) -> None:
+        from harness_diff_guard import run_git_status, changed_path_from_status
+        from harness_memory_review import git_changed_paths
+        self._init_git()
+        self._git("mv", "HARNESS.md", "새 규칙.md")
+        steps = self._steps_by_name(build_git_steps(self.root))
+        records = steps["git_status"]["records"]
+        self.assertEqual(1, len(records))
+        self.assertEqual("HARNESS.md", records[0]["original_path"])
+        ok, lines = run_git_status(self.root)
+        self.assertTrue(ok)
+        self.assertEqual(["새 규칙.md"], [changed_path_from_status(line) for line in lines])
+        self.assertEqual(["새 규칙.md"], git_changed_paths(self.root)["paths"])
+
+    def test_status_parser_preserves_literal_arrow_and_newline(self) -> None:
+        from harness_common import parse_git_status_z
+        from harness_diff_guard import changed_path_from_status
+        import json
+        path = "Source/a -> b\n.cpp"
+        entries = parse_git_status_z(" M " + path + "\0")
+        self.assertEqual(path, entries[0]["path"])
+        self.assertEqual(path, changed_path_from_status(" M " + json.dumps(path)))
+        with self.assertRaises(ValueError):
+            parse_git_status_z("R  dest\0")
+
     def _git(self, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
         completed = subprocess.run(
             ["git", *args],
